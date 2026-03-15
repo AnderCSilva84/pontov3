@@ -1,0 +1,231 @@
+﻿@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  color-scheme: dark;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 500;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --bg-strong: #05070d;
+  --bg-main: #0b1220;
+  --bg-soft: #101a33;
+  --card: rgba(18, 27, 48, 0.82);
+  --card-strong: rgba(24, 34, 58, 0.92);
+  --border: rgba(255, 255, 255, 0.08);
+  --text-main: #eef3ff;
+  --text-muted: #b8c6e6;
+  --accent: #69a3ff;
+  --accent-strong: #4f86ff;
+  --success: #4ade80;
+  --warning: #f97316;
+  --danger: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 15% 10%, #1a2c52 0%, #0b1220 45%, #05070d 100%);
+  color: var(--text-main);
+}
+
+#root {
+  max-width: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+.page-bg {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+    calc(96px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+
+.page-shell {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-ponto {
+  --accent-page: #6aa6ff;
+}
+
+.page-compras {
+  --accent-page: #34d399;
+}
+
+.page-tarefas {
+  --accent-page: #f59e0b;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-page, var(--accent));
+}
+
+.page-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.page-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.card {
+  border-radius: 22px;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+}
+
+.text-muted {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.mensagem {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #9ee6b3;
+}
+
+.mensagem.erro {
+  color: #fca5a5;
+}
+
+.btn {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  min-height: 52px;
+  padding: 14px 22px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.82;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  color: #eef4ff;
+  box-shadow: 0 14px 28px rgba(27, 64, 150, 0.35);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #eef4ff;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: #ecfff7;
+  box-shadow: 0 14px 28px rgba(16, 185, 129, 0.3);
+}
+
+.btn-muted {
+  background: rgba(20, 24, 40, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #dce6ff;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #7d1c2f 0%, #b3263f 100%);
+  color: #fff0f3;
+  box-shadow: 0 12px 24px rgba(126, 25, 50, 0.4);
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+input,
+select {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(24, 28, 46, 0.95);
+  color: #f3f5ff;
+  padding: 0 12px;
+  font-size: 0.98rem;
+  appearance: none;
+}
+
+@media (max-width: 420px) {
+  .page-shell {
+    width: 100%;
+  }
+}

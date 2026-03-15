@@ -1,0 +1,78 @@
+﻿.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 6px;
+  padding: 10px 18px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(10, 16, 32, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  z-index: 50;
+  --nav-accent: #8fb4ff;
+}
+
+.bottom-nav::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--nav-accent);
+  opacity: 0.9;
+}
+
+.bottom-nav.theme-ponto {
+  --nav-accent: #6aa6ff;
+}
+
+.bottom-nav.theme-compras {
+  --nav-accent: #34d399;
+}
+
+.bottom-nav.theme-admin {
+  --nav-accent: #a78bfa;
+}
+
+.bottom-nav.theme-tarefas {
+  --nav-accent: #f59e0b;
+}
+
+.nav-item {
+  background: transparent;
+  border: none;
+  color: rgba(189, 205, 234, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nav-item svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-item.active {
+  color: var(--nav-accent);
+}
+
+.nav-item.active svg {
+  filter: drop-shadow(0 0 10px rgba(120, 160, 255, 0.6));
+}
+
+.nav-label {
+  letter-spacing: 0.04em;
+}

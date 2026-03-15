@@ -1,0 +1,108 @@
+﻿.compras-shell {
+  gap: 18px;
+}
+
+.page-header h1 {
+  text-align: left;
+}
+
+.btn-add-item {
+  text-align: left;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.add-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-item-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.lista-filtros {
+  display: grid;
+  gap: 10px;
+}
+
+.compras-categoria h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #dbe6ff;
+}
+
+.itens-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  position: relative;
+  width: 100%;
+}
+
+.item-checkbox input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.check-custom {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.item-checkbox input:checked + .check-custom {
+  border-color: #34d399;
+  background: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+.item-checkbox input:checked + .check-custom::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border-left: 3px solid #0b1220;
+  border-bottom: 3px solid #0b1220;
+  transform: rotate(-45deg);
+  margin-top: -2px;
+}
+
+.item-nome {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #eef2ff;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 420px) {
+  .btn-add-item {
+    font-size: 0.98rem;
+  }
+}

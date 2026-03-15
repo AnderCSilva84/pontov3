@@ -1,0 +1,370 @@
+﻿.admin-bg {
+  background: radial-gradient(circle at 10% 5%, #1c2f5d 0%, #0b1220 48%, #05070d 100%);
+}
+
+.admin-shell {
+  width: min(100%, 460px);
+  gap: 20px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.admin-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(101, 140, 255, 0.18);
+  border: 1px solid rgba(101, 140, 255, 0.4);
+  color: #bcd1ff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-ola {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.admin-login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-login-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.admin-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-header h2,
+.section-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.section-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.filtros-card {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.resumo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.resumo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.resumo-card strong {
+  font-size: 1.5rem;
+}
+
+.resumo-card.destaque {
+  background: linear-gradient(145deg, rgba(20, 60, 64, 0.9), rgba(18, 52, 44, 0.85));
+  border-color: rgba(97, 220, 165, 0.3);
+}
+
+.ultima-acao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filtros-data {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.detalhes-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.detalhe-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detalhe-card p {
+  margin: 0;
+  color: #d7e1f7;
+}
+
+.detalhe-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.compras-section {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 16px;
+}
+
+.compras-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #ef4444;
+  font-weight: 800;
+  text-transform: none;
+  text-align: center;
+  cursor: pointer;
+}
+
+.toggle-indicator {
+  font-size: 0.85rem;
+  color: rgba(239, 68, 68, 0.8);
+}
+
+.compras-acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.compras-categoria h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dbe6ff;
+}
+
+.compras-itens {
+  display: grid;
+  gap: 10px;
+}
+
+.compras-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.compras-item strong {
+  display: block;
+  color: #f4f6ff;
+  font-size: 1rem;
+}
+
+.compras-por {
+  display: block;
+  margin-top: 4px;
+  color: #b6c3e4;
+  font-size: 0.85rem;
+}
+
+.compras-status {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  background: rgba(249, 115, 22, 0.18);
+  color: #fdba74;
+  cursor: pointer;
+}
+
+.catalogo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.categoria-card h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dbe6ff;
+}
+
+.itens-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  position: relative;
+  width: 100%;
+}
+
+.item-checkbox input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.check-custom {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.item-checkbox input:checked + .check-custom {
+  border-color: #34d399;
+  background: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+.item-checkbox input:checked + .check-custom::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border-left: 3px solid #0b1220;
+  border-bottom: 3px solid #0b1220;
+  transform: rotate(-45deg);
+  margin-top: -2px;
+}
+
+.item-nome {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #eef2ff;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 420px) {
+  .resumo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filtros-data {
+    grid-template-columns: 1fr;
+  }
+}
+.tarefas-section {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 16px;
+}
+
+.tarefas-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #f59e0b;
+  font-weight: 800;
+  text-transform: none;
+  text-align: center;
+  cursor: pointer;
+}
+
+.tarefas-acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tarefas-filtros {
+  display: grid;
+  gap: 12px;
+}
+
+.tarefas-filtros-datas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tarefas-item-acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 420px) {
+  .tarefas-filtros-datas {
+    grid-template-columns: 1fr;
+  }
+
+  .tarefas-item-acoes {
+    width: 100%;
+    align-items: flex-start;
+  }
+}
+
