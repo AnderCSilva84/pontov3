@@ -14,7 +14,7 @@ import "../styles/nav.css";
 
 export default function Tarefas({ user, onNavigate, rotaAtual }) {
   const [novaTarefa, setNovaTarefa] = useState("");
-  const [diaSelecionado, setDiaSelecionado] = useState("hoje");
+  const [dataAgendada, setDataAgendada] = useState(dataISOHoje());
   const [tarefas, setTarefas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
@@ -35,30 +35,28 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
     return keys[new Date().getDay()];
   }
 
+  function dataISOHoje() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function diaSemanaPorDataISO(valor) {
+    if (!valor) return diaSemanaAtualKey();
+    const [ano, mes, dia] = String(valor).split("-").map(Number);
+    const data = new Date(ano, (mes || 1) - 1, dia || 1);
+    const keys = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+    return keys[data.getDay()] || diaSemanaAtualKey();
+  }
+
   function labelDiaSemana(valor) {
-    if (valor === "hoje") return "Hoje";
     const dia = diasSemana.find((item) => item.value === valor);
     return dia ? dia.label : valor;
   }
 
-  function ordenarDiasPorProximidade() {
-    const hoje = diaSemanaAtualKey();
-    const ordem = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"];
-    const indexHoje = ordem.indexOf(hoje);
-    if (indexHoje === -1) return diasSemana;
-    const reordenado = [...ordem.slice(indexHoje), ...ordem.slice(0, indexHoje)];
-    return reordenado.map((value) => diasSemana.find((dia) => dia.value === value)).filter(Boolean);
-  }
-
-  function distanciaDia(valor) {
-    if (!valor) return Number.POSITIVE_INFINITY;
-    const ordem = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"];
-    const hoje = diaSemanaAtualKey();
-    const indexHoje = ordem.indexOf(hoje);
-    const indexValor = ordem.indexOf(valor);
-    if (indexHoje === -1 || indexValor === -1) return Number.POSITIVE_INFINITY;
-    const diff = indexValor - indexHoje;
-    return diff >= 0 ? diff : diff + ordem.length;
+  function formatarDataAgendada(valor) {
+    if (!valor) return "";
+    const [ano, mes, dia] = String(valor).split("-");
+    if (!ano || !mes || !dia) return valor;
+    return `${dia}/${mes}/${ano}`;
   }
 
   useEffect(() => {
@@ -79,13 +77,16 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
             id: docSnap.id,
             titulo: data.titulo || docSnap.id,
             diaSemana: data.diaSemana || "",
+            dataAgendada: data.dataAgendada || "",
             solicitadoPorNome: data.solicitadoPorNome || "",
           });
         });
         pendentes.sort((a, b) => {
-          const distA = distanciaDia(a.diaSemana);
-          const distB = distanciaDia(b.diaSemana);
-          if (distA !== distB) return distA - distB;
+          if (a.dataAgendada && b.dataAgendada && a.dataAgendada !== b.dataAgendada) {
+            return a.dataAgendada.localeCompare(b.dataAgendada);
+          }
+          if (a.dataAgendada) return -1;
+          if (b.dataAgendada) return 1;
           return (a.titulo || "").localeCompare(b.titulo || "");
         });
         setTarefas(pendentes);
@@ -99,7 +100,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
     );
 
     return () => unsubscribe();
-  }, [user?.uid, user?.role]);
+  }, [user]);
 
   async function handleAdicionarTarefa() {
     if (!user || user.role !== "admin") {
@@ -112,16 +113,18 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
     setErro("");
 
     try {
+      const dataSelecionada = dataAgendada || dataISOHoje();
       await addDoc(collection(db, "tarefas"), {
         titulo: novaTarefa.trim(),
-        diaSemana: diaSelecionado === "hoje" ? diaSemanaAtualKey() : diaSelecionado,
+        diaSemana: diaSemanaPorDataISO(dataSelecionada),
+        dataAgendada: dataSelecionada,
         concluida: false,
         criadoEm: serverTimestamp(),
         solicitadoPor: user?.funcionarioId || user?.uid || null,
         solicitadoPorNome: user?.nome || "Admin",
       });
       setNovaTarefa("");
-      setDiaSelecionado("hoje");
+      setDataAgendada(dataISOHoje());
     } catch (error) {
       console.error("[TAREFAS][ERRO] Falha ao adicionar tarefa:", error);
       setErro("Não foi possível adicionar a tarefa.");
@@ -226,18 +229,13 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
             />
           </label>
           <label className="field">
-            <span>Dia</span>
-            <select
-              value={diaSelecionado}
-              onChange={(event) => setDiaSelecionado(event.target.value)}
-            >
-              <option value="hoje">Hoje</option>
-              {ordenarDiasPorProximidade().map((dia) => (
-                <option key={dia.value} value={dia.value}>
-                  {dia.label}
-                </option>
-              ))}
-            </select>
+            <span>Data agendada</span>
+            <input
+              type="date"
+              value={dataAgendada}
+              min={dataISOHoje()}
+              onChange={(event) => setDataAgendada(event.target.value)}
+            />
           </label>
           <button
             type="button"
@@ -262,6 +260,11 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
                 <div key={tarefa.id} className="tarefas-item">
                   <div>
                     <strong>{tarefa.titulo}</strong>
+                    {tarefa.dataAgendada && (
+                      <span className="tarefas-por">
+                        Agendada para: {formatarDataAgendada(tarefa.dataAgendada)}
+                      </span>
+                    )}
                     {tarefa.diaSemana && (
                       <span className="tarefas-por">
                         Dia:{" "}

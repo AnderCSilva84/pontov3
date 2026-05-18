@@ -30,6 +30,13 @@ function labelDiaSemana(valor) {
   return mapa[valor] || valor || "-";
 }
 
+function formatarDataBr(dataIso) {
+  if (!dataIso) return "-";
+  const [ano, mes, dia] = String(dataIso).split("-");
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
+}
+
 function ordenarTarefas(lista) {
   return [...lista].sort((a, b) => {
     if (a.concluida !== b.concluida) return a.concluida ? 1 : -1;
@@ -52,6 +59,7 @@ async function buscarTarefas() {
       id: docSnap.id,
       titulo: data.titulo || docSnap.id,
       diaSemana: data.diaSemana || "",
+      dataAgendada: data.dataAgendada || "",
       concluida: Boolean(data.concluida),
       solicitadoPorNome: data.solicitadoPorNome || "-",
       criadoEm: data.criadoEm || null,
@@ -75,9 +83,18 @@ export async function exportarPdfTarefas(tarefas) {
 
   autoTable(pdf, {
     startY: 36,
-    head: [["Tarefa", "Dia", "Status", "Solicitado por", "Criada em", "Concluída em"]],
+    head: [[
+      "Tarefa",
+      "Agendada para",
+      "Dia",
+      "Status",
+      "Solicitado por",
+      "Criada em",
+      "Concluída em",
+    ]],
     body: ordenadas.map((item) => [
       item.titulo,
+      formatarDataBr(item.dataAgendada),
       labelDiaSemana(item.diaSemana),
       item.concluida ? "Concluída" : "Pendente",
       item.solicitadoPorNome || "-",

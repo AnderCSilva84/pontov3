@@ -144,7 +144,7 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
 
     try {
       await atualizarItem(item, proximo);
-    } catch (error) {
+    } catch {
       setSelecionados((prev) => ({ ...prev, [item.id]: atual }));
     } finally {
       setSalvando((prev) => ({ ...prev, [item.id]: false }));

@@ -1,8 +1,27 @@
-import jsPDF from "jspdf";
+﻿import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { minutesToHHMM } from "./time";
+
+function labelAjusteTipo(valor) {
+  const mapa = {
+    manual: "Manual",
+    atestado: "Atestado",
+    dispensa: "Dispensa",
+    ferias: "Período de férias",
+    falta: "Falta",
+    saida_mais_cedo: "Saída mais cedo",
+  };
+  return mapa[valor] || valor || "-";
+}
+
+function formatarDataBr(dataIso) {
+  if (!dataIso) return "-";
+  const [ano, mes, dia] = String(dataIso).split("-");
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
+}
 
 export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim) {
   const q = query(
@@ -23,16 +42,26 @@ export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim)
     const d = doc.data();
 
     totalPeriodo += d.totalMin || 0;
-    saldoPeriodo += d.saldoMin || 0;
+    const saldoLinha =
+      d.ajusteTipo === "atestado" ||
+      d.ajusteTipo === "dispensa" ||
+      d.ajusteTipo === "ferias" ||
+      d.ajusteTipo === "falta" ||
+      d.ajusteTipo === "saida_mais_cedo"
+        ? 0
+        : d.saldoMin || 0;
+    saldoPeriodo += saldoLinha;
 
     dados.push([
-      d.dataKey,
+      formatarDataBr(d.dataKey),
       d.entrada || "-",
       d.saidaIntervalo || "-",
       d.entradaIntervalo || "-",
       d.saida || "-",
+      labelAjusteTipo(d.ajusteTipo),
+      d.ajusteObservacao || "-",
       minutesToHHMM(d.totalMin || 0),
-      minutesToHHMM(d.saldoMin || 0),
+      minutesToHHMM(saldoLinha),
     ]);
   });
 
@@ -43,7 +72,11 @@ export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim)
 
   pdf.setFontSize(12);
   pdf.text(`Funcionária: ${nome}`, 14, 30);
-  pdf.text(`Período: ${dataInicio} até ${dataFim}`, 14, 37);
+  pdf.text(
+    `Período: ${formatarDataBr(dataInicio)} até ${formatarDataBr(dataFim)}`,
+    14,
+    37
+  );
 
   autoTable(pdf, {
     startY: 45,
@@ -54,6 +87,8 @@ export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim)
         "Intervalo",
         "Volta",
         "Saída",
+        "Ajuste",
+        "Obs",
         "Horas Trabalhadas",
         "Banco de Horas",
       ],
@@ -65,7 +100,8 @@ export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim)
 
   pdf.setFontSize(12);
   pdf.text(`Total no período: ${minutesToHHMM(totalPeriodo)}`, 14, finalY);
-  pdf.text(`Saldo no período: ${minutesToHHMM(saldoPeriodo)}`, 14, finalY + 7);
+  const saldoAjustado = saldoPeriodo;
+  pdf.text(`Saldo no período: ${minutesToHHMM(saldoAjustado)}`, 14, finalY + 7);
 
   pdf.save(`Relatorio_${nome}_${dataInicio}_${dataFim}.pdf`);
 }

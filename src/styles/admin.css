@@ -1,10 +1,13 @@
-﻿.admin-bg {
-  background: radial-gradient(circle at 10% 5%, #1c2f5d 0%, #0b1220 48%, #05070d 100%);
+.admin-bg {
+  background:
+    radial-gradient(circle at top left, rgba(255, 216, 164, 0.38) 0%, transparent 28%),
+    radial-gradient(circle at top right, rgba(100, 164, 140, 0.18) 0%, transparent 26%),
+    linear-gradient(180deg, #fffbf4 0%, #f7f1e4 100%);
 }
 
 .admin-shell {
-  width: min(100%, 460px);
-  gap: 20px;
+  width: min(100%, 500px);
+  gap: 22px;
 }
 
 .admin-header {
@@ -15,36 +18,38 @@
 
 .admin-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   font-weight: 800;
+  letter-spacing: -0.04em;
 }
 
 .admin-chip {
-  padding: 6px 12px;
+  padding: 7px 12px;
   border-radius: 999px;
-  background: rgba(101, 140, 255, 0.18);
-  border: 1px solid rgba(101, 140, 255, 0.4);
-  color: #bcd1ff;
-  font-size: 0.75rem;
-  font-weight: 700;
+  background: rgba(47, 123, 95, 0.12);
+  border: 1px solid rgba(47, 123, 95, 0.16);
+  color: #2f7b5f;
+  font-size: 0.76rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .admin-ola {
-  margin: 0;
+  margin: -8px 0 0;
   color: var(--text-muted);
+  font-size: 1rem;
 }
 
 .admin-login-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .admin-login-card h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .admin-login-form {
@@ -61,20 +66,21 @@
 
 .section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 
 .section-header h2,
 .section-header h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.18rem;
 }
 
 .section-sub {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.88rem;
+  color: var(--text-soft);
+  text-align: right;
 }
 
 .filtros-card {
@@ -85,8 +91,9 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   font-size: 0.9rem;
+  font-weight: 700;
   color: var(--text-muted);
 }
 
@@ -101,27 +108,145 @@
   flex-direction: column;
   gap: 8px;
   text-align: left;
+  background: linear-gradient(180deg, #fffdf9, #f7efe3);
+}
+
+.resumo-card span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .resumo-card strong {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
+  line-height: 1.1;
 }
 
 .resumo-card.destaque {
-  background: linear-gradient(145deg, rgba(20, 60, 64, 0.9), rgba(18, 52, 44, 0.85));
-  border-color: rgba(97, 220, 165, 0.3);
+  background: linear-gradient(145deg, #eef7f2, #f5fbf7);
+  border-color: rgba(47, 123, 95, 0.16);
 }
 
 .ultima-acao {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.ultima-acao strong {
+  color: var(--text-main);
+  font-size: 1.08rem;
 }
 
 .filtros-data {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.ajustes-section,
+.compras-section,
+.tarefas-section {
+  margin-top: 6px;
+  border-top: 1px solid rgba(108, 84, 46, 0.08);
+  padding-top: 18px;
+}
+
+.ajuste-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ajuste-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ajuste-horarios {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ajuste-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.ajustes-toggle,
+.compras-toggle,
+.tarefas-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 800;
+  text-transform: none;
+  text-align: center;
+  cursor: pointer;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 227, 0.96));
+}
+
+.ajustes-toggle {
+  color: #447a93;
+}
+
+.compras-toggle {
+  color: #ba5e4d;
+}
+
+.tarefas-toggle {
+  color: #c87b1f;
+}
+
+.toggle-indicator {
+  font-size: 0.88rem;
+  color: var(--text-soft);
+}
+
+.ajustes-log,
+.ajustes-log-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ajustes-log-item,
+.compras-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8f2e8;
+  border: 1px solid rgba(108, 84, 46, 0.08);
+}
+
+.ajustes-log-item strong,
+.compras-item strong {
+  display: block;
+  color: var(--text-main);
+  font-size: 0.98rem;
+}
+
+.ajustes-log-meta,
+.compras-por {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.ajustes-log-excluir,
+.tarefas-concluir {
+  width: auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+  border-radius: 14px;
 }
 
 .detalhes-grid {
@@ -132,12 +257,12 @@
 .detalhe-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .detalhe-card p {
   margin: 0;
-  color: #d7e1f7;
+  color: #4f4030;
 }
 
 .detalhe-total {
@@ -146,44 +271,31 @@
   align-items: center;
   gap: 8px;
   font-size: 0.95rem;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(108, 84, 46, 0.14);
 }
 
-.compras-section {
-  margin-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 16px;
-}
-
-.compras-toggle {
+.detalhe-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 10px;
-  color: #ef4444;
-  font-weight: 800;
-  text-transform: none;
-  text-align: center;
-  cursor: pointer;
+  flex-wrap: wrap;
 }
 
-.toggle-indicator {
-  font-size: 0.85rem;
-  color: rgba(239, 68, 68, 0.8);
-}
-
-.compras-acoes {
+.compras-acoes,
+.tarefas-acoes {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.compras-categoria h3 {
+.compras-categoria h3,
+.categoria-card h4 {
   margin: 0 0 10px;
   font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #dbe6ff;
+  color: #6f5f4b;
 }
 
 .compras-itens {
@@ -191,39 +303,16 @@
   gap: 10px;
 }
 
-.compras-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.compras-item strong {
-  display: block;
-  color: #f4f6ff;
-  font-size: 1rem;
-}
-
-.compras-por {
-  display: block;
-  margin-top: 4px;
-  color: #b6c3e4;
-  font-size: 0.85rem;
-}
-
 .compras-status {
-  padding: 6px 12px;
+  padding: 7px 12px;
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border: 1px solid rgba(249, 115, 22, 0.4);
-  background: rgba(249, 115, 22, 0.18);
-  color: #fdba74;
+  border: 1px solid rgba(200, 123, 31, 0.24);
+  background: rgba(200, 123, 31, 0.12);
+  color: #a5651d;
   cursor: pointer;
 }
 
@@ -231,14 +320,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.categoria-card h4 {
-  margin: 0 0 8px;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #dbe6ff;
 }
 
 .itens-lista {
@@ -251,9 +332,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #f8f2e8;
+  border: 1px solid rgba(108, 84, 46, 0.08);
   cursor: pointer;
   position: relative;
   width: 100%;
@@ -268,75 +350,41 @@
 .check-custom {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 7px;
+  border: 2px solid rgba(108, 84, 46, 0.26);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.7);
   transition: all 0.2s ease;
 }
 
 .item-checkbox input:checked + .check-custom {
-  border-color: #34d399;
-  background: #34d399;
-  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+  border-color: #4b8f67;
+  background: #4b8f67;
+  box-shadow: 0 0 0 5px rgba(75, 143, 103, 0.1);
 }
 
 .item-checkbox input:checked + .check-custom::after {
   content: "";
   width: 10px;
   height: 6px;
-  border-left: 3px solid #0b1220;
-  border-bottom: 3px solid #0b1220;
+  border-left: 3px solid #fffdf9;
+  border-bottom: 3px solid #fffdf9;
   transform: rotate(-45deg);
   margin-top: -2px;
 }
 
 .item-nome {
   font-size: 1rem;
-  font-weight: 600;
-  color: #eef2ff;
+  font-weight: 700;
+  color: var(--text-main);
   white-space: normal;
   word-break: normal;
   overflow-wrap: break-word;
   line-height: 1.2;
   flex: 1;
   min-width: 0;
-}
-
-@media (max-width: 420px) {
-  .resumo-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .filtros-data {
-    grid-template-columns: 1fr;
-  }
-}
-.tarefas-section {
-  margin-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 16px;
-}
-
-.tarefas-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: #f59e0b;
-  font-weight: 800;
-  text-transform: none;
-  text-align: center;
-  cursor: pointer;
-}
-
-.tarefas-acoes {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
 }
 
 .tarefas-filtros {
@@ -358,6 +406,10 @@
 }
 
 @media (max-width: 420px) {
+  .resumo-grid,
+  .filtros-data,
+  .ajuste-grid,
+  .ajuste-horarios,
   .tarefas-filtros-datas {
     grid-template-columns: 1fr;
   }
@@ -366,5 +418,36 @@
     width: 100%;
     align-items: flex-start;
   }
+
+  .section-header {
+    flex-direction: column;
+  }
+
+  .section-sub {
+    text-align: left;
+  }
 }
 
+@media (min-width: 900px) {
+  .admin-shell {
+    width: min(100%, 1180px);
+  }
+
+  .filtros-card {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .resumo-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .detalhes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tarefas-filtros {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: end;
+  }
+}

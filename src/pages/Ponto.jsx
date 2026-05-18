@@ -6,6 +6,7 @@ import {
   registrarAcao,
   getProximaAcao,
   calcularBancoHorasMes,
+  buscarDiasPorPeriodo,
 } from "../services/ponto";
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
@@ -38,6 +39,13 @@ function dataKeyDeDate(data) {
   return `${ano}-${mes}-${dia}`;
 }
 
+function formatarDataBr(dataIso) {
+  if (!dataIso) return "";
+  const [ano, mes, dia] = String(dataIso).split("-");
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
+}
+
 function getDataKeysSemanaAtual() {
   const hoje = new Date();
   const diaSemana = hoje.getDay();
@@ -56,6 +64,39 @@ function getDataKeysSemanaAtual() {
   }
 
   return datas;
+}
+function calcularPeriodo(mes) {
+  const [ano, mesNumero] = mes.split("-");
+  const ultimoDia = new Date(ano, mesNumero, 0).getDate();
+
+  return {
+    dataInicio: `${mes}-01`,
+    dataFim: `${mes}-${String(ultimoDia).padStart(2, "0")}`,
+  };
+}
+
+function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
+  if (!mes) return 0;
+  const [anoTexto, mesTexto] = mes.split("-");
+  const ano = Number(anoTexto);
+  const mesIndex = Number(mesTexto) - 1;
+  if (!Number.isFinite(ano) || !Number.isFinite(mesIndex)) return 0;
+
+  const ultimoDia = new Date(ano, mesIndex + 1, 0).getDate();
+  let total = 0;
+
+  for (let dia = 1; dia <= ultimoDia; dia += 1) {
+    const data = new Date(ano, mesIndex, dia);
+    const diaSemana = data.getDay();
+    if (diaSemana === 0) continue;
+    if (diaSemana === 6) {
+      total += cargaSabadoMin;
+    } else {
+      total += cargaSegSexMin;
+    }
+  }
+
+  return total;
 }
 
 function getDiaSemanaAtualKey() {
@@ -247,6 +288,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [loading, setLoading] = useState(false);
   const [escala, setEscala] = useState(null);
   const [bancoHoras, setBancoHoras] = useState(0);
+  const [resumoMes, setResumoMes] = useState({ metaMin: 0, trabalhadoMin: 0 });
   const [diaSelecionadoSemana, setDiaSelecionadoSemana] = useState(null);
   const [logDiaSelecionado, setLogDiaSelecionado] = useState(null);
   const [loadingLogDia, setLoadingLogDia] = useState(false);
@@ -374,6 +416,36 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     }
   }, [funcionarioId]);
 
+  
+  useEffect(() => {
+    async function carregarResumoMes() {
+      if (!funcionarioId) return;
+
+      const mes = mesAtualISO();
+      const { dataInicio, dataFim } = calcularPeriodo(mes);
+      const cargaSegSexBase = Number.isFinite(cargaSegSexMin) ? cargaSegSexMin : 480;
+      const cargaSabadoBase = Number.isFinite(cargaSabadoMin) ? cargaSabadoMin : 0;
+      const metaMin = calcularCargaMensalPrevista(mes, cargaSegSexBase, cargaSabadoBase);
+      const limiteDataKey = dataKeyDeDate(new Date());
+
+      try {
+        const registros = await buscarDiasPorPeriodo(funcionarioId, dataInicio, dataFim);
+        const trabalhadoMin = registros.reduce((acc, dia) => {
+          if (!dia?.dataKey) return acc;
+          if (dia.dataKey > limiteDataKey) return acc;
+          const total = Number(dia.totalMin);
+          return acc + (Number.isFinite(total) ? total : 0);
+        }, 0);
+        setResumoMes({ metaMin, trabalhadoMin });
+      } catch (error) {
+        console.error("[PONTO][ERRO] Falha ao carregar resumo mensal:", error);
+        setResumoMes({ metaMin, trabalhadoMin: 0 });
+      }
+    }
+
+    carregarResumoMes();
+  }, [funcionarioId, cargaSegSexMin, cargaSabadoMin, dia?.dataKey]);
+
   useEffect(() => {
     async function fetchDia() {
       if (!funcionarioId) return;
@@ -424,16 +496,30 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() || {};
           if (data.concluida) return;
+          const dataAgendada = data.dataAgendada || "";
+          const hojeDataKey = dataKeyDeDate(new Date());
+          if (dataAgendada && dataAgendada > hojeDataKey) return;
           const diaTarefa = normalizarDiaSemana(data.diaSemana);
           const indiceTarefa = getIndiceDiaSemana(diaTarefa);
-          if (indiceTarefa !== -1 && indiceTarefa > indiceHoje) return;
+          if (!dataAgendada && indiceTarefa !== -1 && indiceTarefa > indiceHoje) return;
           pendentes.push({
             id: docSnap.id,
             titulo: data.titulo || docSnap.id,
             diaSemana: diaTarefa || data.diaSemana || "",
-            atrasada: indiceTarefa !== -1 && indiceTarefa < indiceHoje,
+            dataAgendada,
+            atrasada: dataAgendada
+              ? dataAgendada < hojeDataKey
+              : indiceTarefa !== -1 && indiceTarefa < indiceHoje,
             solicitadoPorNome: data.solicitadoPorNome || "",
           });
+        });
+        pendentes.sort((a, b) => {
+          if (a.dataAgendada && b.dataAgendada && a.dataAgendada !== b.dataAgendada) {
+            return a.dataAgendada.localeCompare(b.dataAgendada);
+          }
+          if (a.dataAgendada) return -1;
+          if (b.dataAgendada) return 1;
+          return (a.titulo || "").localeCompare(b.titulo || "");
         });
         if (tarefasCountRef.current !== null && pendentes.length > tarefasCountRef.current) {
           setQuantidadeNovasTarefas(pendentes.length - tarefasCountRef.current);
@@ -576,6 +662,14 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     if (!diasSemana || diasSemana.length === 0) return 0;
     return diasSemana.reduce((acc, registro) => {
       if (!registro) return acc;
+      if (
+        registro?.ajusteTipo === "atestado" ||
+        registro?.ajusteTipo === "dispensa" ||
+        registro?.ajusteTipo === "ferias" ||
+        registro?.ajusteTipo === "falta"
+      ) {
+        return acc;
+      }
       if (registro.dataKey === dia?.dataKey) return acc + horasTrabalhadasMin;
       const total = Number.isFinite(registro.totalMin) ? registro.totalMin : 0;
       return acc + total;
@@ -692,6 +786,15 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
             <span>Banco de horas</span>
             <strong className={getBancoClass()}>{formatMinutosComSinal(bancoHoras)}</strong>
           </div>
+
+          <div className="status-row">
+            <span>Meta do mês</span>
+            <strong>{formatMinutos(resumoMes.metaMin)}</strong>
+          </div>
+          <div className="status-row">
+            <span>Trabalhado no mês</span>
+            <strong>{formatMinutos(resumoMes.trabalhadoMin)}</strong>
+          </div>
         </section>
 
         {escala && (
@@ -781,6 +884,11 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
                     {tarefa.solicitadoPorNome && (
                       <span className="tarefas-por">Solicitado por: {tarefa.solicitadoPorNome}</span>
                     )}
+                    {tarefa.dataAgendada && (
+                      <span className="tarefas-por">
+                        Agendada para: {formatarDataBr(tarefa.dataAgendada)}
+                      </span>
+                    )}
                     {tarefa.diaSemana && (
                       <span className="tarefas-por">
                         Dia:{" "}
@@ -821,6 +929,14 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     </div>
   );
 }
+
+
+
+
+
+
+
+
 
 
 

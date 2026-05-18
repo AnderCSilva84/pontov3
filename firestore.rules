@@ -129,12 +129,19 @@ service cloud.firestore {
           request.resource.data.concluida == true &&
           request.resource.data.titulo == resource.data.titulo &&
           request.resource.data.diaSemana == resource.data.diaSemana &&
+          request.resource.data.dataAgendada == resource.data.dataAgendada &&
           request.resource.data.solicitadoPor == resource.data.solicitadoPor &&
           request.resource.data.solicitadoPorNome == resource.data.solicitadoPorNome
         )
       );
 
       allow delete: if isAdmin();
+    }
+
+    // AJUSTES DE PONTO (LOG)
+    match /ajustesPonto/{ajusteId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
 
   }

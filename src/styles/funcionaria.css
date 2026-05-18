@@ -1,17 +1,18 @@
-﻿.ponto-header {
+.ponto-header {
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  padding: 10px 0 4px;
 }
 
 .ponto-logo {
-  width: 110px;
-  height: 110px;
-  border-radius: 22px;
+  width: 120px;
+  height: 120px;
+  border-radius: 28px;
   object-fit: cover;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 38px rgba(107, 84, 46, 0.14);
+  border: 6px solid rgba(255, 255, 255, 0.74);
   display: block;
   margin: 0 auto;
 }
@@ -19,7 +20,7 @@
 .ponto-header h1 {
   margin: 0;
   font-size: 2rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
   font-weight: 800;
 }
 
@@ -30,58 +31,80 @@
 
 .ponto-action {
   width: 100%;
-  min-height: 64px;
+  min-height: 68px;
   border: none;
-  border-radius: 999px;
+  border-radius: 22px;
   padding: 18px 24px;
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 800;
-  color: #fff;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+  color: #fffefb;
+  box-shadow: 0 18px 30px rgba(107, 84, 46, 0.14);
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .ponto-action:disabled {
-  opacity: 0.85;
+  opacity: 0.8;
   cursor: not-allowed;
 }
 
 .btn-verde {
-  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  background: linear-gradient(135deg, #4b8f67 0%, #78b58f 100%);
 }
 
 .btn-laranja {
-  background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+  background: linear-gradient(135deg, #d18b38 0%, #ebb067 100%);
 }
 
 .btn-azul {
-  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  background: linear-gradient(135deg, #447a93 0%, #71a6be 100%);
 }
 
 .btn-roxo {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #7c6f9c 0%, #aa98c6 100%);
 }
 
 .btn-cinza {
-  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+  background: linear-gradient(135deg, #7b807a 0%, #9ea39d 100%);
+}
+
+.status-card,
+.escala-card,
+.log-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-card::before,
+.escala-card::before,
+.log-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-page, var(--accent)), rgba(255, 255, 255, 0.9));
+  opacity: 0.7;
 }
 
 .status-card h2,
 .escala-card h2,
 .log-card h2 {
-  margin: 0 0 12px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #dbe6ff;
+  margin: 0 0 14px;
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #392c1d;
 }
 
 .status-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: #cbd6f0;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(108, 84, 46, 0.09);
+  color: var(--text-muted);
 }
 
 .status-row:last-child {
@@ -90,19 +113,20 @@
 
 .status-row strong {
   font-size: 1.02rem;
-  color: #f4f7ff;
+  color: var(--text-main);
+  text-align: right;
 }
 
 .positivo {
-  color: #34d399;
+  color: var(--success);
 }
 
 .negativo {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .neutro {
-  color: #f4f7ff;
+  color: var(--text-main);
 }
 
 .escala-card {
@@ -112,63 +136,71 @@
 }
 
 .escala-lista {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 10px;
 }
 
 .escala-item {
-  border-radius: 16px;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: #f9f4eb;
+  border: 1px solid rgba(108, 84, 46, 0.08);
   display: flex;
   justify-content: space-between;
   align-items: center;
   text-align: left;
-  color: #f1f5ff;
+  color: var(--text-main);
   cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.escala-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(107, 84, 46, 0.08);
 }
 
 .escala-item.dia-atual {
-  border-color: rgba(121, 162, 255, 0.6);
-  box-shadow: 0 0 0 1px rgba(121, 162, 255, 0.3), 0 0 18px rgba(99, 133, 255, 0.2);
+  border-color: rgba(47, 123, 95, 0.26);
+  background: #f0f6f2;
+  box-shadow: inset 0 0 0 1px rgba(47, 123, 95, 0.08);
 }
 
 .escala-item.dia-selecionado {
-  background: rgba(95, 135, 255, 0.16);
+  background: #eef5fb;
+  border-color: rgba(68, 122, 147, 0.24);
 }
 
 .escala-dia {
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .escala-horario {
   font-size: 0.95rem;
-  color: #b7c6e8;
+  color: var(--text-muted);
 }
 
 .progresso-dia {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .progresso-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #cbd6f0;
+  gap: 12px;
+  color: var(--text-muted);
 }
 
 .progresso-header strong {
-  color: #f4f7ff;
+  color: var(--text-main);
 }
 
 .progresso-barra {
   width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  height: 10px;
+  background: #eadfcd;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -176,29 +208,30 @@
 .progresso-barra span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-page, #4f86ff) 0%, #64b5ff 100%);
+  background: linear-gradient(90deg, var(--accent-page, #4f86ff) 0%, #8cc0ab 100%);
   border-radius: 999px;
 }
 
 .log-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .log-dia {
   margin: 0;
-  font-weight: 700;
-  color: #f1f5ff;
+  font-weight: 800;
+  color: var(--text-main);
 }
 
 .log-linha {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #cbd6f0;
+  gap: 12px;
+  color: var(--text-muted);
 }
 
 .log-linha strong {
-  color: #f4f7ff;
+  color: var(--text-main);
 }

@@ -227,6 +227,16 @@ export async function calcularBancoHorasMes(funcionarioId, mesYYYYMM) {
 
     if (dataKey < inicio || dataKey > fim) return total;
 
+    if (
+      data?.ajusteTipo === "atestado" ||
+      data?.ajusteTipo === "dispensa" ||
+      data?.ajusteTipo === "ferias" ||
+      data?.ajusteTipo === "falta" ||
+      data?.ajusteTipo === "saida_mais_cedo"
+    ) {
+      return total;
+    }
+
     return total + normalizarMinutos(data?.saldoMin);
   }, 0);
 }

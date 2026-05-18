@@ -18,7 +18,7 @@ export default function Login() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, senha);
       await registrarPush(userCredential.user.uid);
-    } catch (error) {
+    } catch {
       setErro("Email ou senha inválidos.");
     } finally {
       setLoading(false);

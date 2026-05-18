@@ -1,58 +1,64 @@
-﻿.bottom-nav {
+.bottom-nav {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
   display: flex;
   justify-content: space-around;
-  gap: 6px;
-  padding: 10px 18px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(10, 16, 32, 0.92);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
+  gap: 8px;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(255, 250, 242, 0.92);
+  border: 1px solid rgba(108, 84, 46, 0.12);
+  border-radius: 26px;
+  box-shadow: 0 18px 36px rgba(107, 84, 46, 0.14);
+  backdrop-filter: blur(14px);
   z-index: 50;
-  --nav-accent: #8fb4ff;
+  --nav-accent: #2f7b5f;
 }
 
 .bottom-nav::before {
   content: "";
   position: absolute;
-  top: 0;
+  top: 8px;
   left: 18px;
   right: 18px;
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
-  background: var(--nav-accent);
-  opacity: 0.9;
+  background: linear-gradient(90deg, transparent, var(--nav-accent), transparent);
+  opacity: 0.6;
 }
 
 .bottom-nav.theme-ponto {
-  --nav-accent: #6aa6ff;
+  --nav-accent: #2f7b5f;
 }
 
 .bottom-nav.theme-compras {
-  --nav-accent: #34d399;
+  --nav-accent: #1d8f77;
 }
 
 .bottom-nav.theme-admin {
-  --nav-accent: #a78bfa;
+  --nav-accent: #8d6f4f;
 }
 
 .bottom-nav.theme-tarefas {
-  --nav-accent: #f59e0b;
+  --nav-accent: #c87b1f;
 }
 
 .nav-item {
   background: transparent;
   border: none;
-  color: rgba(189, 205, 234, 0.8);
+  color: #8c7a64;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  border-radius: 16px;
+  padding: 8px 10px;
+  min-width: 68px;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .nav-item svg {
@@ -67,12 +73,22 @@
 
 .nav-item.active {
   color: var(--nav-accent);
+  background: color-mix(in srgb, var(--nav-accent) 10%, white);
 }
 
 .nav-item.active svg {
-  filter: drop-shadow(0 0 10px rgba(120, 160, 255, 0.6));
+  filter: drop-shadow(0 6px 12px rgba(108, 84, 46, 0.12));
 }
 
 .nav-label {
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+}
+
+@media (min-width: 900px) {
+  .bottom-nav {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(100%, 720px);
+  }
 }
