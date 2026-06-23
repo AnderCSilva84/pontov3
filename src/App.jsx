@@ -4,6 +4,7 @@ import Ponto from "./pages/Ponto";
 import ListaCompras from "./pages/ListaCompras";
 import Tarefas from "./pages/Tarefas";
 import Admin from "./pages/Admin";
+import { ROLE_CONSULTA } from "./utils/roles";
 import "./styles/App.css";
 
 function normalizarRota(caminho) {
@@ -14,6 +15,7 @@ function normalizarRota(caminho) {
 function App() {
   const [user, setUser] = useState(undefined);
   const [rotaAtual, setRotaAtual] = useState(normalizarRota(window.location.pathname));
+  const rotaEfetiva = user?.role === ROLE_CONSULTA && rotaAtual === "/ponto" ? "/admin" : rotaAtual;
 
   useEffect(() => {
     if (window.location.pathname === "/") {
@@ -49,34 +51,34 @@ function App() {
   if (user === undefined) return <p>Carregando...</p>;
 
   if (!user) {
-    if (rotaAtual === "/admin") {
-      return <Admin user={null} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+    if (rotaEfetiva === "/admin") {
+      return <Admin user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
     }
 
-    if (rotaAtual === "/lista-compras") {
-      return <ListaCompras user={null} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+    if (rotaEfetiva === "/lista-compras") {
+      return <ListaCompras user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
     }
 
-    if (rotaAtual === "/tarefas") {
-      return <Tarefas user={null} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+    if (rotaEfetiva === "/tarefas") {
+      return <Tarefas user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
     }
 
-    return <Ponto user={null} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+    return <Ponto user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
-  if (rotaAtual === "/lista-compras") {
-    return <ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+  if (rotaEfetiva === "/lista-compras") {
+    return <ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
-  if (rotaAtual === "/tarefas") {
-    return <Tarefas user={user} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+  if (rotaEfetiva === "/tarefas") {
+    return <Tarefas user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
-  if (rotaAtual === "/admin") {
-    return <Admin user={user} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+  if (rotaEfetiva === "/admin") {
+    return <Admin user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
-  return <Ponto user={user} onNavigate={navegarPara} rotaAtual={rotaAtual} />;
+  return <Ponto user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
 }
 
 export default App;

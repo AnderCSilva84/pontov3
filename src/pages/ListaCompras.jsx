@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   getDocs,
@@ -15,8 +15,40 @@ import BottomNav from "../components/BottomNav";
 import "../styles/compras.css";
 import "../styles/nav.css";
 
+const ORDEM_CATEGORIAS = [
+  "Hortifruti",
+  "Carnes",
+  "Frios",
+  "Padaria",
+  "Bebidas",
+  "Mercearia",
+  "Limpeza",
+  "Banheiro",
+  "Outros",
+];
+
+function normalizarCategoria(valor) {
+  return String(valor || "Outros").trim() || "Outros";
+}
+
+function ordenarCategorias(a, b) {
+  const categoriaA = normalizarCategoria(a);
+  const categoriaB = normalizarCategoria(b);
+  const indiceA = ORDEM_CATEGORIAS.findIndex((item) => item.toLowerCase() === categoriaA.toLowerCase());
+  const indiceB = ORDEM_CATEGORIAS.findIndex((item) => item.toLowerCase() === categoriaB.toLowerCase());
+
+  if (indiceA !== -1 || indiceB !== -1) {
+    if (indiceA === -1) return 1;
+    if (indiceB === -1) return -1;
+    if (indiceA !== indiceB) return indiceA - indiceB;
+  }
+
+  return categoriaA.localeCompare(categoriaB);
+}
+
 export default function ListaCompras({ user, onNavigate, rotaAtual }) {
   const [catalogo, setCatalogo] = useState([]);
+  const [listaMercado, setListaMercado] = useState([]);
   const [selecionados, setSelecionados] = useState({});
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState({});
@@ -25,6 +57,9 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
   const [novoNome, setNovoNome] = useState("");
   const [novaCategoria, setNovaCategoria] = useState("");
   const [categoriaSelecionada, setCategoriaSelecionada] = useState("");
+  const [modoVisualizacao, setModoVisualizacao] = useState("compras");
+  const [filtroCompras, setFiltroCompras] = useState("pendentes");
+  const [buscaCompras, setBuscaCompras] = useState("");
   const funcionarioId = user?.funcionarioId || user?.uid;
 
   useEffect(() => {
@@ -41,14 +76,14 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
           itensCatalogo.push({
             id: docSnap.id,
             nome: data.nome || docSnap.id,
-            categoria: data.categoria || "Outros",
+            categoria: normalizarCategoria(data.categoria),
           });
         });
 
         setCatalogo(itensCatalogo);
       } catch (error) {
         console.error("[LISTA][ERRO] Falha ao carregar catalogo/lista:", error);
-        setErro("Não foi possível carregar o catálogo. Tente novamente.");
+        setErro("Nao foi possivel carregar o catalogo. Tente novamente.");
       } finally {
         setLoading(false);
       }
@@ -62,12 +97,28 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
       collection(db, "listaCompras"),
       (snapshot) => {
         const solicitados = {};
+        const itens = [];
+
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() || {};
-          solicitados[docSnap.id] =
-            data.solicitado === undefined ? true : Boolean(data.solicitado);
+          const solicitado = data.solicitado === undefined ? true : Boolean(data.solicitado);
+          const comprado = Boolean(data.comprado);
+
+          solicitados[docSnap.id] = solicitado;
+          itens.push({
+            id: docSnap.id,
+            nome: data.nome || docSnap.id,
+            categoria: normalizarCategoria(data.categoria),
+            solicitado,
+            comprado,
+            solicitadoPor: data.solicitadoPor || null,
+            solicitadoPorNome: data.solicitadoPorNome || "",
+            criadoEm: data.criadoEm || null,
+          });
         });
+
         setSelecionados(solicitados);
+        setListaMercado(itens);
       },
       (error) => {
         console.error("[LISTA][ERRO] Falha ao observar lista:", error);
@@ -80,13 +131,13 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
   const catalogoPorCategoria = useMemo(() => {
     const mapa = new Map();
     catalogo.forEach((item) => {
-      const categoria = item.categoria || "Outros";
+      const categoria = normalizarCategoria(item.categoria);
       if (!mapa.has(categoria)) mapa.set(categoria, []);
       mapa.get(categoria).push(item);
     });
 
     return Array.from(mapa.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => ordenarCategorias(a[0], b[0]))
       .map(([categoria, itens]) => ({
         categoria,
         itens: itens.sort((a, b) => (a.nome || "").localeCompare(b.nome || "")),
@@ -98,11 +149,61 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
     return catalogoPorCategoria.filter((grupo) => grupo.categoria === categoriaSelecionada);
   }, [catalogoPorCategoria, categoriaSelecionada]);
 
+  const itensMercadoFiltrados = useMemo(() => {
+    const termo = buscaCompras.trim().toLowerCase();
+
+    return listaMercado
+      .filter((item) => {
+        if (filtroCompras === "pendentes") return item.solicitado && !item.comprado;
+        if (filtroCompras === "comprados") return item.comprado;
+        return item.solicitado || item.comprado;
+      })
+      .filter((item) => {
+        if (!termo) return true;
+        return (
+          (item.nome || "").toLowerCase().includes(termo) ||
+          (item.categoria || "").toLowerCase().includes(termo)
+        );
+      });
+  }, [buscaCompras, filtroCompras, listaMercado]);
+
+  const comprasPorCategoria = useMemo(() => {
+    const mapa = new Map();
+
+    itensMercadoFiltrados.forEach((item) => {
+      const categoria = normalizarCategoria(item.categoria);
+      if (!mapa.has(categoria)) mapa.set(categoria, []);
+      mapa.get(categoria).push(item);
+    });
+
+    return Array.from(mapa.entries())
+      .sort((a, b) => ordenarCategorias(a[0], b[0]))
+      .map(([categoria, itens]) => ({
+        categoria,
+        itens: itens.sort((a, b) => {
+          if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
+          return (a.nome || "").localeCompare(b.nome || "");
+        }),
+      }));
+  }, [itensMercadoFiltrados]);
+
+  const resumoCompras = useMemo(() => {
+    const itensAtivos = listaMercado.filter((item) => item.solicitado || item.comprado);
+    const comprados = itensAtivos.filter((item) => item.comprado).length;
+    const pendentes = itensAtivos.filter((item) => item.solicitado && !item.comprado).length;
+
+    return {
+      total: itensAtivos.length,
+      comprados,
+      pendentes,
+    };
+  }, [listaMercado]);
+
   async function atualizarItem(item, marcado) {
     const ref = doc(db, "listaCompras", item.id);
     const payloadBase = {
       nome: item.nome,
-      categoria: item.categoria,
+      categoria: normalizarCategoria(item.categoria),
       solicitado: marcado,
     };
 
@@ -151,10 +252,26 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
     }
   }
 
+  async function handleMarcarComprado(item, comprado) {
+    setSalvando((prev) => ({ ...prev, [item.id]: true }));
+
+    try {
+      await updateDoc(doc(db, "listaCompras", item.id), {
+        comprado,
+        solicitado: comprado ? false : true,
+      });
+    } catch (error) {
+      console.error("[LISTA][ERRO] Falha ao atualizar compra:", error);
+      setErro("Nao foi possivel atualizar o status do item.");
+    } finally {
+      setSalvando((prev) => ({ ...prev, [item.id]: false }));
+    }
+  }
+
   async function handleAdicionarItem() {
     if (!novoNome.trim()) return;
 
-    const categoriaFinal = novaCategoria.trim() || "Outros";
+    const categoriaFinal = normalizarCategoria(novaCategoria);
 
     try {
       const docRef = await addDoc(collection(db, "catalogoCompras"), {
@@ -171,14 +288,14 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
       setMostrandoForm(false);
     } catch (error) {
       console.error("[LISTA][ERRO] Falha ao adicionar item:", error);
-      setErro("Não foi possível adicionar o item. Tente novamente.");
+      setErro("Nao foi possivel adicionar o item. Tente novamente.");
     }
   }
 
   return (
     <div className="page-bg page-compras">
       <main className="page-shell compras-shell">
-        <header className="page-header">
+        <header className="page-header compras-header">
           <div className="page-title-row">
             <span className="page-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">
@@ -189,75 +306,159 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
             </span>
             <h1>Lista de Compras</h1>
           </div>
-          <p className="page-subtitle">Selecionar itens</p>
+          <p className="page-subtitle">
+            {modoVisualizacao === "compras"
+              ? "Modo compras para usar no mercado"
+              : "Monte a lista antes de sair"}
+          </p>
         </header>
 
-        <button
-          type="button"
-          className="btn btn-success btn-add-item"
-          onClick={() => setMostrandoForm((prev) => !prev)}
-        >
-          + Adicionar item
-        </button>
+        <section className="card compras-modo-switch">
+          <button
+            type="button"
+            className={`modo-chip ${modoVisualizacao === "compras" ? "active" : ""}`}
+            onClick={() => setModoVisualizacao("compras")}
+          >
+            Modo Compras
+          </button>
+          <button
+            type="button"
+            className={`modo-chip ${modoVisualizacao === "montar" ? "active" : ""}`}
+            onClick={() => setModoVisualizacao("montar")}
+          >
+            Montar Lista
+          </button>
+        </section>
 
-        {mostrandoForm && (
-          <section className="card add-item-card">
-            <label className="field">
-              <span>Item</span>
-              <input
-                type="text"
-                value={novoNome}
-                onChange={(event) => setNovoNome(event.target.value)}
-                placeholder="Nome do item"
-              />
-            </label>
-            <label className="field">
-              <span>Categoria</span>
-              <input
-                type="text"
-                value={novaCategoria}
-                onChange={(event) => setNovaCategoria(event.target.value)}
-                placeholder="Ex: Banheiro"
-              />
-            </label>
-            <div className="add-item-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setMostrandoForm(false)}>
-                Cancelar
-              </button>
-              <button type="button" className="btn btn-success" onClick={handleAdicionarItem}>
-                Salvar
-              </button>
-            </div>
-          </section>
+        {modoVisualizacao === "compras" && (
+          <>
+            <section className="card compras-resumo">
+              <div>
+                <span className="compras-resumo-label">Restantes</span>
+                <strong>{resumoCompras.pendentes}</strong>
+              </div>
+              <div>
+                <span className="compras-resumo-label">Comprados</span>
+                <strong>{resumoCompras.comprados}</strong>
+              </div>
+              <div>
+                <span className="compras-resumo-label">Total</span>
+                <strong>{resumoCompras.total}</strong>
+              </div>
+            </section>
+
+            <section className="card compras-toolbar">
+              <div className="compras-filtro-tabs" role="tablist" aria-label="Filtrar compras">
+                <button
+                  type="button"
+                  className={`filtro-tab ${filtroCompras === "pendentes" ? "active" : ""}`}
+                  onClick={() => setFiltroCompras("pendentes")}
+                >
+                  Pendentes
+                </button>
+                <button
+                  type="button"
+                  className={`filtro-tab ${filtroCompras === "comprados" ? "active" : ""}`}
+                  onClick={() => setFiltroCompras("comprados")}
+                >
+                  Comprados
+                </button>
+                <button
+                  type="button"
+                  className={`filtro-tab ${filtroCompras === "todos" ? "active" : ""}`}
+                  onClick={() => setFiltroCompras("todos")}
+                >
+                  Todos
+                </button>
+              </div>
+
+              <label className="field busca-field">
+                <span>Buscar item</span>
+                <input
+                  type="search"
+                  value={buscaCompras}
+                  onChange={(event) => setBuscaCompras(event.target.value)}
+                  placeholder="Ex: arroz, detergente, carnes"
+                />
+              </label>
+            </section>
+          </>
         )}
 
-        {!loading && catalogoPorCategoria.length > 0 && (
-          <section className="card lista-filtros">
-            <label className="field">
-              <span>Categoria</span>
-              <select
-                value={categoriaSelecionada}
-                onChange={(event) => setCategoriaSelecionada(event.target.value)}
-              >
-                <option value="">Todas as categorias</option>
-                {catalogoPorCategoria.map((grupo) => (
-                  <option key={grupo.categoria} value={grupo.categoria}>
-                    {grupo.categoria}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
+        {modoVisualizacao === "montar" && (
+          <>
+            <button
+              type="button"
+              className="btn btn-success btn-add-item"
+              onClick={() => setMostrandoForm((prev) => !prev)}
+            >
+              + Adicionar item
+            </button>
+
+            {mostrandoForm && (
+              <section className="card add-item-card">
+                <label className="field">
+                  <span>Item</span>
+                  <input
+                    type="text"
+                    value={novoNome}
+                    onChange={(event) => setNovoNome(event.target.value)}
+                    placeholder="Nome do item"
+                  />
+                </label>
+                <label className="field">
+                  <span>Categoria</span>
+                  <input
+                    type="text"
+                    value={novaCategoria}
+                    onChange={(event) => setNovaCategoria(event.target.value)}
+                    placeholder="Ex: Banheiro"
+                  />
+                </label>
+                <div className="add-item-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setMostrandoForm(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="button" className="btn btn-success" onClick={handleAdicionarItem}>
+                    Salvar
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {!loading && catalogoPorCategoria.length > 0 && (
+              <section className="card lista-filtros">
+                <label className="field">
+                  <span>Categoria</span>
+                  <select
+                    value={categoriaSelecionada}
+                    onChange={(event) => setCategoriaSelecionada(event.target.value)}
+                  >
+                    <option value="">Todas as categorias</option>
+                    {catalogoPorCategoria.map((grupo) => (
+                      <option key={grupo.categoria} value={grupo.categoria}>
+                        {grupo.categoria}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </section>
+            )}
+          </>
         )}
 
-        {loading && <p className="text-muted">Carregando catálogo...</p>}
+        {loading && <p className="text-muted">Carregando catalogo...</p>}
         {erro && <p className="mensagem erro">{erro}</p>}
 
-        {!loading && catalogoPorCategoria.length === 0 && (
-          <p className="text-muted">Nenhum item encontrado no catálogo.</p>
+        {!loading && modoVisualizacao === "montar" && catalogoPorCategoria.length === 0 && (
+          <p className="text-muted">Nenhum item encontrado no catalogo.</p>
         )}
 
-        {!loading &&
+        {!loading && modoVisualizacao === "montar" &&
           gruposFiltrados.map((grupo) => (
             <section key={grupo.categoria} className="card compras-categoria">
               <h2>{grupo.categoria}</h2>
@@ -277,9 +478,59 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
               </div>
             </section>
           ))}
+
+        {!loading && modoVisualizacao === "compras" && comprasPorCategoria.length === 0 && (
+          <section className="card compras-vazio">
+            <h2>Nada por aqui</h2>
+            <p className="text-muted">
+              {resumoCompras.total === 0
+                ? "Monte a lista primeiro para aparecer no modo compras."
+                : "Nenhum item combina com o filtro atual."}
+            </p>
+          </section>
+        )}
+
+        {!loading && modoVisualizacao === "compras" &&
+          comprasPorCategoria.map((grupo) => (
+            <section key={grupo.categoria} className="card compras-categoria compras-categoria-mercado">
+              <div className="compras-categoria-head">
+                <h2>{grupo.categoria}</h2>
+                <span>{grupo.itens.filter((item) => !item.comprado).length} restantes</span>
+              </div>
+
+              <div className="compras-mercado-lista">
+                {grupo.itens.map((item) => (
+                  <article
+                    key={item.id}
+                    className={`compra-mercado-item ${item.comprado ? "comprado" : "pendente"}`}
+                  >
+                    <div className="compra-mercado-info">
+                      <strong>{item.nome}</strong>
+                      {item.solicitadoPorNome && (
+                        <span>Pedido por {item.solicitadoPorNome}</span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`compra-mercado-acao ${item.comprado ? "desfazer" : "confirmar"}`}
+                      onClick={() => handleMarcarComprado(item, !item.comprado)}
+                      disabled={Boolean(salvando[item.id])}
+                    >
+                      {salvando[item.id]
+                        ? "Salvando..."
+                        : item.comprado
+                        ? "Desfazer"
+                        : "Comprado"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
       </main>
 
-      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
     </div>
   );
 }

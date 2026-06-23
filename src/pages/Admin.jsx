@@ -1,27 +1,31 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { login, logout } from "../services/auth";
+import { criarUsuario, login, logout } from "../services/auth";
 import { listarFuncionarios, buscarDiasPorPeriodo } from "../services/ponto";
 import { exportarPdfPonto } from "../utils/exportarPdfPonto";
-import { exportarPdfListaCompras } from "../utils/exportarPdfListaCompras";
-import { exportarPdfTarefas } from "../utils/exportarPdfTarefas";
 import {
   collection,
   addDoc,
   getDocs,
   doc,
-  updateDoc,
   setDoc,
+  updateDoc,
   getDoc,
   deleteDoc,
   query,
   where,
   serverTimestamp,
-  onSnapshot,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
+import {
+  canConsultSystem,
+  canManageUsers,
+  ROLE_ADMIN,
+  ROLE_CONSULTA,
+  ROLE_FUNCIONARIO,
+  ROLE_LABELS,
+} from "../utils/roles";
 import "../styles/admin.css";
-import "../styles/tarefas.css";
 import "../styles/nav.css";
 
 function mesAtualISO() {
@@ -119,16 +123,6 @@ function getDatasNoIntervalo(dataInicio, dataFim) {
   return datas;
 }
 
-function dataParaISO(valor) {
-  const data = dataParaDate(valor);
-  if (!data) return "";
-  return data.toISOString().slice(0, 10);
-}
-
-function dataReferenciaTarefa(tarefa) {
-  return tarefa?.dataAgendada || dataParaISO(tarefa?.criadoEm);
-}
-
 function labelDiaSemana(valor) {
   const mapa = {
     segunda: "Segunda",
@@ -141,6 +135,8 @@ function labelDiaSemana(valor) {
   };
   return mapa[valor] || valor || "-";
 }
+
+const DIAS_ESCALA = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"];
 
 function labelAjusteTipo(valor) {
   const mapa = {
@@ -267,6 +263,8 @@ function getUltimaAcao(dias) {
 }
 
 export default function Admin({ user, onNavigate, rotaAtual }) {
+  const podeConsultarSistema = canConsultSystem(user);
+  const podeGerenciarUsuarios = canManageUsers(user);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminSenha, setAdminSenha] = useState("");
   const [adminErro, setAdminErro] = useState("");
@@ -276,27 +274,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [mesSelecionado, setMesSelecionado] = useState(mesAtualISO());
   const [dias, setDias] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [listaCompras, setListaCompras] = useState([]);
-  const [loadingCompras, setLoadingCompras] = useState(false);
-  const [erroCompras, setErroCompras] = useState("");
-  const [catalogoCompras, setCatalogoCompras] = useState([]);
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState("");
-  const [selecionados, setSelecionados] = useState({});
-  const [salvando, setSalvando] = useState({});
-  const [loadingCatalogo, setLoadingCatalogo] = useState(false);
-  const [erroCatalogo, setErroCatalogo] = useState("");
   const [dataFiltroInicio, setDataFiltroInicio] = useState("");
   const [dataFiltroFim, setDataFiltroFim] = useState("");
-  const [mostrarListaCompras, setMostrarListaCompras] = useState(false);
-  const [tarefas, setTarefas] = useState([]);
-  const [loadingTarefas, setLoadingTarefas] = useState(false);
-  const [erroTarefas, setErroTarefas] = useState("");
-  const [mostrarTarefas, setMostrarTarefas] = useState(false);
-  const [tarefaFiltroStatus, setTarefaFiltroStatus] = useState("pendentes");
-  const [tarefaFiltroTexto, setTarefaFiltroTexto] = useState("");
-  const [tarefaFiltroInicio, setTarefaFiltroInicio] = useState("");
-  const [tarefaFiltroFim, setTarefaFiltroFim] = useState("");
-  const [tarefaFiltroDia, setTarefaFiltroDia] = useState("todos");
   const [ajusteData, setAjusteData] = useState("");
   const [ajusteDataFim, setAjusteDataFim] = useState("");
   const [ajusteTipo, setAjusteTipo] = useState("manual");
@@ -315,11 +294,44 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [ajustesLogErro, setAjustesLogErro] = useState("");
   const [mostrarAjustesLog, setMostrarAjustesLog] = useState(false);
   const [ajustesLogExcluindo, setAjustesLogExcluindo] = useState({});
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
+  const [erroUsuarios, setErroUsuarios] = useState("");
+  const [usuarioNome, setUsuarioNome] = useState("");
+  const [usuarioEmail, setUsuarioEmail] = useState("");
+  const [usuarioSenha, setUsuarioSenha] = useState("");
+  const [usuarioRole, setUsuarioRole] = useState(ROLE_FUNCIONARIO);
+  const [usuarioSalvando, setUsuarioSalvando] = useState(false);
+  const [usuarioSucesso, setUsuarioSucesso] = useState("");
+  const [jornadaSegSexHoras, setJornadaSegSexHoras] = useState("8");
+  const [jornadaSabadoHoras, setJornadaSabadoHoras] = useState("0");
+  const [escalaForm, setEscalaForm] = useState({});
+  const [jornadaSalvando, setJornadaSalvando] = useState(false);
+  const [jornadaErro, setJornadaErro] = useState("");
+  const [jornadaSucesso, setJornadaSucesso] = useState("");
+  const [locais, setLocais] = useState([]);
+  const [locaisPermitidosForm, setLocaisPermitidosForm] = useState([]);
+  const [loadingLocais, setLoadingLocais] = useState(false);
+  const [localNome, setLocalNome] = useState("");
+  const [localLatitude, setLocalLatitude] = useState("");
+  const [localLongitude, setLocalLongitude] = useState("");
+  const [localRaioMetros, setLocalRaioMetros] = useState("150");
+  const [localAtivo, setLocalAtivo] = useState(true);
+  const [localSalvando, setLocalSalvando] = useState(false);
+  const [localizandoAtual, setLocalizandoAtual] = useState(false);
+  const [locaisSalvando, setLocaisSalvando] = useState(false);
+  const [locaisErro, setLocaisErro] = useState("");
+  const [locaisSucesso, setLocaisSucesso] = useState("");
   const ajusteSectionRef = useRef(null);
+  const funcionarioAtual = useMemo(
+    () => funcionarios.find((f) => f.id === funcionarioSelecionado),
+    [funcionarios, funcionarioSelecionado]
+  );
+  const nomeFuncionario = funcionarioAtual?.nome || "";
 
   useEffect(() => {
     async function carregarFuncionarios() {
-      if (!user || user.role !== "admin") return;
+      if (!podeConsultarSistema) return;
       const lista = await listarFuncionarios();
       setFuncionarios(lista);
 
@@ -329,21 +341,46 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }
 
     carregarFuncionarios();
-  }, [user]);
+  }, [podeConsultarSistema]);
+  useEffect(() => {
+    const escalaAtual = funcionarioAtual?.escala || {};
+    const proximaEscala = {};
+
+    DIAS_ESCALA.forEach((dia) => {
+      const item = escalaAtual?.[dia];
+      proximaEscala[dia] = {
+        ativo: Boolean(item?.inicio && item?.fim),
+        inicio: item?.inicio || "",
+        fim: item?.fim || "",
+      };
+    });
+
+    setEscalaForm(proximaEscala);
+    setJornadaSegSexHoras(
+      Number.isFinite(Number(funcionarioAtual?.cargaSegSexMin))
+        ? String(Number(funcionarioAtual.cargaSegSexMin) / 60)
+        : "8"
+    );
+    setJornadaSabadoHoras(
+      Number.isFinite(Number(funcionarioAtual?.cargaSabadoMin))
+        ? String(Number(funcionarioAtual.cargaSabadoMin) / 60)
+        : "0"
+    );
+    setJornadaErro("");
+    setJornadaSucesso("");
+  }, [funcionarioAtual]);
 
   useEffect(() => {
-    if (!user || user.role !== "admin") return;
-    carregarListaCompras();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || user.role !== "admin") return;
-    carregarTarefas();
-  }, [user]);
+    setLocaisPermitidosForm(
+      Array.isArray(funcionarioAtual?.locaisPermitidos) ? funcionarioAtual.locaisPermitidos : []
+    );
+    setLocaisErro("");
+    setLocaisSucesso("");
+  }, [funcionarioAtual]);
 
   useEffect(() => {
     async function carregarAjuste() {
-      if (!user || user.role !== "admin") return;
+      if (!podeGerenciarUsuarios) return;
       setAjusteErro("");
       setAjusteSucesso("");
       if (ajusteTipo === "ferias") {
@@ -389,58 +426,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }
 
     carregarAjuste();
-  }, [ajusteData, ajusteTipo, funcionarioSelecionado, user]);
-
-  useEffect(() => {
-    async function carregarCatalogo() {
-      if (!user || user.role !== "admin") return;
-      setLoadingCatalogo(true);
-      setErroCatalogo("");
-
-      try {
-        const snap = await getDocs(collection(db, "catalogoCompras"));
-        const itens = [];
-        snap.forEach((docSnap) => {
-          const data = docSnap.data() || {};
-          itens.push({
-            id: docSnap.id,
-            nome: data.nome || docSnap.id,
-            categoria: data.categoria || "Outros",
-          });
-        });
-        setCatalogoCompras(itens);
-      } catch (error) {
-        console.error("[ADMIN][ERRO] Falha ao carregar catalogo:", error);
-        setErroCatalogo("Não foi possível carregar o catálogo.");
-      } finally {
-        setLoadingCatalogo(false);
-      }
-    }
-
-    carregarCatalogo();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || user.role !== "admin") return undefined;
-
-    const unsubscribe = onSnapshot(
-      collection(db, "listaCompras"),
-      (snapshot) => {
-        const solicitados = {};
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data() || {};
-          solicitados[docSnap.id] =
-            data.solicitado === undefined ? true : Boolean(data.solicitado);
-        });
-        setSelecionados(solicitados);
-      },
-      (error) => {
-        console.error("[ADMIN][ERRO] Falha ao observar lista:", error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
+  }, [ajusteData, ajusteTipo, funcionarioSelecionado, podeGerenciarUsuarios]);
 
   async function handleAdminLogin(event) {
     event.preventDefault();
@@ -493,191 +479,108 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     setLoading(false);
   }
 
-  async function carregarListaCompras() {
-    setLoadingCompras(true);
-    setErroCompras("");
+  const carregarLocais = useCallback(async () => {
+    if (!podeGerenciarUsuarios) return;
+
+    setLoadingLocais(true);
 
     try {
-      const snapshot = await getDocs(collection(db, "listaCompras"));
-      const itens = [];
-
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        if (data.solicitado === false || data.comprado === true) return;
-
-        itens.push({
+      const snapshot = await getDocs(collection(db, "locais"));
+      const itens = snapshot.docs
+        .map((docSnap) => ({
           id: docSnap.id,
-          nome: data.nome || docSnap.id,
-          categoria: data.categoria || "Outros",
-          solicitadoPor: data.solicitadoPor || "-",
-          solicitadoPorNome: data.solicitadoPorNome || "",
-          comprado: Boolean(data.comprado),
-        });
-      });
+          ...docSnap.data(),
+        }))
+        .sort((a, b) => (a.nome || a.id || "").localeCompare(b.nome || b.id || ""));
 
-      setListaCompras(itens);
+      setLocais(itens);
     } catch (error) {
-      console.error("[ADMIN][ERRO] Falha ao carregar lista de compras:", error);
-      setErroCompras("Não foi possível carregar a lista de compras.");
+      console.error("[ADMIN][ERRO] Falha ao carregar locais:", error);
+      setLocaisErro("Nao foi possivel carregar os locais.");
     } finally {
-      setLoadingCompras(false);
+      setLoadingLocais(false);
     }
-  }
+  }, [podeGerenciarUsuarios]);
 
-  async function carregarTarefas() {
-    setLoadingTarefas(true);
-    setErroTarefas("");
+  const carregarUsuarios = useCallback(async () => {
+    if (!podeGerenciarUsuarios) return;
+
+    setLoadingUsuarios(true);
+    setErroUsuarios("");
 
     try {
-      const snapshot = await getDocs(collection(db, "tarefas"));
-      const itens = [];
-
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        itens.push({
+      const snapshot = await getDocs(collection(db, "users"));
+      const itens = snapshot.docs
+        .map((docSnap) => ({
           id: docSnap.id,
-          titulo: data.titulo || docSnap.id,
-          diaSemana: data.diaSemana || "",
-          dataAgendada: data.dataAgendada || "",
-          concluida: Boolean(data.concluida),
-          solicitadoPor: data.solicitadoPor || null,
-          solicitadoPorNome: data.solicitadoPorNome || "",
-          criadoEm: data.criadoEm || null,
-          concluidaEm: data.concluidaEm || null,
-        });
-      });
+          ...docSnap.data(),
+        }))
+        .sort((a, b) => (a.nome || a.email || "").localeCompare(b.nome || b.email || ""));
 
-      setTarefas(itens);
+      setUsuarios(itens);
     } catch (error) {
-      console.error("[ADMIN][ERRO] Falha ao carregar tarefas:", error);
-      setErroTarefas("Não foi possível carregar as tarefas.");
+      console.error("[ADMIN][ERRO] Falha ao carregar usuarios:", error);
+      setErroUsuarios("Nao foi possivel carregar os usuarios.");
     } finally {
-      setLoadingTarefas(false);
+      setLoadingUsuarios(false);
     }
-  }
+  }, [podeGerenciarUsuarios]);
 
-  const listaComprasPorCategoria = useMemo(() => {
-    const mapa = new Map();
-    listaCompras.forEach((item) => {
-      const categoria = item.categoria || "Outros";
-      if (!mapa.has(categoria)) mapa.set(categoria, []);
-      mapa.get(categoria).push(item);
-    });
+  useEffect(() => {
+    if (!podeGerenciarUsuarios) return;
+    carregarUsuarios();
+  }, [carregarUsuarios, podeGerenciarUsuarios]);
 
-    return Array.from(mapa.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([categoria, itens]) => ({
-        categoria,
-        itens: itens.sort((a, b) => (a.nome || "").localeCompare(b.nome || "")),
-      }));
-  }, [listaCompras]);
+  useEffect(() => {
+    if (!podeGerenciarUsuarios) return;
+    carregarLocais();
+  }, [carregarLocais, podeGerenciarUsuarios]);
 
-  const catalogoPorCategoria = useMemo(() => {
-    const mapa = new Map();
-    catalogoCompras.forEach((item) => {
-      const categoria = item.categoria || "Outros";
-      if (!mapa.has(categoria)) mapa.set(categoria, []);
-      mapa.get(categoria).push(item);
-    });
+  async function handleCriarUsuario(event) {
+    event.preventDefault();
+    if (!podeGerenciarUsuarios) return;
 
-    return Array.from(mapa.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([categoria, itens]) => ({
-        categoria,
-        itens: itens.sort((a, b) => (a.nome || "").localeCompare(b.nome || "")),
-      }));
-  }, [catalogoCompras]);
+    const nome = usuarioNome.trim();
+    const email = usuarioEmail.trim().toLowerCase();
 
-  const tarefasFiltradas = useMemo(() => {
-    let lista = [...tarefas];
-
-    if (tarefaFiltroStatus === "pendentes") {
-      lista = lista.filter((item) => !item.concluida);
-    } else if (tarefaFiltroStatus === "concluidas") {
-      lista = lista.filter((item) => item.concluida);
+    if (!nome || !email || !usuarioSenha) {
+      setErroUsuarios("Preencha nome, email, senha e perfil.");
+      return;
     }
 
-    if (tarefaFiltroTexto.trim()) {
-      const termo = tarefaFiltroTexto.trim().toLowerCase();
-      lista = lista.filter((item) => {
-        const titulo = (item.titulo || "").toLowerCase();
-        const solicitante = (item.solicitadoPorNome || "").toLowerCase();
-        return titulo.includes(termo) || solicitante.includes(termo);
+    setUsuarioSalvando(true);
+    setErroUsuarios("");
+    setUsuarioSucesso("");
+
+    try {
+      await criarUsuario({
+        nome,
+        email,
+        senha: usuarioSenha,
+        role: usuarioRole,
+        criadoPor: user?.uid || null,
       });
-    }
 
-    if (tarefaFiltroDia !== "todos") {
-      lista = lista.filter((item) => (item.diaSemana || "") === tarefaFiltroDia);
-    }
-
-    if (tarefaFiltroInicio || tarefaFiltroFim) {
-      lista = lista.filter((item) => {
-        const dataISO = dataReferenciaTarefa(item);
-        if (!dataISO) return false;
-        if (tarefaFiltroInicio && dataISO < tarefaFiltroInicio) return false;
-        if (tarefaFiltroFim && dataISO > tarefaFiltroFim) return false;
-        return true;
-      });
-    }
-
-    return lista.sort((a, b) => {
-      if (a.concluida !== b.concluida) return a.concluida ? 1 : -1;
-      const dataRefA = dataReferenciaTarefa(a);
-      const dataRefB = dataReferenciaTarefa(b);
-      if (dataRefA && dataRefB && dataRefA !== dataRefB) {
-        return dataRefA.localeCompare(dataRefB);
+      setUsuarioNome("");
+      setUsuarioEmail("");
+      setUsuarioSenha("");
+      setUsuarioRole(ROLE_FUNCIONARIO);
+      setUsuarioSucesso("Usuario criado com sucesso.");
+      await carregarUsuarios();
+      if (usuarioRole === ROLE_FUNCIONARIO) {
+        const lista = await listarFuncionarios();
+        setFuncionarios(lista);
       }
-      if (dataRefA) return -1;
-      if (dataRefB) return 1;
-      const dataA = dataParaDate(a.criadoEm);
-      const dataB = dataParaDate(b.criadoEm);
-      if (dataA && dataB) return dataB.getTime() - dataA.getTime();
-      if (dataA) return -1;
-      if (dataB) return 1;
-      return (a.titulo || "").localeCompare(b.titulo || "");
-    });
-  }, [
-    tarefas,
-    tarefaFiltroStatus,
-    tarefaFiltroTexto,
-    tarefaFiltroDia,
-    tarefaFiltroInicio,
-    tarefaFiltroFim,
-  ]);
-
-  async function handleDarBaixa(item) {
-    try {
-      await updateDoc(doc(db, "listaCompras", item.id), {
-        comprado: true,
-        solicitado: false,
-      });
-      setListaCompras((prev) => prev.filter((it) => it.id !== item.id));
     } catch (error) {
-      console.error("[ADMIN][ERRO] Falha ao dar baixa no item:", error);
-      setErroCompras("Não foi possível dar baixa no item.");
-    }
-  }
-
-  async function handleConcluirTarefaAdmin(tarefa) {
-    try {
-      await updateDoc(doc(db, "tarefas", tarefa.id), {
-        concluida: true,
-        concluidaEm: serverTimestamp(),
-        concluidaPor: user?.funcionarioId || user?.uid || null,
-      });
-      setTarefas((prev) =>
-        prev.map((item) =>
-          item.id === tarefa.id ? { ...item, concluida: true, concluidaEm: new Date() } : item
-        )
-      );
-    } catch (error) {
-      console.error("[ADMIN][ERRO] Falha ao concluir tarefa:", error);
-      setErroTarefas("Não foi possível concluir a tarefa.");
+      console.error("[ADMIN][ERRO] Falha ao criar usuario:", error);
+      setErroUsuarios("Nao foi possivel criar o usuario. Verifique email/senha e tente novamente.");
+    } finally {
+      setUsuarioSalvando(false);
     }
   }
 
   const carregarAjustesLog = useCallback(async () => {
-    if (!user || user.role !== "admin") return;
+    if (!podeGerenciarUsuarios) return;
     if (!funcionarioSelecionado) return;
 
     setAjustesLogLoading(true);
@@ -712,15 +615,16 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     } finally {
       setAjustesLogLoading(false);
     }
-  }, [funcionarioSelecionado, user]);
+  }, [funcionarioSelecionado, podeGerenciarUsuarios]);
 
   useEffect(() => {
-    if (mostrarAjustesLog && funcionarioSelecionado && user?.role === "admin") {
+    if (mostrarAjustesLog && funcionarioSelecionado && podeGerenciarUsuarios) {
       carregarAjustesLog();
     }
-  }, [carregarAjustesLog, mostrarAjustesLog, funcionarioSelecionado, user]);
+  }, [carregarAjustesLog, mostrarAjustesLog, funcionarioSelecionado, podeGerenciarUsuarios]);
 
   async function handleExcluirLogAjuste(logId) {
+    if (!podeGerenciarUsuarios) return;
     if (!logId) return;
     setAjustesLogExcluindo((prev) => ({ ...prev, [logId]: true }));
     setAjustesLogErro("");
@@ -751,6 +655,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   function prepararAjusteComDia(dia) {
+    if (!podeGerenciarUsuarios) return;
     if (!dia?.dataKey) return;
     setAjusteData(dia.dataKey);
     setAjusteDataFim(dia.dataKey);
@@ -772,6 +677,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   async function excluirHorarioPorData(dataKey) {
+    if (!podeGerenciarUsuarios) return;
     if (!funcionarioSelecionado || !dataKey) return;
     const confirmar = window.confirm("Tem certeza que deseja excluir este horário?");
     if (!confirmar) return;
@@ -814,6 +720,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   async function handleSalvarAjuste() {
+    if (!podeGerenciarUsuarios) return;
     setAjusteErro("");
     setAjusteSucesso("");
 
@@ -983,6 +890,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   async function handleExcluirAjuste() {
+    if (!podeGerenciarUsuarios) return;
     setAjusteErro("");
     setAjusteSucesso("");
 
@@ -1044,68 +952,228 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }
   }
 
-  async function atualizarItem(item, marcado) {
-    const ref = doc(db, "listaCompras", item.id);
-    const payloadBase = {
-      nome: item.nome,
-      categoria: item.categoria,
-      solicitado: marcado,
-    };
+  function handleEscalaToggle(dia) {
+    setEscalaForm((prev) => ({
+      ...prev,
+      [dia]: {
+        ...prev[dia],
+        ativo: !prev?.[dia]?.ativo,
+        inicio: !prev?.[dia]?.ativo ? prev?.[dia]?.inicio || "08:00" : prev?.[dia]?.inicio || "",
+        fim: !prev?.[dia]?.ativo ? prev?.[dia]?.fim || "17:00" : prev?.[dia]?.fim || "",
+      },
+    }));
+  }
 
-    try {
-      const existente = await getDoc(ref);
+  function handleEscalaChange(dia, campo, valor) {
+    setEscalaForm((prev) => ({
+      ...prev,
+      [dia]: {
+        ...prev[dia],
+        [campo]: valor,
+      },
+    }));
+  }
 
-      if (marcado) {
-        await setDoc(
-          ref,
-          {
-            ...payloadBase,
-            comprado: false,
-            solicitadoPor: user?.funcionarioId || user?.uid || null,
-            solicitadoPorNome: user?.nome || "Anderson",
-            criadoEm: serverTimestamp(),
-          },
-          { merge: true }
-        );
+  async function handleSalvarJornada() {
+    if (!podeGerenciarUsuarios || !funcionarioSelecionado) return;
+
+    const cargaSegSexMin = Math.round(Number(jornadaSegSexHoras) * 60);
+    const cargaSabadoMin = Math.round(Number(jornadaSabadoHoras) * 60);
+
+    if (!Number.isFinite(cargaSegSexMin) || cargaSegSexMin < 0) {
+      setJornadaErro("Informe uma carga valida de segunda a sexta.");
+      return;
+    }
+
+    if (!Number.isFinite(cargaSabadoMin) || cargaSabadoMin < 0) {
+      setJornadaErro("Informe uma carga valida para sabado.");
+      return;
+    }
+
+    const escala = {};
+
+    for (const dia of DIAS_ESCALA) {
+      const item = escalaForm?.[dia];
+      if (!item?.ativo) continue;
+
+      if (!item.inicio || !item.fim) {
+        setJornadaErro(`Preencha inicio e fim para ${labelDiaSemana(dia)}.`);
         return;
       }
 
-      if (existente.exists()) {
-        await updateDoc(ref, { solicitado: false });
-      } else {
-        await setDoc(ref, payloadBase, { merge: true });
-      }
-    } catch (error) {
-      console.error("[ADMIN][ERRO] Falha ao atualizar item:", error);
-      throw error;
+      escala[dia] = {
+        inicio: item.inicio,
+        fim: item.fim,
+      };
     }
-  }
 
-  async function handleToggle(item) {
-    const atual = Boolean(selecionados[item.id]);
-    const proximo = !atual;
-
-    setSelecionados((prev) => ({ ...prev, [item.id]: proximo }));
-    setSalvando((prev) => ({ ...prev, [item.id]: true }));
+    setJornadaSalvando(true);
+    setJornadaErro("");
+    setJornadaSucesso("");
 
     try {
-      await atualizarItem(item, proximo);
-    } catch {
-      setSelecionados((prev) => ({ ...prev, [item.id]: atual }));
+      await updateDoc(doc(db, "funcionarios", funcionarioSelecionado), {
+        cargaSegSexMin,
+        cargaSabadoMin,
+        escala,
+      });
+
+      setFuncionarios((prev) =>
+        prev.map((func) =>
+          func.id === funcionarioSelecionado
+            ? {
+                ...func,
+                cargaSegSexMin,
+                cargaSabadoMin,
+                escala,
+              }
+            : func
+        )
+      );
+      setJornadaSucesso("Jornada atualizada com sucesso.");
+    } catch (error) {
+      console.error("[ADMIN][ERRO] Falha ao salvar jornada:", error);
+      setJornadaErro("Nao foi possivel salvar a jornada.");
     } finally {
-      setSalvando((prev) => ({ ...prev, [item.id]: false }));
+      setJornadaSalvando(false);
     }
   }
 
-  const funcionarioAtual = funcionarios.find((f) => f.id === funcionarioSelecionado);
-  const nomeFuncionario = funcionarioAtual?.nome || "";
-  const mapaFuncionarioNome = useMemo(() => {
-    const mapa = {};
-    funcionarios.forEach((func) => {
-      if (func?.id) mapa[func.id] = func.nome || func.id;
+  function handleToggleLocalPermitido(localId) {
+    setLocaisPermitidosForm((prev) =>
+      prev.includes(localId) ? prev.filter((item) => item !== localId) : [...prev, localId]
+    );
+  }
+
+  async function handleSalvarLocaisPermitidos() {
+    if (!podeGerenciarUsuarios || !funcionarioSelecionado) return;
+
+    setLocaisSalvando(true);
+    setLocaisErro("");
+    setLocaisSucesso("");
+
+    try {
+      await updateDoc(doc(db, "funcionarios", funcionarioSelecionado), {
+        locaisPermitidos: locaisPermitidosForm,
+      });
+
+      setFuncionarios((prev) =>
+        prev.map((func) =>
+          func.id === funcionarioSelecionado
+            ? { ...func, locaisPermitidos: [...locaisPermitidosForm] }
+            : func
+        )
+      );
+      setLocaisSucesso("Locais autorizados atualizados com sucesso.");
+    } catch (error) {
+      console.error("[ADMIN][ERRO] Falha ao salvar locais permitidos:", error);
+      setLocaisErro("Nao foi possivel salvar os locais autorizados.");
+    } finally {
+      setLocaisSalvando(false);
+    }
+  }
+
+  async function handleCriarLocal() {
+    if (!podeGerenciarUsuarios) return;
+
+    const nome = localNome.trim();
+    const latitude = Number(String(localLatitude).replace(",", "."));
+    const longitude = Number(String(localLongitude).replace(",", "."));
+    const raioMetros = Number(String(localRaioMetros).replace(",", "."));
+
+    if (!nome) {
+      setLocaisErro("Informe o nome do local.");
+      return;
+    }
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setLocaisErro("Informe latitude e longitude validas.");
+      return;
+    }
+
+    if (!Number.isFinite(raioMetros) || raioMetros <= 0) {
+      setLocaisErro("Informe um raio valido em metros.");
+      return;
+    }
+
+    setLocalSalvando(true);
+    setLocaisErro("");
+    setLocaisSucesso("");
+
+    try {
+      await addDoc(collection(db, "locais"), {
+        nome,
+        ativo: Boolean(localAtivo),
+        raioMetros,
+        localizacao: {
+          latitude,
+          longitude,
+        },
+        criadoEm: serverTimestamp(),
+        criadoPor: user?.uid || null,
+      });
+
+      setLocalNome("");
+      setLocalLatitude("");
+      setLocalLongitude("");
+      setLocalRaioMetros("150");
+      setLocalAtivo(true);
+      setLocaisSucesso("Local criado com sucesso.");
+      await carregarLocais();
+    } catch (error) {
+      console.error("[ADMIN][ERRO] Falha ao criar local:", error);
+      setLocaisErro("Nao foi possivel criar o local.");
+    } finally {
+      setLocalSalvando(false);
+    }
+  }
+
+  function obterPosicaoAtualAdmin() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocalizacao indisponivel neste dispositivo."));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          if (error.code === 1) {
+            reject(new Error("Permissao de localizacao negada."));
+            return;
+          }
+
+          reject(new Error("Nao foi possivel obter a localizacao atual."));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        }
+      );
     });
-    return mapa;
-  }, [funcionarios]);
+  }
+
+  async function handleUsarLocalizacaoAtual() {
+    setLocalizandoAtual(true);
+    setLocaisErro("");
+    setLocaisSucesso("");
+
+    try {
+      const posicao = await obterPosicaoAtualAdmin();
+      setLocalLatitude(String(posicao.latitude.toFixed(6)));
+      setLocalLongitude(String(posicao.longitude.toFixed(6)));
+      setLocaisSucesso("Localizacao atual preenchida com sucesso.");
+    } catch (error) {
+      setLocaisErro(error?.message || "Nao foi possivel capturar a localizacao atual.");
+    } finally {
+      setLocalizandoAtual(false);
+    }
+  }
 
   const { dataInicio, dataFim } = mesSelecionado
     ? calcularPeriodo(mesSelecionado)
@@ -1208,23 +1276,26 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     );
   }
 
-  if (user?.role !== "admin") {
+  if (!podeConsultarSistema) {
     return (
       <div className="page-bg admin-bg">
         <main className="page-shell admin-shell">
           <header className="admin-header">
             <h1>Dashboard Admin</h1>
           </header>
-          <p className="text-muted">Acesso restrito ao time administrativo.</p>
-          <button type="button" className="btn btn-secondary" onClick={() => onNavigate && onNavigate("/ponto")}
+          <p className="text-muted">Acesso restrito ao time administrativo e consulta.</p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => onNavigate && onNavigate("/tarefas")}
           >
-            Voltar para Ponto
+            Ir para Tarefas
           </button>
           <button type="button" className="btn btn-muted" onClick={logout}>
             Sair
           </button>
         </main>
-        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
       </div>
     );
   }
@@ -1236,7 +1307,92 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           <h1>Dashboard Admin</h1>
         </header>
 
-        <p className="admin-ola">Olá, {user.nome}</p>
+        <p className="admin-ola">
+          Ola, {user.nome} {user.role === ROLE_CONSULTA ? "(Consulta)" : ""}
+        </p>
+
+        {podeGerenciarUsuarios && (
+          <section className="admin-section">
+            <div className="section-header">
+              <h2>Usuarios</h2>
+              <span className="section-sub">Crie acessos para admin, funcionario e consulta</span>
+            </div>
+
+            <form className="card filtros-card" onSubmit={handleCriarUsuario}>
+              <label className="field">
+                <span>Nome</span>
+                <input
+                  type="text"
+                  value={usuarioNome}
+                  onChange={(event) => setUsuarioNome(event.target.value)}
+                  placeholder="Nome completo"
+                />
+              </label>
+
+              <label className="field">
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={usuarioEmail}
+                  onChange={(event) => setUsuarioEmail(event.target.value)}
+                  placeholder="email@empresa.com"
+                />
+              </label>
+
+              <label className="field">
+                <span>Senha</span>
+                <input
+                  type="password"
+                  value={usuarioSenha}
+                  onChange={(event) => setUsuarioSenha(event.target.value)}
+                  placeholder="Minimo 6 caracteres"
+                />
+              </label>
+
+              <label className="field">
+                <span>Perfil</span>
+                <select value={usuarioRole} onChange={(event) => setUsuarioRole(event.target.value)}>
+                  <option value={ROLE_ADMIN}>{ROLE_LABELS[ROLE_ADMIN]}</option>
+                  <option value={ROLE_FUNCIONARIO}>{ROLE_LABELS[ROLE_FUNCIONARIO]}</option>
+                  <option value={ROLE_CONSULTA}>{ROLE_LABELS[ROLE_CONSULTA]}</option>
+                </select>
+              </label>
+
+              <button type="submit" className="btn btn-primary" disabled={usuarioSalvando}>
+                {usuarioSalvando ? "Criando..." : "Criar usuario"}
+              </button>
+            </form>
+
+            {erroUsuarios && <p className="mensagem erro">{erroUsuarios}</p>}
+            {usuarioSucesso && <p className="mensagem">{usuarioSucesso}</p>}
+
+            <div className="card tarefas-lista">
+              <h2>Usuarios cadastrados</h2>
+              {loadingUsuarios && <p className="text-muted">Carregando usuarios...</p>}
+              {!loadingUsuarios && usuarios.length === 0 && (
+                <p className="text-muted">Nenhum usuario encontrado.</p>
+              )}
+              {!loadingUsuarios && usuarios.length > 0 && (
+                <div className="tarefas-itens">
+                  {usuarios.map((item) => (
+                    <div key={item.id} className="tarefas-item">
+                      <div>
+                        <strong>{item.nome || item.email || item.id}</strong>
+                        <span className="tarefas-por">{item.email || "-"}</span>
+                        <span className="tarefas-por">
+                          Perfil: {ROLE_LABELS[item.role] || item.role || "-"}
+                        </span>
+                        {item.funcionarioId && (
+                          <span className="tarefas-por">Funcionario ID: {item.funcionarioId}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="admin-section">
           <div className="section-header">
@@ -1289,14 +1445,18 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             </article>
           </div>
 
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => exportarPdfPonto(funcionarioSelecionado, nomeFuncionario, dataInicio, dataFim)}
-            disabled={!funcionarioSelecionado || !mesSelecionado}
-          >
-            Exportar PDF
-          </button>
+          {podeGerenciarUsuarios && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() =>
+                exportarPdfPonto(funcionarioSelecionado, nomeFuncionario, dataInicio, dataFim)
+              }
+              disabled={!funcionarioSelecionado || !mesSelecionado}
+            >
+              Exportar PDF
+            </button>
+          )}
 
           <div className="card ultima-acao">
             <span className="text-muted">Última ação da funcionária</span>
@@ -1355,24 +1515,26 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                       {formatMinutos(dia?.ajusteTipo === "saida_mais_cedo" ? 0 : dia.saldoMin || 0)}
                     </span>
                   </div>
-                  <div className="detalhe-actions">
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => prepararAjusteComDia(dia)}
-                      disabled={ajusteLoading}
-                    >
-                      Editar horário
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      onClick={() => excluirHorarioPorData(dia.dataKey)}
-                      disabled={ajusteLoading}
-                    >
-                      Excluir horário
-                    </button>
-                  </div>
+                  {podeGerenciarUsuarios && (
+                    <div className="detalhe-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => prepararAjusteComDia(dia)}
+                        disabled={ajusteLoading}
+                      >
+                        Editar horario
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => excluirHorarioPorData(dia.dataKey)}
+                        disabled={ajusteLoading}
+                      >
+                        Excluir horario
+                      </button>
+                    </div>
+                  )}
                 </section>
               ))}
             </div>
@@ -1383,7 +1545,202 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           )}
         </section>
 
-        <section className="admin-section ajustes-section" ref={ajusteSectionRef}>
+        {podeGerenciarUsuarios && funcionarioAtual && (
+          <section className="admin-section">
+            <div className="section-header">
+              <h2>Jornada de Trabalho</h2>
+              <span className="section-sub">Defina carga horaria e escala de {nomeFuncionario}</span>
+            </div>
+
+            <div className="card jornada-card">
+              <div className="jornada-cargas">
+                <label className="field">
+                  <span>Carga seg-sex (horas)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={jornadaSegSexHoras}
+                    onChange={(event) => setJornadaSegSexHoras(event.target.value)}
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Carga sabado (horas)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={jornadaSabadoHoras}
+                    onChange={(event) => setJornadaSabadoHoras(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="jornada-escala">
+                {DIAS_ESCALA.map((dia) => (
+                  <div key={dia} className="jornada-dia">
+                    <label className="jornada-dia-header">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(escalaForm?.[dia]?.ativo)}
+                        onChange={() => handleEscalaToggle(dia)}
+                      />
+                      <span>{labelDiaSemana(dia)}</span>
+                    </label>
+
+                    <div className="jornada-horarios">
+                      <input
+                        type="time"
+                        value={escalaForm?.[dia]?.inicio || ""}
+                        onChange={(event) => handleEscalaChange(dia, "inicio", event.target.value)}
+                        disabled={!escalaForm?.[dia]?.ativo}
+                      />
+                      <input
+                        type="time"
+                        value={escalaForm?.[dia]?.fim || ""}
+                        onChange={(event) => handleEscalaChange(dia, "fim", event.target.value)}
+                        disabled={!escalaForm?.[dia]?.ativo}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSalvarJornada}
+                disabled={jornadaSalvando}
+              >
+                {jornadaSalvando ? "Salvando..." : "Salvar jornada"}
+              </button>
+
+              {jornadaErro && <p className="mensagem erro">{jornadaErro}</p>}
+              {jornadaSucesso && <p className="mensagem">{jornadaSucesso}</p>}
+            </div>
+          </section>
+        )}
+
+        {podeGerenciarUsuarios && funcionarioAtual && (
+          <section className="admin-section">
+            <div className="section-header">
+              <h2>Locais Autorizados</h2>
+              <span className="section-sub">Defina onde {nomeFuncionario} pode bater o ponto</span>
+            </div>
+
+            <div className="card locais-card">
+              <div className="locais-form-grid">
+                <label className="field">
+                  <span>Nome do local</span>
+                  <input
+                    type="text"
+                    value={localNome}
+                    onChange={(event) => setLocalNome(event.target.value)}
+                    placeholder="Ex: Loja Centro"
+                  />
+                </label>
+                <label className="field">
+                  <span>Latitude</span>
+                  <input
+                    type="text"
+                    value={localLatitude}
+                    onChange={(event) => setLocalLatitude(event.target.value)}
+                    placeholder="-3.731862"
+                  />
+                </label>
+                <label className="field">
+                  <span>Longitude</span>
+                  <input
+                    type="text"
+                    value={localLongitude}
+                    onChange={(event) => setLocalLongitude(event.target.value)}
+                    placeholder="-38.526669"
+                  />
+                </label>
+                <label className="field">
+                  <span>Raio em metros</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={localRaioMetros}
+                    onChange={(event) => setLocalRaioMetros(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="locais-form-actions">
+                <button
+                  type="button"
+                  className="btn btn-muted"
+                  onClick={handleUsarLocalizacaoAtual}
+                  disabled={localizandoAtual}
+                >
+                  {localizandoAtual ? "Capturando localizacao..." : "Usar minha localizacao atual"}
+                </button>
+              </div>
+
+              <label className="jornada-dia-header">
+                <input
+                  type="checkbox"
+                  checked={localAtivo}
+                  onChange={(event) => setLocalAtivo(event.target.checked)}
+                />
+                <span>Local ativo para validacao</span>
+              </label>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCriarLocal}
+                disabled={localSalvando}
+              >
+                {localSalvando ? "Salvando local..." : "Cadastrar local"}
+              </button>
+
+              <div className="locais-lista">
+                {loadingLocais && <p className="text-muted">Carregando locais...</p>}
+                {!loadingLocais && locais.length === 0 && (
+                  <p className="text-muted">Nenhum local cadastrado ainda.</p>
+                )}
+                {!loadingLocais &&
+                  locais.map((local) => (
+                    <label key={local.id} className="item-checkbox local-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={locaisPermitidosForm.includes(local.id)}
+                        onChange={() => handleToggleLocalPermitido(local.id)}
+                      />
+                      <span className="check-custom" aria-hidden="true" />
+                      <span className="item-nome">
+                        {local.nome || local.id}
+                        <span className="local-meta">
+                          {local?.localizacao?.latitude}, {local?.localizacao?.longitude} • raio{" "}
+                          {local?.raioMetros || 0}m • {local?.ativo ? "ativo" : "inativo"}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSalvarLocaisPermitidos}
+                disabled={locaisSalvando}
+              >
+                {locaisSalvando ? "Salvando..." : "Salvar locais autorizados"}
+              </button>
+
+              {locaisErro && <p className="mensagem erro">{locaisErro}</p>}
+              {locaisSucesso && <p className="mensagem">{locaisSucesso}</p>}
+            </div>
+          </section>
+        )}
+
+        {podeGerenciarUsuarios && (
+          <section className="admin-section ajustes-section" ref={ajusteSectionRef}>
           <div className="section-header">
             <h2>CRUD de Horários</h2>
             <span className="section-sub">Edite horários quando a funcionária esquecer ou registrar errado</span>
@@ -1586,274 +1943,15 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
               )}
             </div>
           )}
-        </section>
-
-        <section className="admin-section compras-section">
-          <button
-            type="button"
-            className="card compras-toggle"
-            onClick={() => setMostrarListaCompras((prev) => !prev)}
-          >
-            <span>Lista de Compras</span>
-            <span className="toggle-indicator">{mostrarListaCompras ? "^" : "v"}</span>
-          </button>
-
-          {mostrarListaCompras && (
-            <div className="compras-acoes">
-              <button type="button" className="btn btn-success" onClick={carregarListaCompras}>
-                Atualizar
-              </button>
-              <button type="button" className="btn btn-danger" onClick={exportarPdfListaCompras}>
-                Exportar PDF
-              </button>
-            </div>
-          )}
-
-          {mostrarListaCompras && loadingCompras && <p className="text-muted">Carregando lista...</p>}
-          {mostrarListaCompras && erroCompras && <p className="mensagem erro">{erroCompras}</p>}
-
-          {mostrarListaCompras &&
-            !loadingCompras &&
-            listaComprasPorCategoria.map((grupo) => (
-              <div key={grupo.categoria} className="card compras-categoria">
-                <h3>{grupo.categoria}</h3>
-                <div className="compras-itens">
-                  {grupo.itens.map((item) => (
-                    <div key={item.id} className="compras-item">
-                      <div>
-                        <strong>{item.nome}</strong>
-                        <span className="compras-por">
-                          Solicitado por:{" "}
-                          {item.solicitadoPorNome ||
-                            mapaFuncionarioNome[item.solicitadoPor] ||
-                            item.solicitadoPor}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="compras-status pendente"
-                        onClick={() => handleDarBaixa(item)}
-                      >
-                        PENDENTE
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-          <div className="card catalogo-card">
-            <div className="section-header">
-              <h3>Catálogo de Compras</h3>
-            </div>
-
-            {loadingCatalogo && <p className="text-muted">Carregando catálogo...</p>}
-            {erroCatalogo && <p className="mensagem erro">{erroCatalogo}</p>}
-
-            {!loadingCatalogo && catalogoPorCategoria.length > 0 && (
-              <label className="field">
-                <span>Categoria</span>
-                <select
-                  value={categoriaSelecionada}
-                  onChange={(e) => setCategoriaSelecionada(e.target.value)}
-                >
-                  <option value="">Selecione uma categoria</option>
-                  {catalogoPorCategoria.map((grupo) => (
-                    <option key={grupo.categoria} value={grupo.categoria}>
-                      {grupo.categoria}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            {!loadingCatalogo &&
-              categoriaSelecionada !== "" &&
-              catalogoPorCategoria
-                .filter((grupo) => grupo.categoria === categoriaSelecionada)
-                .map((grupo) => (
-                  <div key={grupo.categoria} className="categoria-card">
-                    <h4>{grupo.categoria}</h4>
-                    <div className="itens-lista">
-                      {grupo.itens.map((item) => (
-                        <label key={item.id} className="item-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(selecionados[item.id])}
-                            onChange={() => handleToggle(item)}
-                            disabled={Boolean(salvando[item.id])}
-                          />
-                          <span className="check-custom" aria-hidden="true" />
-                          <span className="item-nome">{item.nome}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}</div>
-        </section>
-
-        <section className="admin-section tarefas-section">
-          <button
-            type="button"
-            className="card tarefas-toggle"
-            onClick={() => setMostrarTarefas((prev) => !prev)}
-          >
-            <span>Tarefas</span>
-            <span className="toggle-indicator">{mostrarTarefas ? "^" : "v"}</span>
-          </button>
-
-          {mostrarTarefas && (
-            <div className="tarefas-acoes">
-              <button type="button" className="btn btn-success" onClick={carregarTarefas}>
-                Atualizar
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => exportarPdfTarefas(tarefasFiltradas)}
-              >
-                Exportar PDF
-              </button>
-            </div>
-          )}
-
-          {mostrarTarefas && (
-            <div className="card tarefas-filtros">
-              <label className="field">
-                <span>Status</span>
-                <select
-                  value={tarefaFiltroStatus}
-                  onChange={(e) => setTarefaFiltroStatus(e.target.value)}
-                >
-                  <option value="pendentes">Pendentes</option>
-                  <option value="concluidas">Concluídas</option>
-                  <option value="todas">Todas</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>Pesquisar</span>
-                <input
-                  type="text"
-                  value={tarefaFiltroTexto}
-                  onChange={(e) => setTarefaFiltroTexto(e.target.value)}
-                  placeholder="Buscar por tarefa ou solicitante"
-                />
-              </label>
-              <label className="field">
-                <span>Dia</span>
-                <select
-                  value={tarefaFiltroDia}
-                  onChange={(e) => setTarefaFiltroDia(e.target.value)}
-                >
-                  <option value="todos">Todos</option>
-                  <option value="segunda">Segunda</option>
-                  <option value="terca">Terça</option>
-                  <option value="quarta">Quarta</option>
-                  <option value="quinta">Quinta</option>
-                  <option value="sexta">Sexta</option>
-                  <option value="sabado">Sábado</option>
-                  <option value="domingo">Domingo</option>
-                </select>
-              </label>
-              <div className="tarefas-filtros-datas">
-                <label className="field">
-                  <span>De</span>
-                  <input
-                    type="date"
-                    value={tarefaFiltroInicio}
-                    onChange={(e) => setTarefaFiltroInicio(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Até</span>
-                  <input
-                    type="date"
-                    value={tarefaFiltroFim}
-                    onChange={(e) => setTarefaFiltroFim(e.target.value)}
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-
-          {mostrarTarefas && loadingTarefas && (
-            <p className="text-muted">Carregando tarefas...</p>
-          )}
-          {mostrarTarefas && erroTarefas && (
-            <p className="mensagem erro">{erroTarefas}</p>
-          )}
-
-          {mostrarTarefas && !loadingTarefas && (
-            <div className="card tarefas-lista">
-              <h2>Resultados</h2>
-              {tarefasFiltradas.length === 0 && (
-                <p className="text-muted">Nenhuma tarefa encontrada.</p>
-              )}
-              {tarefasFiltradas.length > 0 && (
-                <div className="tarefas-itens">
-                  {tarefasFiltradas.map((tarefa) => (
-                    <div key={tarefa.id} className="tarefas-item">
-                      <div>
-                        <strong>{tarefa.titulo}</strong>
-                        {tarefa.dataAgendada && (
-                          <span className="tarefas-por">
-                            Agendada para: {formatarDataBr(tarefa.dataAgendada)}
-                          </span>
-                        )}
-                        {tarefa.diaSemana && (
-                          <span className="tarefas-por">
-                            Dia:{" "}
-                            <span className="tarefas-dia-selecionado">
-                              {labelDiaSemana(tarefa.diaSemana)}
-                            </span>
-                          </span>
-                        )}
-                        {tarefa.solicitadoPorNome && (
-                          <span className="tarefas-por">
-                            Solicitado por: {tarefa.solicitadoPorNome}
-                          </span>
-                        )}
-                        <span className="tarefas-por">
-                          Criada: {formatarDataHora(tarefa.criadoEm)}
-                        </span>
-                        {tarefa.concluida && (
-                          <span className="tarefas-por">
-                            Concluída: {formatarDataHora(tarefa.concluidaEm)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="tarefas-item-acoes">
-                        <span
-                          className={`tarefas-status ${
-                            tarefa.concluida ? "concluida" : "pendente"
-                          }`}
-                        >
-                          {tarefa.concluida ? "Concluída" : "Pendente"}
-                        </span>
-                        {!tarefa.concluida && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary tarefas-concluir"
-                            onClick={() => handleConcluirTarefaAdmin(tarefa)}
-                          >
-                            Concluir
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+          </section>
+        )}
 
         <button type="button" className="btn btn-muted" onClick={logout}>
           Sair
         </button>
       </main>
 
-      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
     </div>
   );
 }

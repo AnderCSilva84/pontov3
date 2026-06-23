@@ -144,9 +144,91 @@
   gap: 10px;
 }
 
-.ajustes-section,
-.compras-section,
-.tarefas-section {
+.jornada-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.locais-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.jornada-cargas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.locais-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.locais-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.jornada-escala {
+  display: grid;
+  gap: 10px;
+}
+
+.jornada-dia {
+  display: grid;
+  grid-template-columns: minmax(130px, 180px) 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #f8f2e8;
+  border: 1px solid rgba(108, 84, 46, 0.08);
+}
+
+.jornada-dia-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.jornada-dia-header input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.jornada-horarios {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.locais-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.local-checkbox {
+  align-items: flex-start;
+}
+
+.local-meta {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ajustes-section {
   margin-top: 6px;
   border-top: 1px solid rgba(108, 84, 46, 0.08);
   padding-top: 18px;
@@ -175,9 +257,7 @@
   gap: 10px;
 }
 
-.ajustes-toggle,
-.compras-toggle,
-.tarefas-toggle {
+.ajustes-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -193,14 +273,6 @@
   color: #447a93;
 }
 
-.compras-toggle {
-  color: #ba5e4d;
-}
-
-.tarefas-toggle {
-  color: #c87b1f;
-}
-
 .toggle-indicator {
   font-size: 0.88rem;
   color: var(--text-soft);
@@ -213,8 +285,7 @@
   gap: 10px;
 }
 
-.ajustes-log-item,
-.compras-item {
+.ajustes-log-item {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -225,23 +296,20 @@
   border: 1px solid rgba(108, 84, 46, 0.08);
 }
 
-.ajustes-log-item strong,
-.compras-item strong {
+.ajustes-log-item strong {
   display: block;
   color: var(--text-main);
   font-size: 0.98rem;
 }
 
-.ajustes-log-meta,
-.compras-por {
+.ajustes-log-meta {
   display: block;
   margin-top: 4px;
   color: var(--text-muted);
   font-size: 0.85rem;
 }
 
-.ajustes-log-excluir,
-.tarefas-concluir {
+.ajustes-log-excluir {
   width: auto;
   min-height: 40px;
   padding: 8px 14px;
@@ -281,142 +349,19 @@
   flex-wrap: wrap;
 }
 
-.compras-acoes,
-.tarefas-acoes {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.compras-categoria h3,
-.categoria-card h4 {
-  margin: 0 0 10px;
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6f5f4b;
-}
-
-.compras-itens {
-  display: grid;
-  gap: 10px;
-}
-
-.compras-status {
-  padding: 7px 12px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border: 1px solid rgba(200, 123, 31, 0.24);
-  background: rgba(200, 123, 31, 0.12);
-  color: #a5651d;
-  cursor: pointer;
-}
-
-.catalogo-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.itens-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.item-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: #f8f2e8;
-  border: 1px solid rgba(108, 84, 46, 0.08);
-  cursor: pointer;
-  position: relative;
-  width: 100%;
-}
-
-.item-checkbox input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.check-custom {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  border: 2px solid rgba(108, 84, 46, 0.26);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.7);
-  transition: all 0.2s ease;
-}
-
-.item-checkbox input:checked + .check-custom {
-  border-color: #4b8f67;
-  background: #4b8f67;
-  box-shadow: 0 0 0 5px rgba(75, 143, 103, 0.1);
-}
-
-.item-checkbox input:checked + .check-custom::after {
-  content: "";
-  width: 10px;
-  height: 6px;
-  border-left: 3px solid #fffdf9;
-  border-bottom: 3px solid #fffdf9;
-  transform: rotate(-45deg);
-  margin-top: -2px;
-}
-
-.item-nome {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-main);
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: break-word;
-  line-height: 1.2;
-  flex: 1;
-  min-width: 0;
-}
-
-.tarefas-filtros {
-  display: grid;
-  gap: 12px;
-}
-
-.tarefas-filtros-datas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.tarefas-item-acoes {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
 @media (max-width: 420px) {
   .resumo-grid,
+  .jornada-cargas,
+  .locais-form-grid,
   .filtros-data,
   .ajuste-grid,
-  .ajuste-horarios,
-  .tarefas-filtros-datas {
+  .ajuste-horarios {
     grid-template-columns: 1fr;
   }
 
-  .tarefas-item-acoes {
-    width: 100%;
-    align-items: flex-start;
+  .jornada-dia,
+  .jornada-horarios {
+    grid-template-columns: 1fr;
   }
 
   .section-header {
@@ -444,10 +389,5 @@
 
   .detalhes-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .tarefas-filtros {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: end;
   }
 }

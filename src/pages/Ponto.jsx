@@ -12,6 +12,7 @@ import { collection, doc, getDoc, onSnapshot, serverTimestamp, updateDoc } from 
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import logoAp1303 from "../assets/ap1303.jpeg";
+import { canAccessPonto } from "../utils/roles";
 import "../styles/funcionaria.css";
 import "../styles/tarefas.css";
 import "../styles/nav.css";
@@ -283,6 +284,7 @@ function formatMinutosComSinal(min) {
 }
 
 export default function Ponto({ user, onNavigate, rotaAtual }) {
+  const podeAcessarPonto = canAccessPonto(user);
   const [dia, setDia] = useState(null);
   const [mensagem, setMensagem] = useState("");
   const [loading, setLoading] = useState(false);
@@ -303,7 +305,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [alertaNovaTarefa, setAlertaNovaTarefa] = useState(false);
   const [quantidadeNovasTarefas, setQuantidadeNovasTarefas] = useState(0);
   const tarefasCountRef = useRef(null);
-  const funcionarioId = user?.funcionarioId || user?.uid;
+  const funcionarioId = podeAcessarPonto ? user?.funcionarioId || user?.uid : "";
   const usuarioSemLogin = !funcionarioId;
   const nomeExibicao = "Joseane Santos";
 
@@ -722,6 +724,38 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     }
   }
 
+  if (user && !podeAcessarPonto) {
+    return (
+      <div className="page-bg page-ponto">
+        <main className="page-shell">
+          <header className="ponto-header page-header">
+            <div className="page-title-row">
+              <img className="ponto-logo" src={logoAp1303} alt="AP1303" />
+            </div>
+            <p className="page-subtitle">Registro de ponto</p>
+          </header>
+
+          <section className="card status-card">
+            <h2>Acesso restrito</h2>
+            <p className="text-muted">
+              O perfil consulta nao possui acesso ao ponto. Use o painel Admin para consultar as
+              informacoes do sistema.
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => onNavigate && onNavigate("/admin")}
+            >
+              Ir para Admin
+            </button>
+          </section>
+        </main>
+
+        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
+      </div>
+    );
+  }
+
   return (
     <div className="page-bg page-ponto">
       <main className="page-shell">
@@ -925,7 +959,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         )}
       </main>
 
-      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
     </div>
   );
 }

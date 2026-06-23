@@ -2,8 +2,105 @@
   gap: 18px;
 }
 
+.compras-header {
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 5;
+  padding: 12px 0 2px;
+  backdrop-filter: blur(10px);
+}
+
 .page-header h1 {
   text-align: left;
+}
+
+.compras-modo-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 8px;
+}
+
+.modo-chip {
+  min-height: 52px;
+  border: none;
+  border-radius: 18px;
+  background: #efe7da;
+  color: var(--text-muted);
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.modo-chip.active {
+  background: linear-gradient(135deg, #1d8f77 0%, #4bb59c 100%);
+  color: #fbfffd;
+  box-shadow: 0 14px 28px rgba(29, 143, 119, 0.18);
+}
+
+.compras-resumo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.compras-resumo > div {
+  padding: 14px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 250, 245, 0.92));
+  border: 1px solid rgba(29, 143, 119, 0.12);
+  text-align: center;
+}
+
+.compras-resumo strong {
+  display: block;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  margin-top: 6px;
+}
+
+.compras-resumo-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.compras-toolbar {
+  display: grid;
+  gap: 14px;
+}
+
+.compras-filtro-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.filtro-tab {
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid rgba(108, 84, 46, 0.12);
+  background: #f6efe4;
+  color: var(--text-muted);
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.filtro-tab.active {
+  background: #1d8f77;
+  color: #f9fffc;
+  border-color: #1d8f77;
+  box-shadow: 0 10px 24px rgba(29, 143, 119, 0.18);
+}
+
+.busca-field span {
+  display: block;
+  margin-bottom: 6px;
 }
 
 .btn-add-item {
@@ -35,6 +132,27 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #685843;
+}
+
+.compras-categoria-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.compras-categoria-head h2 {
+  margin: 0;
+}
+
+.compras-categoria-head span {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: #1d8f77;
+  background: rgba(29, 143, 119, 0.1);
+  padding: 8px 10px;
+  border-radius: 999px;
 }
 
 .itens-lista {
@@ -102,6 +220,90 @@
   min-width: 0;
 }
 
+.compras-categoria-mercado {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 251, 248, 0.98));
+}
+
+.compras-mercado-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compra-mercado-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(29, 143, 119, 0.12);
+}
+
+.compra-mercado-item.pendente {
+  background: linear-gradient(180deg, #fffdf9 0%, #f1fbf6 100%);
+}
+
+.compra-mercado-item.comprado {
+  background: linear-gradient(180deg, #f3f0e8 0%, #ece6d9 100%);
+  opacity: 0.88;
+}
+
+.compra-mercado-info {
+  min-width: 0;
+}
+
+.compra-mercado-info strong {
+  display: block;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.compra-mercado-info span {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.compra-mercado-acao {
+  min-width: 112px;
+  min-height: 60px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 18px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+.compra-mercado-acao.confirmar {
+  background: linear-gradient(135deg, #2f9e6b 0%, #59bc88 100%);
+  color: #fbfffd;
+  box-shadow: 0 14px 28px rgba(47, 158, 107, 0.18);
+}
+
+.compra-mercado-acao.desfazer {
+  background: #ede4d8;
+  color: #665541;
+  border: 1px solid rgba(108, 84, 46, 0.16);
+}
+
+.compra-mercado-acao:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.01);
+}
+
+.compras-vazio {
+  text-align: left;
+}
+
+.compras-vazio h2 {
+  margin: 0 0 8px;
+}
+
 @media (max-width: 420px) {
   .btn-add-item {
     font-size: 0.98rem;
@@ -109,5 +311,21 @@
 
   .add-item-actions {
     grid-template-columns: 1fr;
+  }
+
+  .compras-resumo {
+    grid-template-columns: 1fr;
+  }
+
+  .compras-filtro-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .compra-mercado-item {
+    grid-template-columns: 1fr;
+  }
+
+  .compra-mercado-acao {
+    width: 100%;
   }
 }

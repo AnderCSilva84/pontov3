@@ -1,4 +1,6 @@
-﻿export default function BottomNav({ activePath, onNavigate }) {
+import { ROLE_CONSULTA } from "../utils/roles";
+
+export default function BottomNav({ activePath, onNavigate, user }) {
   const themeClass =
     activePath === "/lista-compras"
       ? "theme-compras"
@@ -53,9 +55,12 @@
     },
   ];
 
+  const tabsVisiveis =
+    user?.role === ROLE_CONSULTA ? tabs.filter((tab) => tab.path !== "/ponto") : tabs;
+
   return (
     <nav className={`bottom-nav ${themeClass}`} aria-label="Navegação principal">
-      {tabs.map((tab) => (
+      {tabsVisiveis.map((tab) => (
         <button
           key={tab.path}
           type="button"

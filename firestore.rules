@@ -107,8 +107,7 @@ service cloud.firestore {
         (isAdmin() || request.resource.data.solicitadoPor == myFuncionarioId());
 
       // funcionária pode marcar solicitado / admin pode atualizar tudo
-      allow update: if signedIn() &&
-        (isAdmin() || resource.data.solicitadoPor == myFuncionarioId());
+      allow update: if signedIn();
 
       // apenas admin pode apagar
       allow delete: if isAdmin();

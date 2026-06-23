@@ -9,10 +9,13 @@ import {
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
+import { canCreateTasks, ROLE_ADMIN } from "../utils/roles";
 import "../styles/tarefas.css";
 import "../styles/nav.css";
 
 export default function Tarefas({ user, onNavigate, rotaAtual }) {
+  const podeCriarTarefas = canCreateTasks(user);
+  const podeConcluirTarefas = user?.role === ROLE_ADMIN;
   const [novaTarefa, setNovaTarefa] = useState("");
   const [dataAgendada, setDataAgendada] = useState(dataISOHoje());
   const [tarefas, setTarefas] = useState([]);
@@ -60,7 +63,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
   }
 
   useEffect(() => {
-    if (!user || user.role !== "admin") {
+    if (!podeCriarTarefas) {
       setLoading(false);
       return undefined;
     }
@@ -100,10 +103,10 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [podeCriarTarefas]);
 
   async function handleAdicionarTarefa() {
-    if (!user || user.role !== "admin") {
+    if (!podeCriarTarefas) {
       setErro("Acesso restrito.");
       return;
     }
@@ -121,7 +124,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
         concluida: false,
         criadoEm: serverTimestamp(),
         solicitadoPor: user?.funcionarioId || user?.uid || null,
-        solicitadoPorNome: user?.nome || "Admin",
+        solicitadoPorNome: user?.nome || "Consulta",
       });
       setNovaTarefa("");
       setDataAgendada(dataISOHoje());
@@ -166,12 +169,12 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
           <p className="text-muted">Faça login no Admin para cadastrar tarefas.</p>
         </main>
 
-        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
       </div>
     );
   }
 
-  if (user?.role !== "admin") {
+  if (!podeCriarTarefas) {
     return (
       <div className="page-bg page-tarefas">
         <main className="page-shell tarefas-shell">
@@ -189,14 +192,17 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
             <p className="page-subtitle">Acesso restrito</p>
           </header>
 
-          <p className="text-muted">Apenas o admin pode cadastrar tarefas.</p>
-          <button type="button" className="btn btn-secondary" onClick={() => onNavigate && onNavigate("/ponto")}
+          <p className="text-muted">Apenas admin e consulta podem acessar tarefas.</p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => onNavigate && onNavigate("/admin")}
           >
-            Voltar para Ponto
+            Voltar para Admin
           </button>
         </main>
 
-        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
       </div>
     );
   }
@@ -215,7 +221,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
             </span>
             <h1>Tarefas</h1>
           </div>
-          <p className="page-subtitle">Solicitar atividades para a funcionária</p>
+          <p className="page-subtitle">Solicitar atividades para a funcionaria</p>
         </header>
 
         <section className="card tarefas-card">
@@ -277,13 +283,15 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
                       <span className="tarefas-por">Solicitado por: {tarefa.solicitadoPorNome}</span>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary tarefas-concluir"
-                    onClick={() => handleConcluirTarefa(tarefa.id)}
-                  >
-                    Concluir
-                  </button>
+                  {podeConcluirTarefas && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary tarefas-concluir"
+                      onClick={() => handleConcluirTarefa(tarefa.id)}
+                    >
+                      Concluir
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -291,7 +299,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
         </section>
       </main>
 
-      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} />
+      <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
     </div>
   );
 }
