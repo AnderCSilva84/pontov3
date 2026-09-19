@@ -1,4 +1,4 @@
-import { ROLE_CONSULTA } from "../utils/roles";
+import { canAccessPonto } from "../utils/roles";
 
 export default function BottomNav({ activePath, onNavigate, user }) {
   const themeClass =
@@ -6,7 +6,7 @@ export default function BottomNav({ activePath, onNavigate, user }) {
       ? "theme-compras"
       : activePath === "/tarefas"
       ? "theme-tarefas"
-      : activePath === "/admin"
+      : activePath?.startsWith("/admin")
       ? "theme-admin"
       : "theme-ponto";
 
@@ -45,7 +45,7 @@ export default function BottomNav({ activePath, onNavigate, user }) {
     },
     {
       path: "/admin",
-      label: "Admin",
+      label: "Escritório",
       icon: (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z" />
@@ -55,8 +55,7 @@ export default function BottomNav({ activePath, onNavigate, user }) {
     },
   ];
 
-  const tabsVisiveis =
-    user?.role === ROLE_CONSULTA ? tabs.filter((tab) => tab.path !== "/ponto") : tabs;
+  const tabsVisiveis = user && !canAccessPonto(user) ? tabs.filter((tab) => tab.path !== "/ponto") : tabs;
 
   return (
     <nav className={`bottom-nav ${themeClass}`} aria-label="Navegação principal">

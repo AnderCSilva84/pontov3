@@ -1,7 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { criarUsuario, login, logout } from "../services/auth";
 import { listarFuncionarios, buscarDiasPorPeriodo } from "../services/ponto";
-import { exportarPdfPonto } from "../utils/exportarPdfPonto";
 import {
   collection,
   addDoc,
@@ -14,12 +13,19 @@ import {
   query,
   where,
   serverTimestamp,
+  documentId,
+  limit,
+  orderBy,
+  startAfter,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import {
   canConsultSystem,
   canManageUsers,
+  getDefaultPermissionsForRole,
+  getUserPermissions,
+  normalizeRole,
   ROLE_ADMIN,
   ROLE_CONSULTA,
   ROLE_FUNCIONARIO,
@@ -95,6 +101,9 @@ function getCargaDiaMin(dataKey, funcionario) {
   const data = dataKeyParaDate(dataKey);
   if (!data) return 0;
   const diaSemana = data.getDay();
+  const chaves = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const cargaEscala = Number(funcionario?.escala?.[chaves[diaSemana]]?.cargaMin);
+  if (Number.isFinite(cargaEscala)) return cargaEscala;
   if (diaSemana === 0) return 0;
   if (diaSemana === 6) {
     const sabado = Number(funcionario?.cargaSabadoMin);
@@ -199,7 +208,7 @@ function dataKeyHoje() {
   return `${ano}-${mes}-${dia}`;
 }
 
-function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
+function calcularCargaMensalPrevista(mes, funcionario) {
   if (!mes) return 0;
   const [anoTexto, mesTexto] = mes.split("-");
   const ano = Number(anoTexto);
@@ -210,14 +219,8 @@ function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
   let total = 0;
 
   for (let dia = 1; dia <= ultimoDia; dia += 1) {
-    const data = new Date(ano, mesIndex, dia);
-    const diaSemana = data.getDay();
-    if (diaSemana === 0) continue;
-    if (diaSemana === 6) {
-      total += cargaSabadoMin;
-    } else {
-      total += cargaSegSexMin;
-    }
+    const dataKey = `${anoTexto}-${mesTexto}-${String(dia).padStart(2, "0")}`;
+    total += getCargaDiaMin(dataKey, funcionario);
   }
 
   return total;
@@ -303,6 +306,15 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [usuarioRole, setUsuarioRole] = useState(ROLE_FUNCIONARIO);
   const [usuarioSalvando, setUsuarioSalvando] = useState(false);
   const [usuarioSucesso, setUsuarioSucesso] = useState("");
+  const [usuarioEditandoId, setUsuarioEditandoId] = useState("");
+  const [usuarioEdicaoRole, setUsuarioEdicaoRole] = useState(ROLE_FUNCIONARIO);
+  const [usuarioEdicaoPermissoes, setUsuarioEdicaoPermissoes] = useState(
+    getDefaultPermissionsForRole(ROLE_FUNCIONARIO)
+  );
+  const [usuarioAtualizandoId, setUsuarioAtualizandoId] = useState("");
+  const [paginaUsuarios, setPaginaUsuarios] = useState(0);
+  const [temProximaPaginaUsuarios, setTemProximaPaginaUsuarios] = useState(false);
+  const cursoresUsuariosRef = useRef([null]);
   const [jornadaSegSexHoras, setJornadaSegSexHoras] = useState("8");
   const [jornadaSabadoHoras, setJornadaSabadoHoras] = useState("0");
   const [escalaForm, setEscalaForm] = useState({});
@@ -322,6 +334,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [locaisSalvando, setLocaisSalvando] = useState(false);
   const [locaisErro, setLocaisErro] = useState("");
   const [locaisSucesso, setLocaisSucesso] = useState("");
+  const [mostrarUsuarios, setMostrarUsuarios] = useState(false);
+  const [mostrarAdmPonto, setMostrarAdmPonto] = useState(false);
   const ajusteSectionRef = useRef(null);
   const funcionarioAtual = useMemo(
     () => funcionarios.find((f) => f.id === funcionarioSelecionado),
@@ -352,6 +366,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         ativo: Boolean(item?.inicio && item?.fim),
         inicio: item?.inicio || "",
         fim: item?.fim || "",
+        cargaHoras: Number.isFinite(Number(item?.cargaMin)) ? String(Number(item.cargaMin) / 60) : "",
       };
     });
 
@@ -502,15 +517,19 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }
   }, [podeGerenciarUsuarios]);
 
-  const carregarUsuarios = useCallback(async () => {
+  const carregarUsuarios = useCallback(async (pagina = 0) => {
     if (!podeGerenciarUsuarios) return;
 
     setLoadingUsuarios(true);
     setErroUsuarios("");
 
     try {
-      const snapshot = await getDocs(collection(db, "users"));
-      const itens = snapshot.docs
+      const cursor = cursoresUsuariosRef.current[pagina] || null;
+      const base = [orderBy(documentId()), limit(21)];
+      if (cursor) base.splice(1, 0, startAfter(cursor));
+      const snapshot = await getDocs(query(collection(db, "users"), ...base));
+      const documentosPagina = snapshot.docs.slice(0, 20);
+      const itens = documentosPagina
         .map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
@@ -518,6 +537,11 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         .sort((a, b) => (a.nome || a.email || "").localeCompare(b.nome || b.email || ""));
 
       setUsuarios(itens);
+      setPaginaUsuarios(pagina);
+      setTemProximaPaginaUsuarios(snapshot.docs.length > 20);
+      if (documentosPagina.length) {
+        cursoresUsuariosRef.current[pagina + 1] = documentosPagina[documentosPagina.length - 1];
+      }
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao carregar usuarios:", error);
       setErroUsuarios("Nao foi possivel carregar os usuarios.");
@@ -576,6 +600,114 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       setErroUsuarios("Nao foi possivel criar o usuario. Verifique email/senha e tente novamente.");
     } finally {
       setUsuarioSalvando(false);
+    }
+  }
+
+  function iniciarEdicaoUsuario(item) {
+    setUsuarioEditandoId(item.id);
+    setUsuarioEdicaoRole(normalizeRole(item.role) || ROLE_FUNCIONARIO);
+    setUsuarioEdicaoPermissoes(getUserPermissions(item));
+    setErroUsuarios("");
+    setUsuarioSucesso("");
+  }
+
+  function cancelarEdicaoUsuario() {
+    setUsuarioEditandoId("");
+    setUsuarioEdicaoRole(ROLE_FUNCIONARIO);
+    setUsuarioEdicaoPermissoes(getDefaultPermissionsForRole(ROLE_FUNCIONARIO));
+  }
+
+  function handleRoleEdicaoChange(role) {
+    setUsuarioEdicaoRole(role);
+    setUsuarioEdicaoPermissoes(getDefaultPermissionsForRole(role));
+  }
+
+  function handlePermissaoEdicaoChange(chave, valor) {
+    setUsuarioEdicaoPermissoes((prev) => ({
+      ...prev,
+      [chave]: valor,
+    }));
+  }
+
+  async function garantirRegistroFuncionario({ userId, nome, email }) {
+    const funcionarioRef = doc(db, "funcionarios", userId);
+    const funcionarioSnap = await getDoc(funcionarioRef);
+
+    if (funcionarioSnap.exists()) {
+      const atual = funcionarioSnap.data() || {};
+      await setDoc(
+        funcionarioRef,
+        {
+          nome: atual.nome || nome || email || userId,
+          email: atual.email || email || "",
+          ativo: atual.ativo !== false,
+          cargaSegSexMin: Number.isFinite(Number(atual.cargaSegSexMin))
+            ? Number(atual.cargaSegSexMin)
+            : 480,
+          cargaSabadoMin: Number.isFinite(Number(atual.cargaSabadoMin))
+            ? Number(atual.cargaSabadoMin)
+            : 0,
+          locaisPermitidos: Array.isArray(atual.locaisPermitidos) ? atual.locaisPermitidos : [],
+        },
+        { merge: true }
+      );
+      return;
+    }
+
+    await setDoc(
+      funcionarioRef,
+      {
+        nome: nome || email || userId,
+        email: email || "",
+        ativo: true,
+        cargaSegSexMin: 480,
+        cargaSabadoMin: 0,
+        locaisPermitidos: [],
+        criadoPor: user?.uid || null,
+        criadoEm: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  async function handleSalvarAcessoUsuario(item) {
+    if (!podeGerenciarUsuarios || !item?.id) return;
+
+    setUsuarioAtualizandoId(item.id);
+    setErroUsuarios("");
+    setUsuarioSucesso("");
+
+    try {
+      const proximoRole = normalizeRole(usuarioEdicaoRole);
+      const proximoFuncionarioId =
+        proximoRole === ROLE_FUNCIONARIO ? item.funcionarioId || item.id : item.funcionarioId || null;
+
+      if (proximoRole === ROLE_FUNCIONARIO) {
+        await garantirRegistroFuncionario({
+          userId: proximoFuncionarioId,
+          nome: item.nome,
+          email: item.email,
+        });
+      }
+
+      await updateDoc(doc(db, "users", item.id), {
+        role: proximoRole,
+        permissions: usuarioEdicaoPermissoes,
+        funcionarioId: proximoFuncionarioId,
+        atualizadoEm: serverTimestamp(),
+        atualizadoPor: user?.uid || null,
+      });
+
+      setUsuarioSucesso("Acesso do usuario atualizado com sucesso.");
+      cancelarEdicaoUsuario();
+      await carregarUsuarios(paginaUsuarios);
+      const lista = await listarFuncionarios();
+      setFuncionarios(lista);
+    } catch (error) {
+      console.error("[ADMIN][ERRO] Falha ao atualizar acesso do usuario:", error);
+      setErroUsuarios("Nao foi possivel atualizar o acesso do usuario.");
+    } finally {
+      setUsuarioAtualizandoId("");
     }
   }
 
@@ -1004,6 +1136,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       escala[dia] = {
         inicio: item.inicio,
         fim: item.fim,
+        cargaMin: Number.isFinite(Number(item.cargaHoras))
+          ? Math.round(Number(item.cargaHoras) * 60)
+          : dia === "sabado"
+            ? cargaSabadoMin
+            : dia === "domingo"
+              ? 0
+              : cargaSegSexMin,
       };
     }
 
@@ -1178,15 +1317,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const { dataInicio, dataFim } = mesSelecionado
     ? calcularPeriodo(mesSelecionado)
     : { dataInicio: "", dataFim: "" };
-  const cargaSegSexMin = Number(funcionarioAtual?.cargaSegSexMin);
-  const cargaSabadoMin = Number(funcionarioAtual?.cargaSabadoMin);
-  const cargaSegSexBase = Number.isFinite(cargaSegSexMin) ? cargaSegSexMin : 480;
-  const cargaSabadoBase = Number.isFinite(cargaSabadoMin) ? cargaSabadoMin : 0;
-  const metaMensalMin = calcularCargaMensalPrevista(
-    mesSelecionado,
-    cargaSegSexBase,
-    cargaSabadoBase
-  );
+  const metaMensalMin = calcularCargaMensalPrevista(mesSelecionado, funcionarioAtual);
   const limiteDataKeyMes = getLimiteDataKeyMes(mesSelecionado);
   const trabalhadoAteMin = limiteDataKeyMes
     ? dias.reduce((acc, dia) => {
@@ -1237,10 +1368,10 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       <div className="page-bg admin-bg">
         <main className="page-shell admin-shell">
           <header className="admin-header">
-            <h1>Dashboard Admin</h1>
+            <h1>Escritório</h1>
           </header>
           <section className="card admin-login-card">
-            <h2>Acesso Admin</h2>
+            <h2>Acesso ao sistema</h2>
             <p className="text-muted">Entre com seu email e senha para acessar o painel.</p>
             <form className="admin-login-form" onSubmit={handleAdminLogin}>
               <label className="field">
@@ -1281,7 +1412,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       <div className="page-bg admin-bg">
         <main className="page-shell admin-shell">
           <header className="admin-header">
-            <h1>Dashboard Admin</h1>
+            <h1>Escritório</h1>
           </header>
           <p className="text-muted">Acesso restrito ao time administrativo e consulta.</p>
           <button
@@ -1304,12 +1435,19 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     <div className="page-bg admin-bg">
       <main className="page-shell admin-shell">
         <header className="admin-header">
-          <h1>Dashboard Admin</h1>
+          <h1>Escritório</h1>
         </header>
 
         <p className="admin-ola">
-          Ola, {user.nome} {user.role === ROLE_CONSULTA ? "(Consulta)" : ""}
+          Ola, {user.nome} {normalizeRole(user.role) === ROLE_CONSULTA ? "(Consulta)" : ""}
         </p>
+
+        {normalizeRole(user.role) === ROLE_ADMIN && (
+          <div className="admin-atalhos">
+            <button type="button" className="btn btn-secondary admin-financeiro-link" onClick={() => onNavigate && onNavigate("/admin/financeiro")}>Abrir escritório contábil</button>
+            <button type="button" className={`btn ${mostrarAdmPonto ? "btn-primary" : "btn-secondary"}`} onClick={() => setMostrarAdmPonto((atual) => !atual)}>{mostrarAdmPonto ? "Fechar Adm Ponto" : "Adm Ponto"}</button>
+          </div>
+        )}
 
         {podeGerenciarUsuarios && (
           <section className="admin-section">
@@ -1367,34 +1505,131 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             {usuarioSucesso && <p className="mensagem">{usuarioSucesso}</p>}
 
             <div className="card tarefas-lista">
-              <h2>Usuarios cadastrados</h2>
+              <div className="usuarios-expandir"><h2>Usuarios cadastrados</h2><button type="button" className="btn btn-secondary" onClick={() => setMostrarUsuarios((atual) => !atual)}>{mostrarUsuarios ? "Recolher" : "Expandir"}</button></div>
+              {mostrarUsuarios && <>
               {loadingUsuarios && <p className="text-muted">Carregando usuarios...</p>}
               {!loadingUsuarios && usuarios.length === 0 && (
                 <p className="text-muted">Nenhum usuario encontrado.</p>
               )}
               {!loadingUsuarios && usuarios.length > 0 && (
-                <div className="tarefas-itens">
+                <><div className="tarefas-itens">
                   {usuarios.map((item) => (
                     <div key={item.id} className="tarefas-item">
                       <div>
                         <strong>{item.nome || item.email || item.id}</strong>
                         <span className="tarefas-por">{item.email || "-"}</span>
                         <span className="tarefas-por">
-                          Perfil: {ROLE_LABELS[item.role] || item.role || "-"}
+                          Perfil: {ROLE_LABELS[normalizeRole(item.role)] || item.role || "-"}
                         </span>
                         {item.funcionarioId && (
                           <span className="tarefas-por">Funcionario ID: {item.funcionarioId}</span>
                         )}
+                        {normalizeRole(item.role) === ROLE_FUNCIONARIO && !item.funcionarioId && (
+                          <span className="tarefas-por">
+                            Sem vinculo de funcionario. Edite para restaurar o ponto.
+                          </span>
+                        )}
+                      </div>
+                      <div className="detalhe-actions">
+                        {usuarioEditandoId === item.id ? (
+                          <>
+                            <label className="field">
+                              <span>Perfil</span>
+                              <select
+                                value={usuarioEdicaoRole}
+                                onChange={(event) => handleRoleEdicaoChange(event.target.value)}
+                              >
+                                <option value={ROLE_ADMIN}>{ROLE_LABELS[ROLE_ADMIN]}</option>
+                                <option value={ROLE_FUNCIONARIO}>{ROLE_LABELS[ROLE_FUNCIONARIO]}</option>
+                                <option value={ROLE_CONSULTA}>{ROLE_LABELS[ROLE_CONSULTA]}</option>
+                              </select>
+                            </label>
+
+                            <label className="jornada-dia-header">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(usuarioEdicaoPermissoes.accessPonto)}
+                                onChange={(event) =>
+                                  handlePermissaoEdicaoChange("accessPonto", event.target.checked)
+                                }
+                                disabled={
+                                  normalizeRole(usuarioEdicaoRole) === ROLE_FUNCIONARIO ||
+                                  normalizeRole(usuarioEdicaoRole) === ROLE_ADMIN
+                                }
+                              />
+                              <span>Acessar ponto</span>
+                            </label>
+
+                            <label className="jornada-dia-header">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(usuarioEdicaoPermissoes.accessAdmin)}
+                                onChange={(event) =>
+                                  handlePermissaoEdicaoChange("accessAdmin", event.target.checked)
+                                }
+                              />
+                              <span>Acessar admin</span>
+                            </label>
+
+                            <label className="jornada-dia-header">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(usuarioEdicaoPermissoes.manageUsers)}
+                                onChange={(event) =>
+                                  handlePermissaoEdicaoChange("manageUsers", event.target.checked)
+                                }
+                              />
+                              <span>Gerenciar usuarios</span>
+                            </label>
+
+                            <label className="jornada-dia-header">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(usuarioEdicaoPermissoes.createTasks)}
+                                onChange={(event) =>
+                                  handlePermissaoEdicaoChange("createTasks", event.target.checked)
+                                }
+                              />
+                              <span>Criar tarefas</span>
+                            </label>
+
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => handleSalvarAcessoUsuario(item)}
+                              disabled={usuarioAtualizandoId === item.id}
+                            >
+                              {usuarioAtualizandoId === item.id ? "Salvando..." : "Salvar acesso"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-muted"
+                              onClick={cancelarEdicaoUsuario}
+                              disabled={usuarioAtualizandoId === item.id}
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => iniciarEdicaoUsuario(item)}
+                          >
+                            Editar acesso
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
+                </div><div className="admin-paginacao"><button type="button" className="btn btn-muted" disabled={paginaUsuarios === 0 || loadingUsuarios} onClick={() => carregarUsuarios(paginaUsuarios - 1)}>Anterior</button><span>Página {paginaUsuarios + 1}</span><button type="button" className="btn btn-secondary" disabled={!temProximaPaginaUsuarios || loadingUsuarios} onClick={() => carregarUsuarios(paginaUsuarios + 1)}>Próxima</button></div></>
+              )}</>}
             </div>
           </section>
         )}
 
-        <section className="admin-section">
+        {mostrarAdmPonto && <section className="admin-section">
           <div className="section-header">
             <h2>Controle de Ponto</h2>
             <span className="section-sub">Filtros e resumo</span>
@@ -1449,9 +1684,10 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             <button
               type="button"
               className="btn btn-danger"
-              onClick={() =>
-                exportarPdfPonto(funcionarioSelecionado, nomeFuncionario, dataInicio, dataFim)
-              }
+              onClick={async () => {
+                const { exportarPdfPonto } = await import("../utils/exportarPdfPonto");
+                await exportarPdfPonto(funcionarioSelecionado, nomeFuncionario, dataInicio, dataFim);
+              }}
               disabled={!funcionarioSelecionado || !mesSelecionado}
             >
               Exportar PDF
@@ -1543,13 +1779,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           {diasFiltrados.length === 0 && (
             <p className="text-muted">Selecione uma data ou intervalo para ver o detalhamento.</p>
           )}
-        </section>
+        </section>}
 
-        {podeGerenciarUsuarios && funcionarioAtual && (
+        {mostrarAdmPonto && podeGerenciarUsuarios && funcionarioAtual && (
           <section className="admin-section">
             <div className="section-header">
-              <h2>Jornada de Trabalho</h2>
-              <span className="section-sub">Defina carga horaria e escala de {nomeFuncionario}</span>
+              <h2>Jornada de trabalho</h2>
+              <span className="section-sub">Defina horários e carga individual de cada dia para {nomeFuncionario}</span>
             </div>
 
             <div className="card jornada-card">
@@ -1602,6 +1838,17 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                         onChange={(event) => handleEscalaChange(dia, "fim", event.target.value)}
                         disabled={!escalaForm?.[dia]?.ativo}
                       />
+                      <input
+                        type="number"
+                        min="0"
+                        max="24"
+                        step="0.5"
+                        aria-label={`Carga de ${labelDiaSemana(dia)} em horas`}
+                        placeholder="Carga (h)"
+                        value={escalaForm?.[dia]?.cargaHoras || ""}
+                        onChange={(event) => handleEscalaChange(dia, "cargaHoras", event.target.value)}
+                        disabled={!escalaForm?.[dia]?.ativo}
+                      />
                     </div>
                   </div>
                 ))}
@@ -1622,7 +1869,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           </section>
         )}
 
-        {podeGerenciarUsuarios && funcionarioAtual && (
+        {mostrarAdmPonto && podeGerenciarUsuarios && funcionarioAtual && (
           <section className="admin-section">
             <div className="section-header">
               <h2>Locais Autorizados</h2>
@@ -1739,10 +1986,10 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           </section>
         )}
 
-        {podeGerenciarUsuarios && (
+        {mostrarAdmPonto && podeGerenciarUsuarios && (
           <section className="admin-section ajustes-section" ref={ajusteSectionRef}>
           <div className="section-header">
-            <h2>CRUD de Horários</h2>
+            <h2>Ajustes de ponto</h2>
             <span className="section-sub">Edite horários quando a funcionária esquecer ou registrar errado</span>
           </div>
 

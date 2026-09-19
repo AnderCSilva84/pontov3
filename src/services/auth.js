@@ -8,7 +8,7 @@ import {
 import { deleteApp, initializeApp } from "firebase/app";
 import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { auth, db, firebaseConfig } from "./firebase";
-import { ROLE_FUNCIONARIO } from "../utils/roles";
+import { getDefaultPermissionsForRole, normalizeRole, ROLE_FUNCIONARIO } from "../utils/roles";
 
 // Login
 export async function login(email, password) {
@@ -48,22 +48,24 @@ export async function criarUsuario({ nome, email, senha, role, criadoPor }) {
   const secondaryAuth = getAuth(secondaryApp);
 
   try {
+    const roleNormalizado = normalizeRole(role);
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, senha);
     const uid = userCredential.user.uid;
-    const funcionarioId = role === ROLE_FUNCIONARIO ? uid : null;
+    const funcionarioId = roleNormalizado === ROLE_FUNCIONARIO ? uid : null;
     const batch = writeBatch(db);
 
     batch.set(doc(db, "users", uid), {
       nome,
       email,
-      role,
+      role: roleNormalizado,
       ativo: true,
       funcionarioId,
+      permissions: getDefaultPermissionsForRole(roleNormalizado),
       criadoPor: criadoPor || null,
       criadoEm: serverTimestamp(),
     });
 
-    if (role === ROLE_FUNCIONARIO) {
+    if (roleNormalizado === ROLE_FUNCIONARIO) {
       batch.set(doc(db, "funcionarios", uid), {
         nome,
         email,

@@ -64,6 +64,11 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
 
   useEffect(() => {
     async function carregarDados() {
+      if (!user?.uid) {
+        setCatalogo([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setErro("");
 
@@ -83,16 +88,21 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
         setCatalogo(itensCatalogo);
       } catch (error) {
         console.error("[LISTA][ERRO] Falha ao carregar catalogo/lista:", error);
-        setErro("Nao foi possivel carregar o catalogo. Tente novamente.");
+        setErro("Não foi possível carregar o catálogo. Entre novamente e tente de novo.");
       } finally {
         setLoading(false);
       }
     }
 
     carregarDados();
-  }, []);
+  }, [user?.uid]);
 
   useEffect(() => {
+    if (!user?.uid) {
+      setListaMercado([]);
+      setSelecionados({});
+      return undefined;
+    }
     const unsubscribe = onSnapshot(
       collection(db, "listaCompras"),
       (snapshot) => {
@@ -122,11 +132,12 @@ export default function ListaCompras({ user, onNavigate, rotaAtual }) {
       },
       (error) => {
         console.error("[LISTA][ERRO] Falha ao observar lista:", error);
+        setErro("Não foi possível carregar a lista de compras.");
       }
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   const catalogoPorCategoria = useMemo(() => {
     const mapa = new Map();

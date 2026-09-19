@@ -4,18 +4,25 @@ import Ponto from "./pages/Ponto";
 import ListaCompras from "./pages/ListaCompras";
 import Tarefas from "./pages/Tarefas";
 import Admin from "./pages/Admin";
-import { ROLE_CONSULTA } from "./utils/roles";
+import Financeiro from "./pages/Financeiro";
+import { canAccessPonto } from "./utils/roles";
 import "./styles/App.css";
+
+const ROTAS_VALIDAS = new Set(["/ponto", "/lista-compras", "/tarefas", "/admin", "/admin/financeiro"]);
 
 function normalizarRota(caminho) {
   if (!caminho || caminho === "/") return "/ponto";
-  return caminho;
+  return caminho.replace(/\/+$/, "") || "/ponto";
+}
+
+function PaginaNaoEncontrada({ onNavigate }) {
+  return <div className="page-bg"><main className="page-shell"><section className="card"><h1>Página não encontrada</h1><p className="text-muted">O endereço acessado não existe neste aplicativo.</p><button type="button" className="btn btn-primary" onClick={() => onNavigate("/ponto")}>Ir para o início</button></section></main></div>;
 }
 
 function App() {
   const [user, setUser] = useState(undefined);
   const [rotaAtual, setRotaAtual] = useState(normalizarRota(window.location.pathname));
-  const rotaEfetiva = user?.role === ROLE_CONSULTA && rotaAtual === "/ponto" ? "/admin" : rotaAtual;
+  const rotaEfetiva = user && !canAccessPonto(user) && rotaAtual === "/ponto" ? "/admin" : rotaAtual;
 
   useEffect(() => {
     if (window.location.pathname === "/") {
@@ -50,7 +57,14 @@ function App() {
 
   if (user === undefined) return <p>Carregando...</p>;
 
+  if (!ROTAS_VALIDAS.has(rotaEfetiva)) {
+    return <PaginaNaoEncontrada onNavigate={navegarPara} />;
+  }
+
   if (!user) {
+    if (rotaEfetiva === "/admin/financeiro") {
+      return <Admin user={null} onNavigate={navegarPara} rotaAtual="/admin" />;
+    }
     if (rotaEfetiva === "/admin") {
       return <Admin user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
     }
@@ -76,6 +90,10 @@ function App() {
 
   if (rotaEfetiva === "/admin") {
     return <Admin user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
+  }
+
+  if (rotaEfetiva === "/admin/financeiro") {
+    return <Financeiro user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
   return <Ponto user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;

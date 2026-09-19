@@ -56,6 +56,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Conclusões diárias das tarefas da rotina fixa.
+    match /funcionarios/{funcionarioId}/conclusoesRotina/{conclusaoId} {
+      allow read: if signedIn() && (isAdmin() || myFuncionarioId() == funcionarioId);
+      allow create: if signedIn() && (
+        isAdmin() ||
+        (
+          myFuncionarioId() == funcionarioId &&
+          request.resource.data.concluidaPor == funcionarioId &&
+          request.resource.data.tarefaId is string &&
+          request.resource.data.dataKey is string
+        )
+      );
+      allow update, delete: if false;
+    }
+
     // LOCAIS (GPS)
     match /locais/{localId} {
       allow read: if signedIn() && (
@@ -106,8 +121,17 @@ service cloud.firestore {
       allow create: if signedIn() &&
         (isAdmin() || request.resource.data.solicitadoPor == myFuncionarioId());
 
-      // funcionária pode marcar solicitado / admin pode atualizar tudo
-      allow update: if signedIn();
+      // admin atualiza tudo; funcionária altera apenas sua própria solicitação
+      allow update: if signedIn() && (
+        isAdmin() ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'solicitado', 'comprado', 'solicitadoPor', 'solicitadoPorNome', 'criadoEm'
+          ]) &&
+          request.resource.data.solicitadoPor == myFuncionarioId() &&
+          request.resource.data.comprado == false
+        )
+      );
 
       // apenas admin pode apagar
       allow delete: if isAdmin();
@@ -135,6 +159,36 @@ service cloud.firestore {
       );
 
       allow delete: if isAdmin();
+    }
+
+    match /tarefasSemanais/{tarefaId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // NOTIFICAÇÕES — alterações publicadas pelo Admin para a funcionária
+    match /notificacoes/{notificacaoId} {
+      allow read: if signedIn();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /financeiro/{lancamentoId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /financeiroAuditoria/{registroId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /documentosTrabalhistas/{documentoId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /folhasPagamento/{folhaId} {
+      allow read, write: if isAdmin();
     }
 
     // AJUSTES DE PONTO (LOG)

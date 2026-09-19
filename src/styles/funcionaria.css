@@ -42,6 +42,47 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
+.ponto-indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.progresso-topo { display: flex; flex-direction: column; gap: 10px; }
+.progresso-topo small { color: var(--text-soft); }
+.progresso-horario { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(47, 123, 95, .08); color: var(--text-muted); font-size: .9rem; }
+.progresso-horario strong { color: var(--text-main); text-align: right; }
+
+.ponto-indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 132px;
+  justify-content: center;
+  border-top: 5px solid #447a93;
+}
+
+.ponto-indicador span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.ponto-indicador strong {
+  font-size: clamp(1.45rem, 5vw, 2rem);
+  line-height: 1.1;
+}
+
+.ponto-indicador small { color: var(--text-soft); }
+.ponto-indicador.trabalhado-dia { border-top-color: var(--success); }
+.ponto-indicador.saldo-horas { grid-column: 1 / -1; }
+.ponto-indicador.saldo-horas.positivo { border-top-color: var(--success); background: #eef8f2; }
+.ponto-indicador.saldo-horas.negativo { border-top-color: var(--danger); background: #fff0ed; }
+
+@media (max-width: 360px) {
+  .ponto-indicadores { grid-template-columns: 1fr; }
+  .ponto-indicador.saldo-horas { grid-column: auto; }
+}
+
 .ponto-action:disabled {
   opacity: 0.8;
   cursor: not-allowed;

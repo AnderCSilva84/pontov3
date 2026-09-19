@@ -175,7 +175,13 @@ export async function registrarAcao(funcionarioId, tipo) {
     const funcSnap = await getDoc(doc(db, "funcionarios", funcionarioId));
     const funcionario = funcSnap.data();
 
-    const cargaPrevista = isSabado() ? funcionario.cargaSabadoMin : funcionario.cargaSegSexMin;
+    const chavesDia = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+    const cargaIndividual = Number(funcionario?.escala?.[chavesDia[new Date().getDay()]]?.cargaMin);
+    const cargaPrevista = Number.isFinite(cargaIndividual)
+      ? cargaIndividual
+      : isSabado()
+        ? funcionario.cargaSabadoMin
+        : funcionario.cargaSegSexMin;
 
     const saldoMin = totalMin - cargaPrevista;
 
@@ -210,7 +216,7 @@ function normalizarMinutos(valor) {
   return 0;
 }
 
-export async function calcularBancoHorasMes(funcionarioId, mesYYYYMM) {
+export async function calcularBancoHorasMes(funcionarioId, mesYYYYMM, inicioContagem = "") {
   if (!funcionarioId || !mesYYYYMM) return 0;
 
   const inicio = `${mesYYYYMM}-01`;
@@ -225,7 +231,7 @@ export async function calcularBancoHorasMes(funcionarioId, mesYYYYMM) {
     const data = docSnap.data();
     const dataKey = String(data?.dataKey || "");
 
-    if (dataKey < inicio || dataKey > fim) return total;
+    if (dataKey < inicio || dataKey > fim || (inicioContagem && dataKey < inicioContagem)) return total;
 
     if (
       data?.ajusteTipo === "atestado" ||

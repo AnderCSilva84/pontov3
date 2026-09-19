@@ -40,6 +40,55 @@
   color: var(--text-muted);
   font-size: 1rem;
 }
+.admin-financeiro-link { width: auto; align-self: flex-start; }
+.admin-atalhos { display: flex; flex-wrap: wrap; gap: 10px; }
+.admin-atalhos .btn { width: auto; }
+.usuarios-expandir { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.usuarios-expandir h2 { margin: 0; }
+.usuarios-expandir .btn { width: auto; }
+.admin-paginacao { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.admin-paginacao .btn { width: auto; }
+.admin-paginacao span { color: var(--text-muted); font-size: .86rem; font-weight: 800; }
+.financeiro-header { display: flex; align-items: center; gap: 16px; }
+.financeiro-header img { width: 72px; height: 72px; border-radius: 18px; object-fit: cover; }
+.financeiro-header h1, .financeiro-header p { margin: 0; }
+.financeiro-header p { color: var(--text-muted); }
+.financeiro-form { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; align-items: end; }
+.financeiro-descricao { grid-column: span 2; }
+.financeiro-lista { display: grid; gap: 10px; }
+.financeiro-item { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+.financeiro-item span { display: block; margin-top: 5px; color: var(--text-muted); font-size: .86rem; }
+.financeiro-acoes { display: flex; align-items: center; gap: 12px; }
+.financeiro-acoes .btn { width: auto; white-space: nowrap; }
+.app-footer { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px; color: var(--text-muted); font-size: .85rem; }
+.app-footer a { color: var(--accent); }
+.recibo-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(35,27,18,.72); }
+.recibo-modal-painel { width: min(960px, 100%); height: min(92vh, 900px); display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 22px; background: #fffdf9; box-shadow: 0 24px 70px rgba(0,0,0,.3); }
+.recibo-modal-topo { display: flex; align-items: center; justify-content: space-between; }
+.recibo-modal-topo button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #f0e7d9; font-size: 1.6rem; cursor: pointer; }
+.recibo-modal iframe { flex: 1; width: 100%; min-height: 420px; border: 1px solid var(--border); border-radius: 12px; background: #eee; zoom: 1; }
+.recibo-modal-acoes { display: flex; gap: 10px; }
+.recibo-modal-acoes .btn { display: inline-flex; justify-content: center; align-items: center; text-decoration: none; }
+.recibo-modal-painel > p { margin: 0; color: var(--text-muted); font-size: .78rem; }
+.escritorio-shell { gap: 16px; }
+.escritorio-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
+.escritorio-toolbar .field { flex: 1; }
+.escritorio-toolbar .btn { width: auto; text-decoration: none; white-space: nowrap; }
+.escritorio-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 5px; border-radius: 16px; background: rgba(255,255,255,.72); border: 1px solid var(--border); }
+.escritorio-tabs button { flex: 1; min-width: max-content; border: 0; border-radius: 12px; padding: 10px 12px; background: transparent; color: var(--text-muted); font-weight: 800; cursor: pointer; }
+.escritorio-tabs button.active { background: #2f7b5f; color: #fff; box-shadow: 0 6px 14px rgba(47,123,95,.2); }
+.folha-form { display: grid; gap: 16px; }
+.folha-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.folha-totais { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px; border-radius: 14px; background: #eef7f2; }
+.folha-totais span, .folha-totais strong { display: flex; justify-content: space-between; gap: 8px; }
+.folha-checkbox { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-radius: 14px; background: #fff7e8; color: var(--text-main); font-weight: 700; }
+.folha-checkbox input { width: 19px; min-height: 19px; }
+.folha-calculo-horas { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 14px; border-radius: 14px; background: #f7f1e4; color: var(--text-muted); }
+.folha-calculo-horas b { color: var(--text-main); }
+.pagamento-atalhos { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.pagamento-atalhos button { display: flex; flex-direction: column; gap: 5px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: #fffdf9; color: var(--text-main); text-align: left; cursor: pointer; }
+.pagamento-atalhos button span { color: var(--text-muted); font-size: .82rem; }
+.pagamento-atalhos button.active { border-color: #2f7b5f; background: #eef7f2; box-shadow: 0 0 0 2px rgba(47,123,95,.1); }
 
 .admin-login-card {
   display: flex;
@@ -206,7 +255,7 @@
 
 .jornada-horarios {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
 
@@ -350,6 +399,13 @@
 }
 
 @media (max-width: 420px) {
+  .financeiro-form { grid-template-columns: 1fr; }
+  .financeiro-descricao { grid-column: auto; }
+  .financeiro-item, .financeiro-acoes { align-items: flex-start; flex-direction: column; }
+  .recibo-modal { padding: 0; }
+  .recibo-modal-painel { height: 100vh; border-radius: 0; }
+  .recibo-modal iframe { min-height: 300px; }
+  .recibo-modal-acoes { flex-direction: column; }
   .resumo-grid,
   .jornada-cargas,
   .locais-form-grid,
@@ -363,6 +419,10 @@
   .jornada-horarios {
     grid-template-columns: 1fr;
   }
+  .escritorio-toolbar { align-items: stretch; flex-direction: column; }
+  .escritorio-toolbar .btn { width: 100%; }
+  .folha-grid, .folha-totais { grid-template-columns: 1fr; }
+  .pagamento-atalhos { grid-template-columns: 1fr; }
 
   .section-header {
     flex-direction: column;

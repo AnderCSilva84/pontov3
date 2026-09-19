@@ -2,6 +2,7 @@
 
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onRequest } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const axios = require("axios");
 
@@ -9,6 +10,67 @@ admin.initializeApp();
 
 const TELEGRAM_TOKEN = "8763177574:AAG_xCp_If9nkCp1NG5yhLRIzSDB9vAho8c";
 const CHAT_ID = "-5247258578";
+
+async function exigirAdmin(request) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para continuar.");
+  const userSnap = await admin.firestore().collection("users").doc(request.auth.uid).get();
+  if (!userSnap.exists || userSnap.data()?.role !== "admin") {
+    throw new HttpsError("permission-denied", "Acesso restrito ao administrador.");
+  }
+}
+
+exports.criarLancamentoFinanceiro = onCall(async (request) => {
+  await exigirAdmin(request);
+  const dados = request.data || {};
+  const tipos = { transporte: "Transporte", salario: "Salário", vale: "Vale / adiantamento" };
+  const valor = Number(dados.valor);
+  if (!tipos[dados.tipo] || !Number.isFinite(valor) || valor <= 0) {
+    throw new HttpsError("invalid-argument", "Tipo ou valor inválido.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dados.dataPagamento || "")) {
+    throw new HttpsError("invalid-argument", "Data de pagamento inválida.");
+  }
+  if (dados.tipo === "transporte") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dados.periodoInicio || "") || !/^\d{4}-\d{2}-\d{2}$/.test(dados.periodoFim || "") || dados.periodoFim < dados.periodoInicio) {
+      throw new HttpsError("invalid-argument", "Período de transporte inválido.");
+    }
+  } else if (!/^\d{4}-\d{2}$/.test(dados.competenciaMes || "")) {
+    throw new HttpsError("invalid-argument", "Mês de referência inválido.");
+  }
+  const permitido = {
+    tipo: dados.tipo, tipoLabel: tipos[dados.tipo], valor,
+    descontos: Math.max(0, Number(dados.descontos) || 0),
+    valorLiquido: Math.max(0, valor - (Number(dados.descontos) || 0)),
+    funcionarioId: String(dados.funcionarioId || ""),
+    funcionarioNome: String(dados.funcionarioNome || "").trim().slice(0, 120),
+    dataPagamento: dados.dataPagamento,
+    competenciaMes: String(dados.competenciaMes || ""),
+    periodoInicio: String(dados.periodoInicio || ""),
+    periodoFim: String(dados.periodoFim || ""),
+    descricao: String(dados.descricao || "").trim().slice(0, 300),
+    criadoPor: request.auth.uid,
+    criadoEm: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  const ref = await admin.firestore().collection("financeiro").add(permitido);
+  return { id: ref.id };
+});
+
+exports.excluirLancamentoFinanceiro = onCall(async (request) => {
+  await exigirAdmin(request);
+  const id = String(request.data?.id || "");
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) throw new HttpsError("invalid-argument", "Lançamento inválido.");
+  const ref = admin.firestore().collection("financeiro").doc(id);
+  await admin.firestore().runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) throw new HttpsError("not-found", "Lançamento não encontrado.");
+    transaction.set(admin.firestore().collection("financeiroAuditoria").doc(), {
+      acao: "exclusao", lancamentoId: id, dados: snap.data(),
+      executadoPor: request.auth.uid, executadoEm: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    transaction.delete(ref);
+  });
+  return { ok: true };
+});
 
 async function enviarPushParaTodos(titulo, mensagem) {
   const usersSnapshot = await admin.firestore().collection("users").get();

@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { logout } from "../services/auth";
+import { login, logout } from "../services/auth";
 import {
   carregarDiaAtual,
   carregarDiaPorData,
@@ -8,11 +8,13 @@ import {
   calcularBancoHorasMes,
   buscarDiasPorPeriodo,
 } from "../services/ponto";
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
+import PontoResumo from "../components/PontoResumo";
 import logoAp1303 from "../assets/ap1303.jpeg";
 import { canAccessPonto } from "../utils/roles";
+import { nomeFeriado } from "../utils/feriados";
 import "../styles/funcionaria.css";
 import "../styles/tarefas.css";
 import "../styles/nav.css";
@@ -27,6 +29,13 @@ const DIAS_EXIBICAO = {
   sexta: "Sexta",
   sabado: "Sábado",
 };
+
+function dataAgendadaEhFolga(dataIso) {
+  if (!dataIso) return false;
+  const [ano, mes, dia] = String(dataIso).split("-").map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  return data.getDay() === 0 || Boolean(nomeFeriado(data));
+}
 
 function mesAtualISO() {
   const hoje = new Date();
@@ -102,6 +111,12 @@ function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
 
 function getDiaSemanaAtualKey() {
   return DIAS_ORDEM[new Date().getDay()];
+}
+
+function formatarHoraJornada(hora) {
+  if (!hora) return "";
+  const [horas, minutos] = String(hora).split(":");
+  return Number(minutos) === 0 ? `${Number(horas)}h` : `${Number(horas)}h${minutos}`;
 }
 
 function normalizarDiaSemana(valor) {
@@ -285,11 +300,16 @@ function formatMinutosComSinal(min) {
 
 export default function Ponto({ user, onNavigate, rotaAtual }) {
   const podeAcessarPonto = canAccessPonto(user);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erroLogin, setErroLogin] = useState("");
+  const [loadingLogin, setLoadingLogin] = useState(false);
   const [dia, setDia] = useState(null);
   const [mensagem, setMensagem] = useState("");
   const [loading, setLoading] = useState(false);
   const [escala, setEscala] = useState(null);
   const [bancoHoras, setBancoHoras] = useState(0);
+  const [horasPendentesAnterior, setHorasPendentesAnterior] = useState(0);
   const [resumoMes, setResumoMes] = useState({ metaMin: 0, trabalhadoMin: 0 });
   const [diaSelecionadoSemana, setDiaSelecionadoSemana] = useState(null);
   const [logDiaSelecionado, setLogDiaSelecionado] = useState(null);
@@ -299,15 +319,25 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [diasSemana, setDiasSemana] = useState([]);
   const [cargaSegSexMin, setCargaSegSexMin] = useState(480);
   const [cargaSabadoMin, setCargaSabadoMin] = useState(0);
+  const [bancoHorasInicio, setBancoHorasInicio] = useState("");
   const [tarefasPendentes, setTarefasPendentes] = useState([]);
   const [loadingTarefas, setLoadingTarefas] = useState(true);
   const [erroTarefas, setErroTarefas] = useState("");
-  const [alertaNovaTarefa, setAlertaNovaTarefa] = useState(false);
   const [quantidadeNovasTarefas, setQuantidadeNovasTarefas] = useState(0);
-  const tarefasCountRef = useRef(null);
+  const [tarefasFixasHoje, setTarefasFixasHoje] = useState([]);
+  const [tarefasFixasConcluidas, setTarefasFixasConcluidas] = useState(new Set());
+  const [tarefaFixaSalvando, setTarefaFixaSalvando] = useState("");
+  const [notificacoes, setNotificacoes] = useState([]);
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const notificacoesWrapRef = useRef(null);
   const funcionarioId = podeAcessarPonto ? user?.funcionarioId || user?.uid : "";
   const usuarioSemLogin = !funcionarioId;
   const nomeExibicao = "Joseane Santos";
+  const dataHojeExibicao = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
 
   function calcularDistancia(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -410,13 +440,19 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
     try {
       const mesAtual = mesAtualISO();
-      const total = await calcularBancoHorasMes(funcionarioId, mesAtual);
+      const total = await calcularBancoHorasMes(funcionarioId, mesAtual, bancoHorasInicio);
       setBancoHoras(toNumeroMinutos(total));
+      const [ano, mes] = mesAtual.split("-").map(Number);
+      const anterior = new Date(ano, mes - 2, 1);
+      const mesAnterior = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, "0")}`;
+      const saldoAnterior = await calcularBancoHorasMes(funcionarioId, mesAnterior, bancoHorasInicio);
+      setHorasPendentesAnterior(Math.max(0, -toNumeroMinutos(saldoAnterior)));
     } catch (error) {
       console.error("[PONTO][ERRO] Falha ao carregar banco de horas mensal:", error);
       setBancoHoras(0);
+      setHorasPendentesAnterior(0);
     }
-  }, [funcionarioId]);
+  }, [funcionarioId, bancoHorasInicio]);
 
   
   useEffect(() => {
@@ -471,6 +507,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         const cargaSegSex = Number(data?.cargaSegSexMin);
         const cargaSabado = Number(data?.cargaSabadoMin);
 
+        setBancoHorasInicio(data?.bancoHorasInicio || "");
+
         if (Number.isFinite(cargaSegSex)) setCargaSegSexMin(cargaSegSex);
         if (Number.isFinite(cargaSabado)) setCargaSabadoMin(cargaSabado);
       }
@@ -495,10 +533,13 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         const pendentes = [];
         const diaAtual = getDiaSemanaAtualKey();
         const indiceHoje = getIndiceDiaSemana(diaAtual);
+        const hojeEhFeriado = Boolean(nomeFeriado(new Date()));
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() || {};
           if (data.concluida) return;
           const dataAgendada = data.dataAgendada || "";
+          if (dataAgendadaEhFolga(dataAgendada)) return;
+          if (!dataAgendada && hojeEhFeriado) return;
           const hojeDataKey = dataKeyDeDate(new Date());
           if (dataAgendada && dataAgendada > hojeDataKey) return;
           const diaTarefa = normalizarDiaSemana(data.diaSemana);
@@ -523,12 +564,6 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
           if (b.dataAgendada) return 1;
           return (a.titulo || "").localeCompare(b.titulo || "");
         });
-        if (tarefasCountRef.current !== null && pendentes.length > tarefasCountRef.current) {
-          setQuantidadeNovasTarefas(pendentes.length - tarefasCountRef.current);
-          setAlertaNovaTarefa(true);
-        }
-
-        tarefasCountRef.current = pendentes.length;
         setTarefasPendentes(pendentes);
         setLoadingTarefas(false);
       },
@@ -540,7 +575,57 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     );
 
     return () => unsubscribe();
+  }, [funcionarioId, bancoHorasInicio]);
+
+  useEffect(() => {
+    if (!funcionarioId) return undefined;
+    const diaHoje = new Date().getDay();
+    return onSnapshot(collection(db, "tarefasSemanais"), (snapshot) => {
+      const fixas = snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((item) => item.ativa !== false && Number(item.diaSemana) === diaHoje)
+        .sort((a, b) => (a.turno || "manha").localeCompare(b.turno || "manha"));
+      setTarefasFixasHoje(fixas);
+    }, () => setErroTarefas("Não foi possível carregar a rotina fixa."));
   }, [funcionarioId]);
+
+  useEffect(() => {
+    if (!funcionarioId) return undefined;
+    const hojeDataKey = dataKeyDeDate(new Date());
+    return onSnapshot(
+      collection(db, "funcionarios", funcionarioId, "conclusoesRotina"),
+      (snapshot) => {
+        setTarefasFixasConcluidas(new Set(
+          snapshot.docs
+            .map((item) => item.data())
+            .filter((item) => item.dataKey === hojeDataKey)
+            .map((item) => item.tarefaId)
+        ));
+      },
+      () => setErroTarefas("Não foi possível carregar as conclusões da rotina fixa.")
+    );
+  }, [funcionarioId]);
+
+  useEffect(() => {
+    if (!funcionarioId) return undefined;
+    const storageKey = `notificacoesLidas:${funcionarioId}`;
+    const lidaAte = Number(localStorage.getItem(storageKey) || 0);
+    return onSnapshot(collection(db, "notificacoes"), (snapshot) => {
+      const itens = snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((item) => item.criadoEm?.toMillis?.() > lidaAte)
+        .sort((a, b) => (b.criadoEm?.toMillis?.() || 0) - (a.criadoEm?.toMillis?.() || 0));
+      setNotificacoes(itens);
+      setQuantidadeNovasTarefas(itens.length);
+    });
+  }, [funcionarioId]);
+
+  function marcarNotificacoesComoLidas() {
+    if (funcionarioId) localStorage.setItem(`notificacoesLidas:${funcionarioId}`, String(Date.now()));
+    setNotificacoes([]);
+    setQuantidadeNovasTarefas(0);
+    setNotificacoesAbertas(false);
+  }
 
   useEffect(() => {
     async function carregarSemana() {
@@ -679,7 +764,20 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   }, [diasSemana, dia?.dataKey, horasTrabalhadasMin]);
 
   const diaHoje = new Date().getDay();
-  const metaMin = diaHoje === 0 ? 0 : diaHoje === 6 ? cargaSabadoMin : cargaSegSexMin;
+  const escalaHoje = escala?.[DIAS_ORDEM[diaHoje]];
+  const cargaIndividualHoje = Number(escalaHoje?.cargaMin);
+  const metaMin = Number.isFinite(cargaIndividualHoje)
+    ? cargaIndividualHoje
+    : diaHoje === 0
+      ? 0
+      : diaHoje === 6
+        ? cargaSabadoMin
+        : cargaSegSexMin;
+  const horarioDia = escalaHoje?.inicio && escalaHoje?.fim
+    ? `${formatarHoraJornada(escalaHoje.inicio)} às ${formatarHoraJornada(escalaHoje.fim)}`
+    : metaMin > 0
+      ? "Horário ainda não cadastrado"
+      : "Dia sem expediente";
   const progressoPct = metaMin > 0 ? Math.min(100, Math.round((horasTrabalhadasMin / metaMin) * 100)) : 0;
 
   async function handleSelecionarDiaEscala(diaSemana) {
@@ -724,6 +822,98 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     }
   }
 
+  async function handleConcluirTarefaFixa(tarefaId) {
+    if (!funcionarioId || tarefasFixasConcluidas.has(tarefaId) || tarefaFixaSalvando) return;
+
+    const hojeDataKey = dataKeyDeDate(new Date());
+    setTarefaFixaSalvando(tarefaId);
+    setErroTarefas("");
+    try {
+      await setDoc(doc(db, "funcionarios", funcionarioId, "conclusoesRotina", `${hojeDataKey}_${tarefaId}`), {
+        tarefaId,
+        dataKey: hojeDataKey,
+        concluidaEm: serverTimestamp(),
+        concluidaPor: funcionarioId,
+      });
+    } catch (error) {
+      console.error("[PONTO][ERRO] Falha ao concluir tarefa fixa:", error);
+      setErroTarefas("Não foi possível marcar a rotina como realizada.");
+    } finally {
+      setTarefaFixaSalvando("");
+    }
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    setErroLogin("");
+    setLoadingLogin(true);
+
+    try {
+      await login(email.trim(), senha);
+    } catch (error) {
+      console.error("[PONTO][ERRO] Falha no login:", error);
+      setErroLogin("Email ou senha invalidos.");
+    } finally {
+      setLoadingLogin(false);
+    }
+  }
+
+  if (!user) {
+    return (
+      <div className="page-bg page-ponto">
+        <main className="page-shell">
+          <header className="ponto-header page-header">
+            <div className="page-title-row">
+              <img className="ponto-logo" src={logoAp1303} alt="AP1303" />
+            </div>
+            <p className="page-subtitle">Registro de ponto</p>
+          </header>
+
+          <section className="card status-card">
+            <h2>Entrar no ponto</h2>
+            <p className="text-muted">
+              Entre com seu email e senha para acessar suas marcacoes, banco de horas e horarios.
+            </p>
+
+            <form className="admin-login-form" onSubmit={handleLogin}>
+              <label className="field">
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  placeholder="email@empresa.com"
+                  required
+                />
+              </label>
+
+              <label className="field">
+                <span>Senha</span>
+                <input
+                  type="password"
+                  value={senha}
+                  onChange={(event) => setSenha(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder="Digite sua senha"
+                  required
+                />
+              </label>
+
+              {erroLogin && <p className="mensagem erro">{erroLogin}</p>}
+
+              <button type="submit" className="btn btn-primary" disabled={loadingLogin}>
+                {loadingLogin ? "Entrando..." : "Entrar"}
+              </button>
+            </form>
+          </section>
+        </main>
+
+        <BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} />
+      </div>
+    );
+  }
+
   if (user && !podeAcessarPonto) {
     return (
       <div className="page-bg page-ponto">
@@ -764,7 +954,35 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
             <img className="ponto-logo" src={logoAp1303} alt="AP1303" />
           </div>
           <p className="page-subtitle">Registro de ponto de {nomeExibicao}</p>
+          <div className="notificacoes-wrap" ref={notificacoesWrapRef}>
+            <button type="button" className="notificacoes-balao" aria-label={`${quantidadeNovasTarefas} notificações não lidas`} aria-expanded={notificacoesAbertas} onClick={() => setNotificacoesAbertas((aberta) => !aberta)}>
+              <span aria-hidden="true">🔔</span>
+              {quantidadeNovasTarefas > 0 && <b>{quantidadeNovasTarefas > 9 ? "9+" : quantidadeNovasTarefas}</b>}
+            </button>
+            {notificacoesAbertas && <section className="card notificacoes-painel">
+              <div className="notificacoes-cabecalho"><strong>Notificações</strong>{notificacoes.length > 0 && <button type="button" onClick={marcarNotificacoesComoLidas}>Marcar como lidas</button>}</div>
+              {notificacoes.length ? notificacoes.map((item) => <article key={item.id}><span aria-hidden="true">📌</span><div><strong>{item.titulo}</strong><p>{item.mensagem}</p></div></article>) : <p className="text-muted">Nenhuma notificação nova.</p>}
+            </section>}
+          </div>
         </header>
+
+        {tarefasFixasHoje.length > 0 && <section className="card tarefas-fixas-hoje">
+          <div className="tarefas-fixas-titulo"><span aria-hidden="true">📌</span><div><h2>Rotina fixa de hoje</h2><time dateTime={dataKeyDeDate(new Date())}>{dataHojeExibicao}</time></div></div>
+          <div className="tarefas-fixas-lista">{tarefasFixasHoje.map((tarefa) => {
+            const concluida = tarefasFixasConcluidas.has(tarefa.id);
+            return <button type="button" className={`tarefa-fixa-destaque ${concluida ? "concluida" : "pendente"}`} key={tarefa.id} disabled={concluida || tarefaFixaSalvando === tarefa.id || usuarioSemLogin} onClick={() => handleConcluirTarefaFixa(tarefa.id)} aria-label={concluida ? `${tarefa.titulo}: realizada` : `Marcar ${tarefa.titulo} como realizada`}><span className="tarefa-pin" aria-hidden="true">{concluida ? "✓" : "•"}</span><strong>{tarefa.titulo}</strong><span className={`tarefas-status ${concluida ? "concluida" : "pendente"}`}>{concluida ? "Realizada" : tarefaFixaSalvando === tarefa.id ? "Salvando..." : "Pendente"}</span><span className={`tarefa-periodo ${tarefa.turno === "tarde" ? "tarde" : "manha"}`}>{tarefa.turno === "tarde" ? "☀️ Tarde" : "🌤️ Manhã"}{tarefa.horario ? ` · ${tarefa.horario}` : ""}</span></button>;
+          })}</div>
+        </section>}
+
+        <section className={`card tarefas-lista tarefas-ponto-topo ${tarefasPendentes.some((t) => t.atrasada) ? "tem-atraso" : tarefasPendentes.length ? "vence-hoje" : ""}`}>
+          <h2>Tarefas pendentes</h2>
+          {loadingTarefas && <p className="text-muted">Carregando tarefas...</p>}
+          {erroTarefas && <p className="mensagem erro">{erroTarefas}</p>}
+          {!loadingTarefas && tarefasPendentes.length === 0 && <p className="text-muted">Nenhuma tarefa pendente.</p>}
+          {!loadingTarefas && tarefasPendentes.length > 0 && <div className="tarefas-itens">{tarefasPendentes.map((tarefa) => <div key={tarefa.id} className={`tarefas-item ${tarefa.atrasada ? "atrasada" : "vence-hoje"}`}><div><strong>{tarefa.titulo}</strong>{tarefa.solicitadoPorNome && <span className="tarefas-por">Solicitado por: {tarefa.solicitadoPorNome}</span>}{tarefa.dataAgendada && <span className="tarefas-por">Agendada para: {formatarDataBr(tarefa.dataAgendada)}</span>}{tarefa.diaSemana && <span className="tarefas-por">Dia: <span className={tarefa.atrasada ? "tarefas-dia-atrasada" : "tarefas-dia-selecionado"}>{tarefa.diaSemana}</span></span>}</div><button type="button" className="btn btn-secondary tarefas-concluir" disabled={usuarioSemLogin} onClick={() => handleConcluirTarefa(tarefa.id)}>Concluir</button></div>)}</div>}
+        </section>
+
+        <PontoResumo bancoHoras={bancoHoras} horasPendentesAnterior={horasPendentesAnterior} formatMinutos={formatMinutos} formatMinutosCompact={formatMinutosCompact} formatMinutosRelogio={formatMinutosRelogio} horasTrabalhadasMin={horasTrabalhadasMin} metaMin={metaMin} progressoPct={progressoPct} horarioDia={horarioDia} />
 
         <button
           onClick={handleClick}
@@ -782,28 +1000,6 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
           <p className="text-muted">
             Acesse o Admin pelo rodapé para entrar e liberar o ponto.
           </p>
-        )}
-
-        {alertaNovaTarefa && (
-          <section className="card tarefas-alerta">
-            <div>
-              <strong>Nova tarefa recebida</strong>
-              {quantidadeNovasTarefas > 0 && (
-                <span className="tarefas-alerta-info">
-                  {quantidadeNovasTarefas === 1
-                    ? "1 tarefa adicionada"
-                    : `${quantidadeNovasTarefas} tarefas adicionadas`}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary tarefas-alerta-btn"
-              onClick={() => setAlertaNovaTarefa(false)}
-            >
-              Fechar
-            </button>
-          </section>
         )}
 
         <section className="card status-card">
@@ -852,17 +1048,6 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
               ))}
             </div>
 
-            <div className="progresso-dia">
-              <div className="progresso-header">
-                <span>Progresso do dia</span>
-                <strong>
-                  {formatMinutosCompact(horasTrabalhadasMin)} / {formatMinutosRelogio(metaMin)}
-                </strong>
-              </div>
-              <div className="progresso-barra" role="presentation">
-                <span style={{ width: `${progressoPct}%` }} />
-              </div>
-            </div>
           </section>
         )}
 
@@ -895,57 +1080,6 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
                 <span>Saída final</span>
                 <strong>{formatHora(logDiaSelecionado.saida)}</strong>
               </div>
-            </div>
-          )}
-        </section>
-
-        <section className="card tarefas-lista">
-          <h2>Tarefas pendentes</h2>
-          {loadingTarefas && <p className="text-muted">Carregando tarefas...</p>}
-          {erroTarefas && <p className="mensagem erro">{erroTarefas}</p>}
-          {!loadingTarefas && tarefasPendentes.length === 0 && (
-            <p className="text-muted">Nenhuma tarefa pendente.</p>
-          )}
-          {!loadingTarefas && tarefasPendentes.length > 0 && (
-            <div className="tarefas-itens">
-              {tarefasPendentes.map((tarefa) => (
-                <div
-                  key={tarefa.id}
-                  className={`tarefas-item ${tarefa.atrasada ? "atrasada" : ""}`}
-                >
-                  <div>
-                    <strong>{tarefa.titulo}</strong>
-                    {tarefa.solicitadoPorNome && (
-                      <span className="tarefas-por">Solicitado por: {tarefa.solicitadoPorNome}</span>
-                    )}
-                    {tarefa.dataAgendada && (
-                      <span className="tarefas-por">
-                        Agendada para: {formatarDataBr(tarefa.dataAgendada)}
-                      </span>
-                    )}
-                    {tarefa.diaSemana && (
-                      <span className="tarefas-por">
-                        Dia:{" "}
-                        <span
-                          className={
-                            tarefa.atrasada ? "tarefas-dia-atrasada" : "tarefas-dia-selecionado"
-                          }
-                        >
-                          {tarefa.diaSemana}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary tarefas-concluir"
-                    disabled={usuarioSemLogin}
-                    onClick={() => handleConcluirTarefa(tarefa.id)}
-                  >
-                    Concluir
-                  </button>
-                </div>
-              ))}
             </div>
           )}
         </section>
