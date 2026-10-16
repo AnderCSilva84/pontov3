@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 *.env
+.env.*
+!.env.example
+!functions/.env.example
+
+# Local Netlify folder
+.netlify
+tmp/

@@ -1,16 +1,14 @@
 import {
   collection,
-  addDoc,
-  serverTimestamp,
   doc,
-  setDoc,
   getDoc,
   getDocs,
   query,
   where,
   orderBy,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, functions } from "./firebase";
+import { httpsCallable } from "firebase/functions";
 
 /* ===========================
    BUSCAS ADMIN
@@ -45,19 +43,13 @@ export async function listarFuncionarios() {
 =========================== */
 
 function getDataKey() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoje.getDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
+  const partes = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Fortaleza", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
+  return `${partes.year}-${partes.month}-${partes.day}`;
 }
 
-function getHoraAtual() {
-  const agora = new Date();
-  const h = String(agora.getHours()).padStart(2, "0");
-  const m = String(agora.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
-}
+
 
 function horaParaMinutos(hora) {
   const [h, m] = hora.split(":").map(Number);
@@ -65,8 +57,7 @@ function horaParaMinutos(hora) {
 }
 
 function isSabado() {
-  const hoje = new Date();
-  return hoje.getDay() === 6;
+  return new Date(`${getDataKey()}T12:00:00Z`).getUTCDay() === 6;
 }
 
 /* ===========================
@@ -99,13 +90,20 @@ export async function carregarDiaPorData(funcionarioId, dataKey) {
    MÁQUINA DE ESTADOS
 =========================== */
 
-export function getProximaAcao(dia) {
+export function getProximaAcao(dia, desconsiderarIntervalo = false) {
   const sabado = isSabado();
 
   if (!dia) return "ENTRADA";
+  if (dia.dataKey && dia.dataKey !== getDataKey()) return "ENTRADA";
+  if (dia.encerrado || dia.saida) return "ENCERRADO";
   if (!dia.entrada) return "ENTRADA";
 
   if (sabado) {
+    if (!dia.saida) return "SAIDA";
+    return "ENCERRADO";
+  }
+
+  if (desconsiderarIntervalo) {
     if (!dia.saida) return "SAIDA";
     return "ENCERRADO";
   }
@@ -121,75 +119,9 @@ export function getProximaAcao(dia) {
    REGISTRAR AÇÃO
 =========================== */
 
-export async function registrarAcao(funcionarioId, tipo) {
-  const dataKey = getDataKey();
-  const hora = getHoraAtual();
-  const diaId = `${funcionarioId}_${dataKey}`;
-  const diaRef = doc(db, "dias", diaId);
-
-  await addDoc(collection(db, "registros"), {
-    funcionarioId,
-    tipo,
-    timestamp: serverTimestamp(),
-    dataKey,
-  });
-
-  const updateData = {
-    funcionarioId,
-    dataKey,
-  };
-
-  if (tipo === "ENTRADA") {
-    updateData.entrada = hora;
-  }
-
-  if (tipo === "SAIDA_INTERVALO") {
-    updateData.saidaIntervalo = hora;
-  }
-
-  if (tipo === "ENTRADA_INTERVALO") {
-    updateData.entradaIntervalo = hora;
-  }
-
-  if (tipo === "SAIDA") {
-    updateData.saida = hora;
-    updateData.encerrado = true;
-
-    const diaSnap = await getDoc(diaRef);
-    const diaAtual = diaSnap.data();
-
-    const entradaMin = horaParaMinutos(diaAtual.entrada);
-    const saidaMin = horaParaMinutos(hora);
-
-    let totalMin = 0;
-
-    if (isSabado()) {
-      totalMin = saidaMin - entradaMin;
-    } else {
-      const intervaloMin =
-        horaParaMinutos(diaAtual.entradaIntervalo) - horaParaMinutos(diaAtual.saidaIntervalo);
-
-      totalMin = saidaMin - entradaMin - intervaloMin;
-    }
-
-    const funcSnap = await getDoc(doc(db, "funcionarios", funcionarioId));
-    const funcionario = funcSnap.data();
-
-    const chavesDia = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
-    const cargaIndividual = Number(funcionario?.escala?.[chavesDia[new Date().getDay()]]?.cargaMin);
-    const cargaPrevista = Number.isFinite(cargaIndividual)
-      ? cargaIndividual
-      : isSabado()
-        ? funcionario.cargaSabadoMin
-        : funcionario.cargaSegSexMin;
-
-    const saldoMin = totalMin - cargaPrevista;
-
-    updateData.totalMin = totalMin;
-    updateData.saldoMin = saldoMin;
-  }
-
-  await setDoc(diaRef, updateData, { merge: true });
+export async function registrarAcao(funcionarioId, tipo, latitude, longitude) {
+  const chamada = httpsCallable(functions, "registrarPonto");
+  return chamada({ funcionarioId, tipo, latitude, longitude });
 }
 
 export async function calcularBancoHoras(funcionarioId) {
@@ -225,7 +157,11 @@ export async function calcularBancoHorasMes(funcionarioId, mesYYYYMM, inicioCont
   // Consulta ampla por funcionário e filtra período em memória para evitar
   // falhas de índice composto no Firestore (caso comum em produção).
   const q = query(collection(db, "dias"), where("funcionarioId", "==", funcionarioId));
-  const snap = await getDocs(q);
+  const [snap, funcionarioSnap] = await Promise.all([
+    getDocs(q),
+    getDoc(doc(db, "funcionarios", funcionarioId)),
+  ]);
+  const funcionario = funcionarioSnap.data() || {};
 
   return snap.docs.reduce((total, docSnap) => {
     const data = docSnap.data();
@@ -241,6 +177,19 @@ export async function calcularBancoHorasMes(funcionarioId, mesYYYYMM, inicioCont
       data?.ajusteTipo === "saida_mais_cedo"
     ) {
       return total;
+    }
+
+    if (!data.calculoVersao && funcionario.desconsiderarIntervalo && data?.entrada && data?.saida) {
+      const entradaMin = horaParaMinutos(data.entrada);
+      const saidaMin = horaParaMinutos(data.saida);
+      const dataLocal = new Date(`${dataKey}T12:00:00`);
+      const diaSemana = dataLocal.getDay();
+      const chavesDia = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+      const cargaEscala = Number(funcionario?.escala?.[chavesDia[diaSemana]]?.cargaMin);
+      const cargaPadrao = diaSemana === 6 ? Number(funcionario.cargaSabadoMin) : Number(funcionario.cargaSegSexMin);
+      const cargaPrevista = Number.isFinite(cargaEscala) ? cargaEscala : (Number.isFinite(cargaPadrao) ? cargaPadrao : (diaSemana === 0 ? 0 : 480));
+      const intervalo = diaSemana === 6 ? 0 : (Number.isFinite(Number(funcionario.intervaloPrevistoMin)) ? Number(funcionario.intervaloPrevistoMin) : 60);
+      return total + (Math.max(0, saidaMin - entradaMin - intervalo) - cargaPrevista);
     }
 
     return total + normalizarMinutos(data?.saldoMin);

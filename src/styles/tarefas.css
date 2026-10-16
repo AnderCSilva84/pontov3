@@ -16,7 +16,21 @@
 }
 
 .tarefas-form-semanal { grid-template-columns: minmax(0, 2fr) minmax(170px, 1fr) minmax(120px, .7fr) auto; align-items: end; }
-.calendario-card { padding: 14px; overflow-x: auto; }
+.tarefas-shell > .page-header { order: -2; }
+.calendario-card { order: -1; padding: 14px; overflow-x: auto; box-shadow: 0 12px 30px rgba(73, 54, 27, .1); }
+.tarefas-expansivel { padding: 0; overflow: hidden; }
+.tarefas-expansivel > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; color: #594a37; font-weight: 800; cursor: pointer; list-style: none; }
+.tarefas-expansivel > summary::-webkit-details-marker { display: none; }
+.tarefas-expansivel > summary b, .tarefas-dia-grupo > summary b { margin-left: auto; padding: 4px 9px; border-radius: 999px; background: #e8f3ee; color: #2f7b5f; font-size: .75rem; }
+.tarefas-expansivel > form, .tarefas-expansivel > .tarefas-dias-grupos, .tarefas-expansivel > p { margin: 0 16px 16px; padding-top: 14px; border-top: 1px solid rgba(108,84,46,.1); }
+.tarefas-dias-grupos { display: grid; gap: 8px; }
+.tarefas-dia-grupo { border: 1px solid rgba(108,84,46,.12); border-radius: 14px; background: #fffdfa; overflow: hidden; }
+.tarefas-dia-grupo > summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-weight: 800; cursor: pointer; list-style: none; }
+.tarefas-dia-grupo > summary::-webkit-details-marker { display: none; }
+.tarefas-dia-grupo[open] > summary { background: #f5efe5; }
+.tarefas-dia-grupo .tarefas-itens { padding: 10px; }
+.tarefas-dia-vazio { margin: 0; padding: 12px 14px; }
+.tarefas-item-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
 .calendario-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .calendario-topo h2 { margin: 0; font-size: 1.1rem; text-transform: capitalize; }
 .calendario-topo button { width: 42px; height: 38px; border: 0; border-radius: 12px; background: #f2e7d5; font-size: 1.7rem; cursor: pointer; }

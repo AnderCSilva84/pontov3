@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../services/firebase";
-import { registrarPush } from "../services/push";
+import { login } from "../services/auth";
 import "../styles/login.css";
 
 export default function Login() {
@@ -16,8 +14,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-      await registrarPush(userCredential.user.uid);
+      await login(email, senha);
     } catch {
       setErro("Email ou senha inválidos.");
     } finally {
@@ -59,6 +56,7 @@ export default function Login() {
           </div>
 
           {erro && <p className="login-erro">{erro}</p>}
+          <p className="login-subtitle">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
 
           <button type="submit" disabled={loading} className="btn-entrar">
             {loading ? "Entrando..." : "Entrar"}

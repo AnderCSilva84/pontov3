@@ -55,6 +55,12 @@
 .financeiro-header p { color: var(--text-muted); }
 .financeiro-form { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; align-items: end; }
 .financeiro-descricao { grid-column: span 2; }
+.financeiro-linha-inteira { grid-column: 1 / -1; }
+.cadastro-funcionario { position: relative; }
+.funcionario-foto { width: 96px; height: 96px; border-radius: 18px; object-fit: cover; border: 1px solid var(--border); }
+.cadastro-checkbox { align-self: end; min-height: 48px; }
+.cadastro-ajuda { margin: 0; color: var(--text-muted); font-size: .86rem; }
+.financeiro-form textarea { width: 100%; min-height: 86px; resize: vertical; }
 .financeiro-lista { display: grid; gap: 10px; }
 .financeiro-item { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
 .financeiro-item span { display: block; margin-top: 5px; color: var(--text-muted); font-size: .86rem; }
@@ -83,6 +89,7 @@
 .folha-totais span, .folha-totais strong { display: flex; justify-content: space-between; gap: 8px; }
 .folha-checkbox { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-radius: 14px; background: #fff7e8; color: var(--text-main); font-weight: 700; }
 .folha-checkbox input { width: 19px; min-height: 19px; }
+.folha-checkbox:has(input:checked), .jornada-dia-header:has(input:checked) { color: #1f684e; }
 .folha-calculo-horas { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 14px; border-radius: 14px; background: #f7f1e4; color: var(--text-muted); }
 .folha-calculo-horas b { color: var(--text-main); }
 .pagamento-atalhos { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
@@ -451,3 +458,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.comprovantes-mes { display: grid; gap: 12px; }
+.comprovantes-mes + .comprovantes-mes { margin-top: 24px; }
+.comprovantes-mes .section-header h2 { margin: 0; font-size: 1.15rem; }
+.comprovante-compartilhar-painel { width: min(480px, calc(100vw - 32px)); }
+.comprovante-compartilhar-ajuda { margin: 0; padding: 8px 16px; color: var(--text-muted); font-size: 0.85rem; }
+.recibo-modal-painel { overflow-y: auto; max-height: calc(100dvh - 32px); }
+.recibo-modal iframe { min-height: 160px; }
+.recibo-modal-acoes, .comprovantes-mes .financeiro-acoes { flex-wrap: wrap; gap: 8px; }
+@media (max-width: 600px) { .comprovantes-mes .financeiro-item { flex-wrap: wrap; } .comprovantes-mes .financeiro-acoes { width: 100%; } .recibo-modal-painel { height: 100dvh; max-height: 100dvh; } }

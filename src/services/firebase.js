@@ -1,9 +1,11 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getFunctions } from "firebase/functions";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
-export const firebaseConfig = {
+export const firebaseConfig = import.meta.env.DEV && import.meta.env.MODE === 'compras-test' ? {
+  apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-ap1303', appId: 'demo-ap1303',
+} : {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -17,3 +19,8 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
+if (import.meta.env.DEV && import.meta.env.MODE === 'compras-test') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8877);
+  connectFunctionsEmulator(functions, '127.0.0.1', 5007);
+}

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { login, logout } from "../services/auth";
 import {
   carregarDiaAtual,
@@ -14,6 +14,7 @@ import BottomNav from "../components/BottomNav";
 import PontoResumo from "../components/PontoResumo";
 import logoAp1303 from "../assets/ap1303.jpeg";
 import { canAccessPonto } from "../utils/roles";
+import { obterPosicaoAtual } from "../utils/localizacao";
 import { nomeFeriado } from "../utils/feriados";
 import "../styles/funcionaria.css";
 import "../styles/tarefas.css";
@@ -179,7 +180,7 @@ function minutosDesdeMeiaNoiteAgora() {
   return agora.getHours() * 60 + agora.getMinutes();
 }
 
-function calcularHorasDiaParcial(dia) {
+function calcularHorasDiaParcial(dia, desconsiderarIntervalo = false, intervaloPrevistoMin = 60) {
   if (!dia?.entrada) return 0;
 
   const entrada = horaParaMinutosSeguro(dia.entrada);
@@ -198,6 +199,8 @@ function calcularHorasDiaParcial(dia) {
     if (hojeEhSabado) {
       return Math.max(0, saida - entrada);
     }
+
+    if (desconsiderarIntervalo) return Math.max(0, saida - entrada - intervaloPrevistoMin);
 
     const intervalo =
       saidaIntervalo !== null && entradaIntervalo !== null ? entradaIntervalo - saidaIntervalo : 0;
@@ -320,6 +323,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [cargaSegSexMin, setCargaSegSexMin] = useState(480);
   const [cargaSabadoMin, setCargaSabadoMin] = useState(0);
   const [bancoHorasInicio, setBancoHorasInicio] = useState("");
+  const [desconsiderarIntervalo, setDesconsiderarIntervalo] = useState(false);
+  const [intervaloPrevistoMin, setIntervaloPrevistoMin] = useState(60);
   const [tarefasPendentes, setTarefasPendentes] = useState([]);
   const [loadingTarefas, setLoadingTarefas] = useState(true);
   const [erroTarefas, setErroTarefas] = useState("");
@@ -338,102 +343,6 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     day: "2-digit",
     month: "long",
   });
-
-  function calcularDistancia(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const toRad = (graus) => (graus * Math.PI) / 180;
-
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-  }
-
-  function obterPosicaoAtual() {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("GPS indisponível neste dispositivo."));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          if (error.code === 1) {
-            reject(new Error("Permissão de localização negada."));
-            return;
-          }
-
-          reject(new Error("Não foi possível obter sua localização."));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        }
-      );
-    });
-  }
-
-  async function validarLocalizacaoParaRegistro(latitude, longitude) {
-    const funcRef = doc(db, "funcionarios", funcionarioId);
-    const funcSnap = await getDoc(funcRef);
-
-    if (!funcSnap.exists()) {
-      throw new Error("Funcionária não encontrada.");
-    }
-
-    const locaisPermitidos = funcSnap.data()?.locaisPermitidos || [];
-
-    if (!Array.isArray(locaisPermitidos) || locaisPermitidos.length === 0) {
-      throw new Error("Nenhum local autorizado configurado para seu usuário.");
-    }
-
-    let menorDistancia = Number.POSITIVE_INFINITY;
-    let dentroDoRaio = false;
-
-    for (const localId of locaisPermitidos) {
-      const localRef = doc(db, "locais", localId);
-      const localSnap = await getDoc(localRef);
-
-      if (!localSnap.exists()) continue;
-
-      const local = localSnap.data();
-      if (!local?.ativo) continue;
-
-      const localLat = local?.localizacao?.latitude;
-      const localLng = local?.localizacao?.longitude;
-      const raioMetros = Number(local?.raioMetros || 0);
-
-      if (!Number.isFinite(localLat) || !Number.isFinite(localLng) || raioMetros <= 0) continue;
-
-      const distancia = calcularDistancia(latitude, longitude, localLat, localLng);
-      menorDistancia = Math.min(menorDistancia, distancia);
-
-      if (distancia <= raioMetros) {
-        dentroDoRaio = true;
-        break;
-      }
-    }
-
-    if (!Number.isFinite(menorDistancia)) {
-      throw new Error("Não há local ativo válido para validação.");
-    }
-
-    return {
-      autorizado: dentroDoRaio,
-      distanciaMetros: menorDistancia,
-    };
-  }
 
   const carregarBancoHorasAtual = useCallback(async () => {
     if (!funcionarioId) return;
@@ -508,6 +417,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         const cargaSabado = Number(data?.cargaSabadoMin);
 
         setBancoHorasInicio(data?.bancoHorasInicio || "");
+        setDesconsiderarIntervalo(Boolean(data?.desconsiderarIntervalo));
+        setIntervaloPrevistoMin(Number.isFinite(Number(data?.intervaloPrevistoMin)) ? Number(data.intervaloPrevistoMin) : 60);
 
         if (Number.isFinite(cargaSegSex)) setCargaSegSexMin(cargaSegSex);
         if (Number.isFinite(cargaSabado)) setCargaSabadoMin(cargaSabado);
@@ -659,7 +570,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     return () => clearInterval(intervalId);
   }, []);
 
-  const proximaAcao = getProximaAcao(dia);
+  const proximaAcao = getProximaAcao(dia, desconsiderarIntervalo);
   const diaAtualSemana = DIAS_ORDEM[new Date().getDay()];
 
   async function handleClick() {
@@ -673,20 +584,9 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
       setMensagem("Validando localização...");
 
       const { latitude, longitude } = await obterPosicaoAtual();
-      const validacao = await validarLocalizacaoParaRegistro(latitude, longitude);
-
-      if (!validacao.autorizado) {
-        setMensagem("Você está fora do local autorizado.");
-        return;
-      }
-
-      await registrarAcao(
-        funcionarioId,
-        proximaAcao,
-        latitude,
-        longitude,
-        Math.round(validacao.distanciaMetros)
-      );
+      setValidandoLocalizacao(false);
+      setMensagem("Registrando ponto...");
+      await registrarAcao(funcionarioId, proximaAcao, latitude, longitude);
 
       const atualizado = await carregarDiaAtual(funcionarioId);
       setDia(atualizado || null);
@@ -743,7 +643,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     return "neutro";
   }
 
-  const horasTrabalhadasMin = (dia ? calcularHorasDiaParcial(dia) : 0) + tickTempoReal * 0;
+  const horasTrabalhadasMin = (dia ? calcularHorasDiaParcial(dia, desconsiderarIntervalo, intervaloPrevistoMin) : 0) + tickTempoReal * 0;
 
   const horasSemanaMin = useMemo(() => {
     if (!diasSemana || diasSemana.length === 0) return 0;
@@ -901,6 +801,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
               </label>
 
               {erroLogin && <p className="mensagem erro">{erroLogin}</p>}
+              <p className="text-muted">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
 
               <button type="submit" className="btn btn-primary" disabled={loadingLogin}>
                 {loadingLogin ? "Entrando..." : "Entrar"}

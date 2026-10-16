@@ -5,7 +5,10 @@ import ListaCompras from "./pages/ListaCompras";
 import Tarefas from "./pages/Tarefas";
 import Admin from "./pages/Admin";
 import Financeiro from "./pages/Financeiro";
-import { canAccessPonto } from "./utils/roles";
+import NotificacoesPush from "./components/NotificacoesPush";
+import CarregandoGatinho from "./components/CarregandoGatinho";
+import { normalizeRole, ROLE_ADMIN } from "./utils/roles";
+import { resolverRotaUsuario, ehRotaCompras } from "./utils/rotas";
 import "./styles/App.css";
 
 const ROTAS_VALIDAS = new Set(["/ponto", "/lista-compras", "/tarefas", "/admin", "/admin/financeiro"]);
@@ -19,10 +22,10 @@ function PaginaNaoEncontrada({ onNavigate }) {
   return <div className="page-bg"><main className="page-shell"><section className="card"><h1>Página não encontrada</h1><p className="text-muted">O endereço acessado não existe neste aplicativo.</p><button type="button" className="btn btn-primary" onClick={() => onNavigate("/ponto")}>Ir para o início</button></section></main></div>;
 }
 
-function App() {
-  const [user, setUser] = useState(undefined);
+function AppConteudo({ user, setUser }) {
   const [rotaAtual, setRotaAtual] = useState(normalizarRota(window.location.pathname));
-  const rotaEfetiva = user && !canAccessPonto(user) && rotaAtual === "/ponto" ? "/admin" : rotaAtual;
+  const role = normalizeRole(user?.role);
+  const rotaEfetiva = resolverRotaUsuario(user, rotaAtual);
 
   useEffect(() => {
     if (window.location.pathname === "/") {
@@ -33,7 +36,7 @@ function App() {
   useEffect(() => {
     const unsubscribe = observeAuth(setUser);
     return () => unsubscribe();
-  }, []);
+  }, [setUser]);
 
   useEffect(() => {
     function handlePopState() {
@@ -53,11 +56,16 @@ function App() {
     if (window.location.pathname === destino) return;
     window.history.pushState({}, "", destino);
     setRotaAtual(destino);
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
 
-  if (user === undefined) return <p>Carregando...</p>;
+  if (user === undefined) return <CarregandoGatinho />;
 
-  if (!ROTAS_VALIDAS.has(rotaEfetiva)) {
+  if (user && role !== ROLE_ADMIN && rotaEfetiva === "/admin/financeiro") {
+    return <Admin user={user} onNavigate={navegarPara} rotaAtual="/admin" />;
+  }
+
+  if (!ROTAS_VALIDAS.has(rotaEfetiva) && !ehRotaCompras(rotaEfetiva)) {
     return <PaginaNaoEncontrada onNavigate={navegarPara} />;
   }
 
@@ -69,7 +77,7 @@ function App() {
       return <Admin user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
     }
 
-    if (rotaEfetiva === "/lista-compras") {
+    if (ehRotaCompras(rotaEfetiva)) {
       return <ListaCompras user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
     }
 
@@ -80,7 +88,7 @@ function App() {
     return <Ponto user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
-  if (rotaEfetiva === "/lista-compras") {
+  if (ehRotaCompras(rotaEfetiva)) {
     return <ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
@@ -99,4 +107,7 @@ function App() {
   return <Ponto user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
 }
 
-export default App;
+export default function App() {
+  const [user, setUser] = useState(undefined);
+  return <>{user && !(import.meta.env.DEV && import.meta.env.MODE === 'compras-test') && <NotificacoesPush key={user.uid} uid={user.uid} />}<AppConteudo user={user} setUser={setUser} /></>;
+}

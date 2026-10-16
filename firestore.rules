@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function userExists() {
-      return signedIn() && exists(userDocPath());
+      return signedIn() && exists(userDocPath()) && get(userDocPath()).data.get('ativo', true) != false;
     }
 
     function userDoc() {
@@ -47,13 +47,22 @@ service cloud.firestore {
     // USERS
     match /users/{uid} {
       allow read: if signedIn() && (isAdmin() || request.auth.uid == uid);
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        userExists() && request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']) &&
+        request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
+      );
     }
 
     // FUNCIONARIOS
     match /funcionarios/{funcionarioId} {
       allow read: if signedIn() && (isAdmin() || myFuncionarioId() == funcionarioId);
       allow write: if isAdmin();
+    }
+
+    match /filiais/{filialId} {
+      allow read, write: if isAdmin();
     }
 
     // Conclusões diárias das tarefas da rotina fixa.
@@ -63,6 +72,10 @@ service cloud.firestore {
         isAdmin() ||
         (
           myFuncionarioId() == funcionarioId &&
+          request.resource.data.keys().hasOnly(['tarefaId', 'dataKey', 'concluidaEm', 'concluidaPor']) &&
+          request.resource.data.concluidaEm == request.time &&
+          conclusaoId == request.resource.data.dataKey + '_' + request.resource.data.tarefaId &&
+          exists(/databases/$(database)/documents/tarefasSemanais/$(request.resource.data.tarefaId)) &&
           request.resource.data.concluidaPor == funcionarioId &&
           request.resource.data.tarefaId is string &&
           request.resource.data.dataKey is string
@@ -85,8 +98,7 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
 
-      allow create: if signedIn() &&
-        (isAdmin() || request.resource.data.funcionarioId == myFuncionarioId());
+      allow create: if isAdmin();
 
       allow update, delete: if isAdmin();
     }
@@ -96,19 +108,35 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
 
-      allow create: if signedIn() &&
-        (isAdmin() || request.resource.data.funcionarioId == myFuncionarioId());
-
-      allow update: if signedIn() &&
-        (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
+      allow create, update: if isAdmin();
 
       allow delete: if isAdmin();
     }
 
     // CATÁLOGO DE COMPRAS (lista de itens da casa)
     match /catalogoCompras/{itemId} {
-      allow read: if signedIn();     // funcionária e admin podem ver
-      allow write: if isAdmin();     // só admin altera catálogo
+      allow read: if userExists();
+      allow write: if false; // Validação e escrita pelas funções de compras.
+    }
+
+    match /categoriasCompras/{id} {
+      allow read: if userExists();
+      allow write: if false;
+    }
+    match /supermercados/{id} {
+      allow read: if userExists();
+      allow write: if false;
+    }
+    match /comprasListas/{listaId} {
+      allow read: if userExists();
+      allow write: if false;
+      match /itens/{itemId} {
+        allow read: if userExists();
+        allow write: if false;
+      }
+    }
+    match /comprasPrecos/{id} {
+      allow read, write: if false; // Apenas backend e relatório autenticado.
     }
 
     // LISTA DE COMPRAS ATIVA
@@ -118,23 +146,25 @@ service cloud.firestore {
       allow read: if signedIn();
 
       // funcionária pode solicitar itens
-      allow create: if signedIn() &&
+      allow create: if signedIn() && !exists(/databases/$(database)/documents/comprasListas/legado-v1) &&
         (isAdmin() || request.resource.data.solicitadoPor == myFuncionarioId());
 
       // admin atualiza tudo; funcionária altera apenas sua própria solicitação
-      allow update: if signedIn() && (
+      allow update: if signedIn() && !exists(/databases/$(database)/documents/comprasListas/legado-v1) && (
         isAdmin() ||
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'solicitado', 'comprado', 'solicitadoPor', 'solicitadoPorNome', 'criadoEm'
           ]) &&
+          myFuncionarioExists() &&
+          (resource.data.solicitadoPor == myFuncionarioId() || resource.data.solicitado == false) &&
           request.resource.data.solicitadoPor == myFuncionarioId() &&
           request.resource.data.comprado == false
         )
       );
 
       // apenas admin pode apagar
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && !exists(/databases/$(database)/documents/comprasListas/legado-v1);
     }
 
     // TAREFAS
@@ -149,6 +179,10 @@ service cloud.firestore {
         isAdmin() ||
         (
           resource.data.concluida == false &&
+          myFuncionarioExists() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['concluida', 'concluidaEm', 'concluidaPor']) &&
+          request.resource.data.concluidaPor == myFuncionarioId() &&
+          request.resource.data.concluidaEm == request.time &&
           request.resource.data.concluida == true &&
           request.resource.data.titulo == resource.data.titulo &&
           request.resource.data.diaSemana == resource.data.diaSemana &&
@@ -171,6 +205,17 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isAdmin();
       allow update, delete: if false;
+    }
+
+    // Assinaturas e recibos de push são gerenciados somente pelas Cloud Functions.
+    match /pushDispositivos/{id} {
+      allow read, write: if false;
+    }
+    match /pushEnvios/{id} {
+      allow read, write: if false;
+    }
+    match /pushEventos/{id} {
+      allow read, write: if false;
     }
 
     match /financeiro/{lancamentoId} {

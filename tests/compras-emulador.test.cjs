@@ -1,0 +1,154 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+test('compras: integração real com Firestore, autenticação e regras no emulador', { skip: !process.env.FIRESTORE_EMULATOR_HOST }, async t => {
+  assert.ok(process.env.GCLOUD_PROJECT?.startsWith('demo-'), 'Teste deve usar projeto demo, nunca produção.');
+  const admin = require('../functions/node_modules/firebase-admin');
+  admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
+  const db = admin.firestore();
+  const { comprasOperacao, comprasRelatorio } = require('../functions/compras.cjs');
+  const { initializeApp, deleteApp } = await import('firebase/app');
+  const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
+  const { getFirestore, connectFirestoreEmulator, getDoc, getDocs, doc, collection, setDoc, updateDoc, terminate } = await import('firebase/firestore');
+  const app = initializeApp({ projectId: process.env.GCLOUD_PROJECT, apiKey: 'demo-key' }, 'compras-teste');
+  const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
+  const client = getFirestore(app); connectFirestoreEmulator(client, '127.0.0.1', 8877);
+  t.after(async () => { await signOut(auth); await terminate(client); await deleteApp(app); await admin.app().delete(); });
+  const comprado = await createUserWithEmailAndPassword(auth, 'comprador@example.test', 'senha-teste-123');
+  const uid = comprado.user.uid;
+  await db.doc('users/administrador').set({ role: 'admin' });
+  await db.doc(`users/${uid}`).set({ role: 'funcionario', funcionarioId: 'func-teste', permissions: { realizarCompras: true } });
+  await db.doc('users/consulta').set({ role: 'consulta' });
+  const op = (operacao, dados = {}, usuario = 'administrador') => comprasOperacao.run({ auth: { uid: usuario }, data: { ...dados, operacao } });
+  await db.doc('catalogoCompras/arroz').set({ nome: 'Arroz', categoria: 'Mercearia' });
+  await db.doc('listaCompras/arroz').set({ nome: 'Arroz', categoria: 'Mercearia', solicitado: true, comprado: false, solicitadoPor: 'func-teste' });
+  await db.doc('listaCompras/antigo').set({ nome: 'Antigo', comprado: true });
+  await t.test('migração é idempotente, importa pendências e não inventa preços antigos', async () => {
+    await assert.rejects(op('criar', { listaId: 'legado-v1', titulo: 'Não deve bloquear migração' }, uid), /reservado/);
+    assert.equal((await op('inicializar')).migrados, 1);
+    assert.equal((await op('inicializar')).jaMigrado, true);
+    assert.equal((await db.collection('comprasPrecos').get()).size, 0);
+    assert.equal((await db.collection('comprasListas/legado-v1/itens').get()).size, 1);
+    assert.equal((await db.doc('comprasListas/legado-v1/itens/arroz').get()).data().solicitadaPor, uid);
+    assert.equal((await db.doc('listaCompras/antigo').get()).data().comprado, true);
+  });
+  await op('produto', { produtoId: 'arroz', nome: 'Arroz marca A', apresentacao: 'Pacote de 1 kg', categoriaId: 'mercearia', unidadeCompra: 'un' });
+  await t.test('categorias novas são preservadas, protegidas e aceitas no catálogo', async () => {
+    for (const chave of ['pet', 'geladeira', 'despensa', 'jardinagem']) assert.equal((await db.doc(`categoriasCompras/${chave}`).get()).exists, true);
+    await assert.rejects(op('categoria', { nome: 'Escritório', icone: '📦' }, uid), /administrador/);
+    await assert.rejects(op('categoria', { nome: 'Inválida', icone: '<svg>' }), /ícone/);
+    const nova = await op('categoria', { nome: 'Escritório', icone: '📦' });
+    await assert.rejects(op('categoria', { nome: ' ESCRITORIO ', icone: '🏠' }), /existe/);
+    await assert.rejects(setDoc(doc(client, 'categoriasCompras/forjada'), { nome: 'Forjada' }), /permission/i);
+    const listasAntes = (await db.collection('comprasListas').get()).size;
+    await assert.rejects(op('produto', { produtoId: 'papel', nome: 'Papel', apresentacao: 'Pacote', categoriaId: nova.categoriaId, unidadeCompra: 'un' }, uid), /administrador/);
+    await op('produto', { produtoId: 'papel', nome: 'Papel', apresentacao: 'Pacote', categoriaId: nova.categoriaId, unidadeCompra: 'un' });
+    assert.equal((await db.collection('comprasListas').get()).size, listasAntes);
+    assert.equal((await db.collection('comprasPrecos').get()).size, 0);
+    assert.equal((await db.doc('catalogoCompras/papel').get()).data().categoria, 'Escritório');
+    await op('inicializar');
+    assert.equal((await db.doc(`categoriasCompras/${nova.categoriaId}`).get()).data().nome, 'Escritório');
+    await db.doc('categoriasCompras/pet').delete();
+    await op('inicializar');
+    assert.equal((await db.doc('categoriasCompras/pet').get()).exists, true);
+  });
+  const mercado = await op('supermercado', { nome: 'Mercado', filial: 'Centro', cidade: 'Belém' });
+  await t.test('lojas iguais não duplicam; novas filiais mantêm identidade própria', async () => {
+    const repetido = await op('supermercado', { nome: 'mercado', filial: 'centro', cidade: 'Belem' });
+    assert.equal(repetido.supermercadoId, mercado.supermercadoId);
+    const outro = await op('supermercado', { nome: 'Mercado', filial: 'Norte', cidade: 'Belém' });
+    assert.notEqual(outro.supermercadoId, mercado.supermercadoId);
+  });
+  await op('criar', { listaId: 'teste', titulo: 'Compra teste' }, uid);
+  await op('adicionar', { listaId: 'teste', produtoId: 'arroz', quantidadePlanejada: 2 }, uid);
+  await assert.rejects(op('iniciar', { listaId: 'teste' }, uid), /administrador/);
+  await op('iniciar', { listaId: 'teste' });
+  await t.test('funcionário monta listas mas não compra, mesmo com permissão antiga', async () => {
+    await assert.rejects(op('item', { listaId: 'teste', itemId: 'arroz', versao: 1, estado: 'comprado', supermercadoId: mercado.supermercadoId, quantidadeComprada: 2, precoUnitarioCentavos: 599 }, uid), /administrador/);
+    await assert.rejects(op('finalizar', { listaId: 'teste', versao: 3, aceitarPendentes: true }, uid), /administrador/);
+    await assert.rejects(op('supermercado', { nome: 'X', filial: 'Centro', cidade: 'Belém' }, uid), /administrador/);
+    await assert.rejects(op('permissao', { uid, permitir: true }), /exclusiva/);
+    assert.equal((await db.doc('comprasListas/teste').get()).data().criadaPor, uid);
+    assert.equal((await db.doc('comprasListas/teste/itens/arroz').get()).data().solicitadaPor, uid);
+  });
+  await t.test('regras permitem consultar listas e bloqueiam escrita direta e preços privados', async () => {
+    assert.equal((await getDoc(doc(client, 'comprasListas/teste'))).exists(), true);
+    await assert.rejects(setDoc(doc(client, 'comprasPrecos/forjado'), { precoUnitarioCentavos: 1 }), /permission/i);
+    await assert.rejects(updateDoc(doc(client, 'comprasListas/teste'), { status: 'finalizada' }), /permission/i);
+    await assert.rejects(getDocs(collection(client, 'comprasPrecos')), /permission/i);
+    await assert.rejects(updateDoc(doc(client, 'listaCompras/arroz'), { solicitado: false }), /permission/i);
+  });
+  await t.test('backend recusa consulta, alteração sem permissão, preço inválido e versão antiga', async () => {
+    await assert.rejects(op('item', { listaId: 'teste', itemId: 'arroz', versao: 1, estado: 'comprado' }, 'consulta'), /consultar/);
+    await db.doc('users/sem-permissao').set({ role: 'funcionario' });
+    await assert.rejects(op('iniciar', { listaId: 'teste' }, 'sem-permissao'), /administrador/);
+    await assert.rejects(op('item', { listaId: 'teste', itemId: 'arroz', versao: 0, estado: 'pendente' }), /outro celular/);
+    await assert.rejects(op('item', { listaId: 'teste', itemId: 'arroz', versao: 1, estado: 'comprado', supermercadoId: mercado.supermercadoId, quantidadeComprada: 2, precoUnitarioCentavos: -1 }), /preço/);
+    assert.equal((await db.doc('comprasListas/teste/itens/arroz').get()).data().versao, 1);
+  });
+  await op('item', { listaId: 'teste', itemId: 'arroz', versao: 1, estado: 'comprado', supermercadoId: mercado.supermercadoId, quantidadeComprada: 2, precoUnitarioCentavos: 599 });
+  await t.test('desmarcar e comprar novamente renova a data; editar preço preserva a data da compra', async () => {
+    const ref = db.doc('comprasListas/teste/itens/arroz');
+    await ref.update({ compradoEm: admin.firestore.Timestamp.fromMillis(1) });
+    await op('item', { listaId: 'teste', itemId: 'arroz', versao: 2, estado: 'pendente' });
+    const dados = { listaId: 'teste', itemId: 'arroz', estado: 'comprado', supermercadoId: mercado.supermercadoId, quantidadeComprada: 2, precoUnitarioCentavos: 599 };
+    await op('item', { ...dados, versao: 3 });
+    const data = (await ref.get()).data().compradoEm.toMillis();
+    assert.ok(data > 1);
+    await op('item', { ...dados, versao: 4 });
+    assert.equal((await ref.get()).data().compradoEm.toMillis(), data);
+  });
+  await op('produto', { produtoId: 'banana', nome: 'Banana', apresentacao: 'A granel', categoriaId: 'hortifruti', unidadeCompra: 'kg' });
+  await op('adicionar', { listaId: 'teste', produtoId: 'banana', quantidadePlanejada: 1 }, uid);
+  await t.test('sem confirmação das pendências, nenhuma parte do fechamento é gravada', async () => {
+    const lista = (await db.doc('comprasListas/teste').get()).data();
+    await assert.rejects(op('finalizar', { listaId: 'teste', versao: lista.versao }), /Confirme os itens/);
+    assert.equal((await db.collection('comprasPrecos').get()).size, 0);
+    assert.equal((await db.doc('comprasListas/teste').get()).data().status, 'em_compra');
+  });
+  await t.test('finalização é atômica, resiste ao duplo toque e conserva snapshots de produto', async () => {
+    const lista = (await db.doc('comprasListas/teste').get()).data();
+    const resultados = await Promise.all([op('finalizar', { listaId: 'teste', versao: lista.versao, aceitarPendentes: true }), op('finalizar', { listaId: 'teste', versao: lista.versao, aceitarPendentes: true })]);
+    assert.ok(resultados.every(r => r.totalCentavos === 1198));
+    assert.equal((await db.collection('comprasPrecos').get()).size, 1);
+    await assert.rejects(op('item', { listaId: 'teste', itemId: 'arroz', versao: 2, estado: 'pendente' }), /fechada/);
+    await op('produto', { produtoId: 'arroz', nome: 'Nome novo', apresentacao: 'Pacote de 1 kg', categoriaId: 'mercearia', unidadeCompra: 'un' });
+    assert.equal((await db.doc('comprasPrecos/teste_arroz').get()).data().nomeSnapshot, 'Arroz marca A');
+    assert.equal((await db.doc('comprasListas/teste/itens/banana').get()).data().estado, 'nao_comprado');
+    await assert.rejects(op('produto', { produtoId: 'arroz', nome: 'Arroz', apresentacao: 'Pacote de 5 kg', categoriaId: 'mercearia', unidadeCompra: 'un' }), /novo produto/);
+  });
+  await t.test('relatório autenticado não inclui pessoas e anulação exclui preços dos rankings', async () => {
+    const consultar = () => comprasRelatorio.run({ auth: { uid }, data: { inicioMs: Date.now() - 86400000, fimMs: Date.now() + 86400000 } });
+    const antes = await consultar();
+    assert.equal(antes.registros.length, 1);
+    assert.equal(antes.rankings.frequencias[0].compras, 1);
+    assert.equal(Object.hasOwn(antes.registros[0], 'finalizadaPor'), false);
+    await op('anular', { listaId: 'teste', motivo: 'Preço informado incorretamente' });
+    assert.equal((await consultar()).registros.length, 0);
+    assert.equal((await db.doc('comprasListas/teste').get()).data().status, 'anulada');
+    assert.equal((await db.doc('comprasPrecos/teste_arroz').get()).exists, true);
+  });
+  await t.test('API REST lista com paginação, omite pessoas e consulta preços válidos no banco', async () => {
+    const { criarHandlerComprasApi } = require('../functions/compras-api.cjs');
+    const handler = criarHandlerComprasApi({ db: () => db, verificar: async () => ({ email: 'no-bolso-runtime@organizanderson.iam.gserviceaccount.com', email_verified: true }) });
+    const get = async (path, query = {}) => {
+      const res = { statusCode: 200, set() {}, status(c) { this.statusCode = c; return this; }, json(body) { this.body = body; return this; } };
+      await handler({ method: 'GET', path, query, get: () => `Bearer ${'x'.repeat(30)}` }, res);
+      return res;
+    };
+    const pagina = await get('/v1/listas', { limite: '1' });
+    assert.equal(pagina.statusCode, 200);
+    assert.equal(pagina.body.listas.length, 1);
+    assert.ok(pagina.body.nextCursor);
+    const proxima = await get('/v1/listas', { limite: '1', cursor: pagina.body.nextCursor });
+    assert.notEqual(pagina.body.listas[0].id, proxima.body.listas[0].id);
+    const detalhe = await get('/v1/listas/teste');
+    assert.equal(detalhe.statusCode, 200);
+    assert.equal(detalhe.body.itens.length, 2);
+    assert.equal(JSON.stringify(detalhe.body).includes(uid), false);
+    assert.equal((await get('/v1/listas/inexistente')).statusCode, 404);
+    assert.equal((await get('/v1/listas/teste/melhor-preco')).statusCode, 409);
+    assert.equal((await get('/v1/rankings')).body.rankings.precos.length, 0);
+    assert.equal((await get('/v1/listas', { cursor: 'invalido' })).statusCode, 400);
+  });
+});

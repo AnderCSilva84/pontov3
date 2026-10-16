@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { criarUsuario, login, logout } from "../services/auth";
+import { criarUsuario, excluirUsuario, login, logout } from "../services/auth";
 import { listarFuncionarios, buscarDiasPorPeriodo } from "../services/ponto";
 import {
   collection,
@@ -77,7 +77,7 @@ function horaParaMinutosSeguro(hora) {
   return h * 60 + m;
 }
 
-function calcularTotalMinutos({ entrada, saidaIntervalo, entradaIntervalo, saida, isSabado }) {
+function calcularTotalMinutos({ entrada, saidaIntervalo, entradaIntervalo, saida, isSabado, desconsiderarIntervalo, intervaloPrevistoMin }) {
   const entradaMin = horaParaMinutosSeguro(entrada);
   const saidaMin = horaParaMinutosSeguro(saida);
   if (entradaMin === null || saidaMin === null) return 0;
@@ -85,6 +85,11 @@ function calcularTotalMinutos({ entrada, saidaIntervalo, entradaIntervalo, saida
 
   if (isSabado) {
     return Math.max(0, saidaMin - entradaMin);
+  }
+
+  if (desconsiderarIntervalo) {
+    const intervalo = Number.isFinite(Number(intervaloPrevistoMin)) ? Number(intervaloPrevistoMin) : 60;
+    return Math.max(0, saidaMin - entradaMin - intervalo);
   }
 
   const saidaIntervaloMin = horaParaMinutosSeguro(saidaIntervalo);
@@ -611,6 +616,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     setUsuarioSucesso("");
   }
 
+  function abrirCadastroFuncionario(item) {
+    const id = item?.funcionarioId || (normalizeRole(item?.role) === ROLE_FUNCIONARIO ? item?.id : "");
+    if (!id) return;
+    sessionStorage.setItem("funcionarioCadastroSelecionado", id);
+    onNavigate?.("/admin/financeiro");
+  }
+
   function cancelarEdicaoUsuario() {
     setUsuarioEditandoId("");
     setUsuarioEdicaoRole(ROLE_FUNCIONARIO);
@@ -706,6 +718,29 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao atualizar acesso do usuario:", error);
       setErroUsuarios("Nao foi possivel atualizar o acesso do usuario.");
+    } finally {
+      setUsuarioAtualizandoId("");
+    }
+  }
+
+  async function handleExcluirUsuario(item) {
+    if (!podeGerenciarUsuarios || !item?.id || item.id === user?.uid) return;
+    const identificacao = item.nome || item.email || "este usuário";
+    if (!window.confirm(`Excluir o acesso de ${identificacao}? O histórico de ponto será preservado.`)) return;
+
+    setUsuarioAtualizandoId(item.id);
+    setErroUsuarios("");
+    setUsuarioSucesso("");
+    try {
+      await excluirUsuario(item.id);
+      setUsuarioSucesso("Usuário excluído com sucesso. O histórico foi preservado.");
+      if (usuarioEditandoId === item.id) cancelarEdicaoUsuario();
+      await carregarUsuarios(paginaUsuarios);
+      const lista = await listarFuncionarios();
+      setFuncionarios(lista);
+    } catch (error) {
+      console.error("[ADMIN][ERRO] Falha ao excluir usuário:", error);
+      setErroUsuarios(error?.message || "Não foi possível excluir o usuário.");
     } finally {
       setUsuarioAtualizandoId("");
     }
@@ -935,6 +970,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             entradaIntervalo,
             saida,
             isSabado,
+            desconsiderarIntervalo: Boolean(funcionario?.desconsiderarIntervalo),
+            intervaloPrevistoMin: funcionario?.intervaloPrevistoMin,
           });
           saldoMin = totalMin - cargaDiaMin;
 
@@ -1397,6 +1434,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                 />
               </label>
               {adminErro && <p className="mensagem erro">{adminErro}</p>}
+              <p className="text-muted">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
               <button type="submit" className="btn btn-primary" disabled={adminLoading}>
                 {adminLoading ? "Entrando..." : "Entrar"}
               </button>
@@ -1612,13 +1650,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                             </button>
                           </>
                         ) : (
-                          <button
+                          <><button
                             type="button"
                             className="btn btn-secondary"
                             onClick={() => iniciarEdicaoUsuario(item)}
                           >
                             Editar acesso
-                          </button>
+                          </button>{(item.funcionarioId || normalizeRole(item.role) === ROLE_FUNCIONARIO) && <button type="button" className="btn btn-primary" onClick={() => abrirCadastroFuncionario(item)}>Abrir cadastro</button>}{item.id !== user?.uid && <button type="button" className="btn btn-danger" onClick={() => handleExcluirUsuario(item)} disabled={usuarioAtualizandoId === item.id}>{usuarioAtualizandoId === item.id ? "Excluindo..." : "Excluir usuário"}</button>}</>
                         )}
                       </div>
                     </div>

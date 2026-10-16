@@ -1,4 +1,4 @@
-import { canAccessPonto } from "../utils/roles";
+import { normalizeRole, ROLE_ADMIN, ROLE_FUNCIONARIO } from "../utils/roles";
 
 export default function BottomNav({ activePath, onNavigate, user }) {
   const themeClass =
@@ -55,7 +55,12 @@ export default function BottomNav({ activePath, onNavigate, user }) {
     },
   ];
 
-  const tabsVisiveis = user && !canAccessPonto(user) ? tabs.filter((tab) => tab.path !== "/ponto") : tabs;
+  const role = normalizeRole(user?.role);
+  const tabsVisiveis = role === ROLE_FUNCIONARIO
+    ? tabs.filter((tab) => tab.path === "/ponto" || tab.path === "/lista-compras")
+    : role === ROLE_ADMIN
+      ? tabs
+      : tabs.filter((tab) => tab.path !== "/ponto");
 
   return (
     <nav className={`bottom-nav ${themeClass}`} aria-label="Navegação principal">

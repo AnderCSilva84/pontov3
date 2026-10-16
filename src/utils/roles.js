@@ -55,6 +55,7 @@ export function getDefaultPermissionsForRole(role) {
         accessAdmin: false,
         manageUsers: false,
         createTasks: false,
+        realizarCompras: false,
       };
     case ROLE_CONSULTA:
       return {
@@ -93,10 +94,7 @@ export function getUserPermissions(user) {
   }
 
   if (roleNormalizado === ROLE_FUNCIONARIO) {
-    return {
-      ...merged,
-      accessPonto: true,
-    };
+    return getDefaultPermissionsForRole(ROLE_FUNCIONARIO);
   }
 
   if (roleNormalizado === ROLE_CONSULTA) {

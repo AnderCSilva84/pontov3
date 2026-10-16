@@ -1,7 +1,9 @@
 {
   "name": "APP PONTO 3.0",
   "short_name": "AP1303",
-  "start_url": ".",
+  "id": "/",
+  "scope": "/",
+  "start_url": "/ponto",
   "display": "standalone",
   "background_color": "#090b13",
   "theme_color": "#141525",

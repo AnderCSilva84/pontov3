@@ -1,0 +1,20 @@
+.carregando-gatinho { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; padding: 24px; background: radial-gradient(ellipse at center, #fffdf7, var(--bg-page)); }
+.carregando-pista { position: relative; width: 280px; max-width: 100%; height: 130px; border-bottom: 2px solid rgba(47,123,95,.16); }
+.gatinho-relogio { position: absolute; right: 0; bottom: 0; width: 64px; height: 100px; }
+.gatinho-corredor { position: absolute; bottom: 0; left: 0; width: 104px; height: 75px; animation: gatinho-ate-ponto 4s ease-in-out infinite; will-change: transform; }
+.gatinho-desenho { width: 100%; height: 100%; }
+.gatinho-pata { transform-box: fill-box; transform-origin: center top; animation: gatinho-passos 4s linear infinite; }
+.gatinho-pata-atras { animation-name: gatinho-passos-atras; }
+.gatinho-pata-toque { animation-name: gatinho-bate-ponto; transform-box: view-box; transform-origin: 61px 47px; }
+.gatinho-cauda { transform-origin: 29px 40px; animation: gatinho-rabo .64s ease-in-out infinite alternate; }
+.gatinho-confirmacao { animation: gatinho-confirmar 4s infinite; }
+.carregando-mensagem { padding-top: 22px; text-align: center; }
+.carregando-mensagem p { margin: 0 0 6px; font-size: 20px; font-weight: 800; color: var(--accent-strong); }
+.carregando-mensagem > span:last-child { font-size: 14px; color: var(--text-muted); }
+@keyframes gatinho-ate-ponto { 0% { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 48%,88% { transform: translateX(152px); opacity: 1; } 100% { transform: translateX(152px); opacity: 0; } }
+@keyframes gatinho-passos { 0%,16%,32% { transform: rotate(-24deg); } 8%,24%,40% { transform: rotate(24deg); } 48%,100% { transform: rotate(0); } }
+@keyframes gatinho-passos-atras { 0%,16%,32% { transform: rotate(24deg); } 8%,24%,40% { transform: rotate(-24deg); } 48%,100% { transform: rotate(0); } }
+@keyframes gatinho-bate-ponto { 0%,16%,32% { transform: rotate(24deg); } 8%,24%,40% { transform: rotate(-24deg); } 48%,88%,100% { transform: rotate(0); } 60%,76% { transform: rotate(-100deg); } }
+@keyframes gatinho-confirmar { 0%,59%,95%,100% { opacity: 0; } 64%,88% { opacity: 1; } }
+@keyframes gatinho-rabo { to { transform: rotate(-12deg); } }
+@media (prefers-reduced-motion: reduce) { .gatinho-corredor,.gatinho-pata,.gatinho-cauda,.gatinho-confirmacao { animation: none; } .gatinho-corredor { transform: translateX(152px); } .gatinho-pata-toque { transform: rotate(-100deg); } }
