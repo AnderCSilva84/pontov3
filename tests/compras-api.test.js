@@ -1,3 +1,4 @@
+import catalogo from '../functions/no-bolso-product-catalog.cjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import dominio from '../functions/compras-api-dominio.cjs';
@@ -6,6 +7,18 @@ const { melhorPrecoLista, compararProduto, caminhoApi } = dominio;
 const a = { produtoId: 'a', nomeSnapshot: 'Arroz', apresentacao: '1 kg', unidadeCompra: 'un', estado: 'pendente', quantidadePlanejada: 2 };
 const b = { produtoId: 'b', nomeSnapshot: 'Banana', apresentacao: 'A granel', unidadeCompra: 'kg', estado: 'pendente', quantidadePlanejada: 1 };
 const preco = (id, produto, mercado, valor, ms) => ({ ...produto, id, supermercadoId: mercado, supermercadoNome: mercado, precoUnitarioCentavos: valor, compradoEmMs: ms });
+
+test('marcas distintas permanecem identificadas e não duplicam a soma do supermercado', () => {
+  const registros = [preco('1', { ...a, marca: 'A' }, 'X', 100, 1), preco('2', { ...a, marca: 'B' }, 'X', 200, 2)];
+  assert.equal(compararProduto(registros, 'a').length, 2);
+  const r = melhorPrecoLista([a], registros);
+  assert.equal(r.supermercados[0].itensComPreco, 1);
+  assert.equal(r.supermercados[0].totalCentavos, 200);
+  assert.equal(r.produtos[0].menorOferta.marca, 'A');
+  const comprado = melhorPrecoLista([{ ...a, estado: 'comprado', quantidadeComprada: 1, marca: 'B' }], registros);
+  assert.equal(comprado.produtos[0].ofertas.length, 1);
+  assert.equal(comprado.totalDistribuidoCentavos, 200);
+});
 test('melhor preço exige cobertura completa e não mistura embalagens ou observações antigas', () => {
   const registros = [preco('1', a, 'X', 100, 1), preco('2', a, 'X', 150, 2), preco('3', a, 'Y', 120, 3), preco('4', b, 'X', 200, 4), preco('5', { ...a, apresentacao: '5 kg' }, 'Z', 1, 5), { ...preco('6', b, 'Y', 1, 6), valido: false }];
   const r = melhorPrecoLista([a, b], registros);
@@ -48,4 +61,15 @@ test('API autentica o servidor, rejeita tokens inválidos e bloqueia todos os m�
   res = resposta(); await api.criarHandlerComprasApi({ db, verificar: async () => ({ email: 'outro@example.test', email_verified: true }) })(request(), res); assert.equal(res.code, 403);
   res = resposta(); await api.criarHandlerComprasApi({ db, verificar: async () => ({ email: 'no-bolso-runtime@organizanderson.iam.gserviceaccount.com', email_verified: false }) })(request(), res); assert.equal(res.code, 403);
   assert.equal(leituras, 0);
+});
+
+
+test('catálogo contém produtos fora do top10 e distingue marcas/embalagens das ofertas', () => {
+ const registros=Array.from({length:15},(_,i)=>preco('registro-'+i,{...a,produtoId:'produto-'+i,nomeSnapshot:'Produto '+i,listaId:i<10?'primeira':'fim-semana'},'X',100+i,1000+i));
+ const completo=catalogo.catalogoProdutos(registros);
+ assert.equal(completo.length,15);
+ assert.ok(completo.some(p=>p.produtoId==='produto-14'));
+ const variantes=[preco('a',{...a,marca:'A'},'X',100,1000),preco('b',{...a,marca:'B'},'X',200,2000)];
+ assert.deepEqual(catalogo.catalogoProdutos(variantes).map(p=>p.apresentacao).sort(),compararProduto(variantes,'a').map(p=>p.apresentacao).sort());
+ assert.equal(catalogo.catalogoProdutos([preco('sem',{...a,apresentacao:'',marca:'A'},'X',100,1000)])[0].embalagemInformada,false);
 });

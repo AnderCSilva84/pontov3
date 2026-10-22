@@ -1,6 +1,7 @@
-﻿import jsPDF from "jspdf";
+import { collection } from '../services/dadosGrupo';
+import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from 'firebase/firestore';
 import { db } from "../services/firebase";
 
 function dataParaDate(valor) {

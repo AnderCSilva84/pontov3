@@ -1,28 +1,30 @@
-import { useEffect, useMemo, useState } from "react";
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, doc } from '../services/dadosGrupo';
+import useDialogFocus from '../utils/useDialogFocus';
+import { PageHeader } from '../components/ui';
+import AgendaTarefas from '../components/AgendaTarefas';
+import { useEffect, useState, useRef, useCallback } from "react";
+import { onSnapshot, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import { canCreateTasks } from "../utils/roles";
-import { dataIsoLocal, feriadosBrasil } from "../utils/feriados";
+import { dataIsoLocal } from "../utils/feriados";
 import "../styles/tarefas.css";
 import "../styles/nav.css";
 
-const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const DIAS_FORM = [
   { value: 1, label: "Segunda-feira" }, { value: 2, label: "Terça-feira" },
   { value: 3, label: "Quarta-feira" }, { value: 4, label: "Quinta-feira" },
   { value: 5, label: "Sexta-feira" }, { value: 6, label: "Sábado" },
 ];
-function tituloMes(data) { return data.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); }
 
 export default function Tarefas({ user, onNavigate, rotaAtual }) {
   const podeCriar = canCreateTasks(user);
-  const [mes, setMes] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [titulo, setTitulo] = useState("");
   const [diaSemana, setDiaSemana] = useState(1);
   const [turno, setTurno] = useState("manha");
   const [horario, setHorario] = useState("");
   const [tarefas, setTarefas] = useState([]);
+  const [fontesCarregadas,setFontesCarregadas] = useState({fixas:false,avulsas:false});
   const [tarefasAvulsas, setTarefasAvulsas] = useState([]);
   const [tituloAvulsa, setTituloAvulsa] = useState("");
   const [dataAvulsa, setDataAvulsa] = useState(dataIsoLocal());
@@ -31,32 +33,23 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [edicao, setEdicao] = useState(null);
+  const dialogRef = useRef(null);
+  const fecharDialog = useCallback(() => setEdicao(null), []);
+  useDialogFocus(dialogRef, Boolean(edicao), fecharDialog);
 
   useEffect(() => {
     if (!user) return undefined;
     return onSnapshot(collection(db, "tarefasSemanais"), (snapshot) => {
-      setTarefas(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.ativa !== false));
+      setTarefas(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.ativa !== false)); setFontesCarregadas(antes=>({...antes,fixas:true}));
     }, () => setErro("Não foi possível carregar as tarefas semanais."));
   }, [user]);
 
   useEffect(() => {
     if (!user) return undefined;
     return onSnapshot(collection(db, "tarefas"), (snapshot) => {
-      setTarefasAvulsas(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => !item.concluida));
+      setTarefasAvulsas(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))); setFontesCarregadas(antes=>({...antes,avulsas:true}));
     }, () => setErro("Não foi possível carregar as tarefas avulsas."));
   }, [user]);
-
-  const diasCalendario = useMemo(() => {
-    const ano = mes.getFullYear(), numeroMes = mes.getMonth();
-    const primeiro = new Date(ano, numeroMes, 1), ultimo = new Date(ano, numeroMes + 1, 0);
-    const feriados = feriadosBrasil(ano), celulas = [];
-    for (let i = 0; i < primeiro.getDay(); i += 1) celulas.push(null);
-    for (let dia = 1; dia <= ultimo.getDate(); dia += 1) {
-      const data = new Date(ano, numeroMes, dia), dataKey = dataIsoLocal(data);
-      celulas.push({ dia, dataKey, domingo: data.getDay() === 0, hoje: dataKey === dataIsoLocal(), feriado: feriados[dataKey] || "", tarefas: tarefas.filter((item) => Number(item.diaSemana) === data.getDay()), avulsas: tarefasAvulsas.filter((item) => item.dataAgendada === dataKey) });
-    }
-    return celulas;
-  }, [mes, tarefas, tarefasAvulsas]);
 
   async function adicionar(event) {
     event.preventDefault(); if (!titulo.trim() || !podeCriar) return;
@@ -80,7 +73,6 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
     } catch { setErro("Não foi possível cadastrar a tarefa."); }
     finally { setSalvando(false); }
   }
-  function mudarMes(delta) { setMes((atual) => new Date(atual.getFullYear(), atual.getMonth() + delta, 1)); }
 
   async function adicionarAvulsa(event) {
     event.preventDefault();
@@ -108,7 +100,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
   }
 
   async function excluirTarefaFixa(tarefa) {
-    if (!podeCriar) return;
+    if (!podeCriar || !window.confirm('Excluir esta tarefa?')) return;
     setErro("");
     try {
       const batch = writeBatch(db);
@@ -127,7 +119,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
   }
 
   async function excluirTarefaAvulsa(tarefa) {
-    if (!podeCriar) return;
+    if (!podeCriar || !window.confirm('Excluir esta tarefa?')) return;
     setErro("");
     try {
       await writeBatch(db).delete(doc(db, "tarefas", tarefa.id)).commit();
@@ -208,14 +200,16 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
   if (!user) return <div className="page-bg page-tarefas"><main className="page-shell tarefas-shell"><h1>Tarefas semanais</h1><p className="text-muted">Entre no aplicativo para visualizar o calendário.</p></main><BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} /></div>;
   return (
     <div className="page-bg page-tarefas"><main className="page-shell tarefas-shell">
-      <header className="page-header"><div className="page-title-row"><span className="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span><h1>Tarefas semanais</h1></div><p className="page-subtitle">Rotina fixa, feriados e dias úteis em um só lugar</p></header>
+      <PageHeader title="Tarefas" subtitle="Sua rotina, um cuidado de cada vez." />
+      <AgendaTarefas carregando={(!fontesCarregadas.fixas || !fontesCarregadas.avulsas) && !erro} user={user} fixas={tarefas} avulsas={tarefasAvulsas} editar={iniciarEdicao} podeEditar={podeCriar} />
+
       {podeCriar && <details className="card tarefas-expansivel"><summary>Cadastrar tarefa semanal</summary><form className="tarefas-card tarefas-form-semanal" onSubmit={adicionar}><label className="field"><span>Tarefa fixa</span><input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Trocar roupa de cama" required /></label><label className="field"><span>Repete toda</span><select value={diaSemana} onChange={(e) => setDiaSemana(e.target.value)}>{DIAS_FORM.map((dia) => <option key={dia.value} value={dia.value}>{dia.label}</option>)}</select></label><label className="field"><span>Período</span><select value={turno} onChange={(e) => setTurno(e.target.value)}><option value="manha">Manhã</option><option value="tarde">Tarde</option></select></label><label className="field"><span>Horário (opcional)</span><input type="time" value={horario} onChange={(e) => setHorario(e.target.value)} /></label><button className="btn btn-success" disabled={salvando}>{salvando ? "Salvando..." : "Cadastrar tarefa fixa"}</button></form></details>}
       {podeCriar && <details className="card tarefas-expansivel"><summary>Criar tarefa avulsa</summary><form className="tarefas-card tarefas-form-semanal" onSubmit={adicionarAvulsa}><label className="field"><span>Tarefa avulsa</span><input value={tituloAvulsa} onChange={(e) => setTituloAvulsa(e.target.value)} placeholder="Ex: Limpar os vidros" required /></label><label className="field"><span>Data</span><input type="date" value={dataAvulsa} onChange={(e) => setDataAvulsa(e.target.value)} required /></label><label className="field"><span>Período</span><select value={turnoAvulsa} onChange={(e) => setTurnoAvulsa(e.target.value)}><option value="manha">Manhã</option><option value="tarde">Tarde</option></select></label><label className="field"><span>Horário (opcional)</span><input type="time" value={horarioAvulsa} onChange={(e) => setHorarioAvulsa(e.target.value)} /></label><button className="btn btn-secondary" disabled={salvando}>{salvando ? "Salvando..." : "Criar tarefa avulsa"}</button></form></details>}
-      {erro && <p className="mensagem erro">{erro}</p>}
+      {erro && <p role="alert" className="mensagem erro">{erro}</p>}
       {podeCriar && <details className="card tarefas-expansivel"><summary>Gerenciar tarefas por dia <b>{tarefas.length + tarefasAvulsas.length}</b></summary><div className="tarefas-dias-grupos">{DIAS_FORM.map((dia) => renderGrupoDia(dia, true))}</div></details>}
-      {edicao && <div className="tarefas-edicao-overlay" role="dialog" aria-modal="true" aria-label="Editar tarefa"><form className="card tarefas-edicao" onSubmit={salvarEdicao}><div className="section-header"><h2>Editar tarefa {edicao.tipo === "fixa" ? "fixa" : "avulsa"}</h2><button type="button" className="tarefas-edicao-fechar" onClick={() => setEdicao(null)} aria-label="Fechar">×</button></div><label className="field"><span>Texto da tarefa</span><input value={edicao.titulo} onChange={(e) => setEdicao({ ...edicao, titulo: e.target.value })} required /></label>{edicao.tipo === "fixa" ? <label className="field"><span>Dia da semana</span><select value={edicao.diaSemana} onChange={(e) => setEdicao({ ...edicao, diaSemana: e.target.value })}>{DIAS_FORM.map((dia) => <option key={dia.value} value={dia.value}>{dia.label}</option>)}</select></label> : <label className="field"><span>Data</span><input type="date" value={edicao.dataAgendada} onChange={(e) => setEdicao({ ...edicao, dataAgendada: e.target.value })} required /></label>}<label className="field"><span>Período</span><select value={edicao.turno} onChange={(e) => setEdicao({ ...edicao, turno: e.target.value })}><option value="manha">Manhã</option><option value="tarde">Tarde</option></select></label><label className="field"><span>Horário (opcional)</span><input type="time" value={edicao.horario} onChange={(e) => setEdicao({ ...edicao, horario: e.target.value })} /></label><div className="tarefas-edicao-acoes"><button type="submit" className="btn btn-success" disabled={salvando}>{salvando ? "Salvando..." : "Salvar alterações"}</button><button type="button" className="btn btn-muted" onClick={() => setEdicao(null)}>Cancelar</button></div></form></div>}
+      {edicao && <div ref={dialogRef} className="tarefas-edicao-overlay" role="dialog" aria-modal="true" aria-label="Editar tarefa"><form className="card tarefas-edicao" onSubmit={salvarEdicao}><div className="section-header"><h2>Editar tarefa {edicao.tipo === "fixa" ? "fixa" : "avulsa"}</h2><button type="button" className="tarefas-edicao-fechar" onClick={() => setEdicao(null)} aria-label="Fechar">×</button></div><label className="field"><span>Texto da tarefa</span><input value={edicao.titulo} onChange={(e) => setEdicao({ ...edicao, titulo: e.target.value })} required /></label>{edicao.tipo === "fixa" ? <label className="field"><span>Dia da semana</span><select value={edicao.diaSemana} onChange={(e) => setEdicao({ ...edicao, diaSemana: e.target.value })}>{DIAS_FORM.map((dia) => <option key={dia.value} value={dia.value}>{dia.label}</option>)}</select></label> : <label className="field"><span>Data</span><input type="date" value={edicao.dataAgendada} onChange={(e) => setEdicao({ ...edicao, dataAgendada: e.target.value })} required /></label>}<label className="field"><span>Período</span><select value={edicao.turno} onChange={(e) => setEdicao({ ...edicao, turno: e.target.value })}><option value="manha">Manhã</option><option value="tarde">Tarde</option></select></label><label className="field"><span>Horário (opcional)</span><input type="time" value={edicao.horario} onChange={(e) => setEdicao({ ...edicao, horario: e.target.value })} /></label><div className="tarefas-edicao-acoes"><button type="submit" className="btn btn-success" disabled={salvando}>{salvando ? "Salvando..." : "Salvar alterações"}</button><button type="button" className="btn btn-muted" onClick={() => setEdicao(null)}>Cancelar</button></div></form></div>}
       {[...tarefas, ...tarefasAvulsas].some((item) => item.horario) && <section className="card tarefas-lista"><h2>Horários programados</h2><div className="tarefas-itens">{[...tarefas, ...tarefasAvulsas].filter((item) => item.horario).sort((a, b) => String(a.horario).localeCompare(String(b.horario))).map((item) => <div className="tarefas-item" key={`horario-${item.id}`}><div><strong>{item.horario} · {item.titulo}</strong><span className="tarefas-por">{item.dataAgendada ? item.dataAgendada.split("-").reverse().join("/") : DIAS_FORM.find((dia) => dia.value === Number(item.diaSemana))?.label}</span></div></div>)}</div></section>}
-      <section className="card calendario-card"><div className="calendario-topo"><button type="button" onClick={() => mudarMes(-1)} aria-label="Mês anterior">‹</button><h2>{tituloMes(mes)}</h2><button type="button" onClick={() => mudarMes(1)} aria-label="Próximo mês">›</button></div><div className="calendario-grid calendario-semana">{DIAS.map((dia) => <span key={dia}>{dia}</span>)}</div><div className="calendario-grid calendario-dias">{diasCalendario.map((item, index) => item ? <article key={item.dataKey} className={`calendario-dia ${item.domingo ? "nao-util" : ""} ${item.feriado ? "feriado" : ""} ${item.hoje ? "hoje" : ""}`}><b>{item.dia}</b>{item.feriado && <><small title={item.feriado}>{item.feriado}</small><span className="calendario-folga">Folga</span></>}{!item.domingo && !item.feriado && (item.tarefas.length > 0 || item.avulsas.length > 0) && <div className="calendario-turno"><em>Manhã</em>{[...item.tarefas, ...item.avulsas].filter((tarefa) => !tarefa.turno || tarefa.turno === "manha").map((tarefa) => <span className={`calendario-tarefa manha ${tarefa.dataAgendada ? "avulsa" : ""}`} key={tarefa.id}>{tarefa.titulo}</span>)}<em>Tarde</em>{[...item.tarefas, ...item.avulsas].filter((tarefa) => tarefa.turno === "tarde").map((tarefa) => <span className={`calendario-tarefa tarde ${tarefa.dataAgendada ? "avulsa" : ""}`} key={tarefa.id}>{tarefa.titulo}</span>)}</div>}</article> : <span className="calendario-vazio" key={`vazio-${index}`} />)}</div><div className="calendario-legenda"><span><i className="legenda-feriado" /> Feriado / folga</span><span><i className="legenda-domingo" /> Domingo (não útil)</span></div></section>
+
       <details className="card tarefas-expansivel"><summary>Rotina cadastrada <b>{tarefas.length}</b></summary>{tarefas.length ? <div className="tarefas-dias-grupos">{DIAS_FORM.map((dia) => renderGrupoDia(dia))}</div> : <p className="text-muted">Nenhuma tarefa fixa cadastrada.</p>}</details>
     </main><BottomNav activePath={rotaAtual} onNavigate={onNavigate} user={user} /></div>
   );

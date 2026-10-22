@@ -6,11 +6,23 @@ import { ehRotaCompras, resolverRotaUsuario } from '../src/utils/rotas.js';
 import { getUserPermissions } from '../src/utils/roles.js';
 const { quantidade, totalItem, prepararFechamento, calcularRelatorios, podeComprar, categoriaLegada } = dominio;
 
+test('variação exige mesma marca, embalagem e unidade; marcas diferentes não viram queda', () => {
+  const base = { produtoId: 'a', nomeSnapshot: 'Arroz', apresentacao: '1 kg', unidadeCompra: 'un', supermercadoId: 'x', supermercadoNome: 'X' };
+  const registros = [{ ...base, id: '1', listaId: '1', marca: 'Marca A', compradoEmMs: 1, precoUnitarioCentavos: 1000 }, { ...base, id: '2', listaId: '2', marca: 'Marca B', compradoEmMs: 2, precoUnitarioCentavos: 500 }];
+  assert.equal(calcularRelatorios(registros).variacoes.length, 0);
+  registros.push({ ...base, id: '3', listaId: '3', marca: 'MARCA A', compradoEmMs: 3, precoUnitarioCentavos: 900 });
+  const r = calcularRelatorios(registros);
+  assert.equal(r.variacoes.length, 1);
+  assert.equal(r.variacoes[0].inicialCentavos, 1000);
+  assert.equal(r.variacoes[0].finalCentavos, 900);
+});
+
 test('valores em centavos e quantidades fracionárias não aceitam preço ou quantidade inválida', () => {
   assert.equal(lerPreco('12,99'), 1299);
   assert.equal(totalItem(1999, 1.375), 2749);
   for (const valor of ['0', '-1', '1,234', '1e3', 'NaN']) assert.throws(() => lerPreco(valor));
-  for (const valor of [0, -1, NaN, Infinity, 1.0001, '2']) assert.throws(() => quantidade(valor));
+  assert.equal(totalItem(5395, 0.6221), 3356);
+  for (const valor of [0, -1, NaN, Infinity, 1.00001, '2']) assert.throws(() => quantidade(valor));
   assert.throws(() => totalItem(1.5, 1));
 });
 test('fechamento só conta comprados válidos e exige confirmação das pendências', () => {

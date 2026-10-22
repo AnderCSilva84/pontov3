@@ -57,7 +57,8 @@
   cursor: pointer;
   border-radius: 16px;
   padding: 8px 10px;
-  min-width: 68px;
+  min-width: 0;
+  flex: 1 1 0;
   transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
@@ -91,4 +92,9 @@
     transform: translateX(-50%);
     width: min(100%, 720px);
   }
+}
+@media (max-width: 420px) {
+  .bottom-nav { gap: 2px; padding-left: 6px; padding-right: 6px; }
+  .nav-item { padding-inline: 4px; font-size: .69rem; }
+  .nav-label { overflow-wrap: anywhere; }
 }

@@ -11,7 +11,9 @@ service cloud.firestore {
     }
 
     function userExists() {
-      return signedIn() && exists(userDocPath()) && get(userDocPath()).data.get('ativo', true) != false;
+      return signedIn() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(request.auth.uid))
+        && (!exists(/databases/$(database)/documents/migracoesGrupos/legado) || get(/databases/$(database)/documents/migracoesGrupos/legado).data.get('bloqueada', false) != true)
+        && exists(userDocPath()) && get(userDocPath()).data.get('ativo', true) != false;
     }
 
     function userDoc() {
@@ -47,8 +49,8 @@ service cloud.firestore {
     // USERS
     match /users/{uid} {
       allow read: if signedIn() && (isAdmin() || request.auth.uid == uid);
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (
+      allow create, delete: if isAdmin() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(uid));
+      allow update: if (isAdmin() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(uid))) || (
         userExists() && request.auth.uid == uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']) &&
         request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
@@ -57,7 +59,7 @@ service cloud.firestore {
 
     // FUNCIONARIOS
     match /funcionarios/{funcionarioId} {
-      allow read: if signedIn() && (isAdmin() || myFuncionarioId() == funcionarioId);
+      allow read: if userExists() && (isAdmin() || myFuncionarioId() == funcionarioId);
       allow write: if isAdmin();
     }
 
@@ -67,8 +69,8 @@ service cloud.firestore {
 
     // Conclusões diárias das tarefas da rotina fixa.
     match /funcionarios/{funcionarioId}/conclusoesRotina/{conclusaoId} {
-      allow read: if signedIn() && (isAdmin() || myFuncionarioId() == funcionarioId);
-      allow create: if signedIn() && (
+      allow read: if userExists() && (isAdmin() || myFuncionarioId() == funcionarioId);
+      allow create: if userExists() && (
         isAdmin() ||
         (
           myFuncionarioId() == funcionarioId &&
@@ -86,7 +88,7 @@ service cloud.firestore {
 
     // LOCAIS (GPS)
     match /locais/{localId} {
-      allow read: if signedIn() && (
+      allow read: if userExists() && (
         isAdmin() ||
         (myFuncionarioExists() && localId in myLocaisPermitidos())
       );
@@ -95,22 +97,22 @@ service cloud.firestore {
 
     // REGISTROS (log do ponto)
     match /registros/{id} {
-      allow read: if signedIn() &&
+      allow read: if userExists() &&
         (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
 
-      allow create: if isAdmin();
+      allow create: if false;
 
-      allow update, delete: if isAdmin();
+      allow update, delete: if false;
     }
 
     // DIAS (resumo do ponto)
     match /dias/{id} {
-      allow read: if signedIn() &&
+      allow read: if userExists() &&
         (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
 
-      allow create, update: if isAdmin();
+      allow create, update: if false;
 
-      allow delete: if isAdmin();
+      allow delete: if false;
     }
 
     // CATÁLOGO DE COMPRAS (lista de itens da casa)
@@ -143,14 +145,14 @@ service cloud.firestore {
     match /listaCompras/{itemId} {
 
       // todos logados podem ver
-      allow read: if signedIn();
+      allow read: if userExists();
 
       // funcionária pode solicitar itens
-      allow create: if signedIn() && !exists(/databases/$(database)/documents/comprasListas/legado-v1) &&
+      allow create: if userExists() && !exists(/databases/$(database)/documents/comprasListas/legado-v1) &&
         (isAdmin() || request.resource.data.solicitadoPor == myFuncionarioId());
 
       // admin atualiza tudo; funcionária altera apenas sua própria solicitação
-      allow update: if signedIn() && !exists(/databases/$(database)/documents/comprasListas/legado-v1) && (
+      allow update: if userExists() && !exists(/databases/$(database)/documents/comprasListas/legado-v1) && (
         isAdmin() ||
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -169,13 +171,13 @@ service cloud.firestore {
 
     // TAREFAS
     match /tarefas/{tarefaId} {
-      allow read: if signedIn();
+      allow read: if userExists();
 
       // só admin cria tarefas
       allow create: if isAdmin();
 
       // admin pode atualizar tudo; funcionária só pode concluir
-      allow update: if signedIn() && (
+      allow update: if userExists() && (
         isAdmin() ||
         (
           resource.data.concluida == false &&
@@ -196,13 +198,13 @@ service cloud.firestore {
     }
 
     match /tarefasSemanais/{tarefaId} {
-      allow read: if signedIn();
+      allow read: if userExists();
       allow write: if isAdmin();
     }
 
     // NOTIFICAÇÕES — alterações publicadas pelo Admin para a funcionária
     match /notificacoes/{notificacaoId} {
-      allow read: if signedIn();
+      allow read: if userExists();
       allow create: if isAdmin();
       allow update, delete: if false;
     }
@@ -233,13 +235,275 @@ service cloud.firestore {
     }
 
     match /folhasPagamento/{folhaId} {
-      allow read, write: if isAdmin();
+      function camposValidos() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['competencia','salarioBase','bonus','horasExtras','adicionais','horasDevidas','divisorHoras','bonusBaseDesconto','faltas','inss','adiantamentos','outrosDescontos','observacao','proventos','descontos','descontoHoras','valorHora','liquido','funcionarioId','funcionarioNome','status','versao','criadaEm','criadaPor','atualizadaEm','atualizadaPor','fechadaEm','fechadaPor'])
+          && d.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+          && folhaId == d.funcionarioId + '_' + d.competencia
+          && exists(/databases/$(database)/documents/funcionarios/$(d.funcionarioId))
+          && d.versao is int && d.versao > 0
+          && d.proventos is number && d.proventos >= 0 && d.descontos is number && d.descontos >= 0
+          && d.liquido is number && d.liquido >= 0
+          && d.observacao is string && d.observacao.size() <= 300
+          && d.atualizadaPor == request.auth.uid && d.atualizadaEm == request.time
+          && (d.status == 'em_andamento' || (d.status == 'pronta_pagamento' && d.proventos > 0 && d.descontos <= d.proventos && d.fechadaPor == request.auth.uid && d.fechadaEm == request.time));
+      }
+      allow read: if isAdmin();
+      allow create: if isAdmin() && camposValidos() && request.resource.data.status == 'em_andamento'
+        && request.resource.data.versao == 1 && request.resource.data.criadaPor == request.auth.uid && request.resource.data.criadaEm == request.time;
+      allow update: if isAdmin() && resource.data.status == 'em_andamento' && camposValidos()
+        && request.resource.data.versao == resource.data.versao + 1
+        && request.resource.data.funcionarioId == resource.data.funcionarioId && request.resource.data.competencia == resource.data.competencia
+        && request.resource.data.criadaPor == resource.data.criadaPor && request.resource.data.criadaEm == resource.data.criadaEm;
+      allow delete: if false;
     }
 
     // AJUSTES DE PONTO (LOG)
     match /ajustesPonto/{ajusteId} {
       allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /vinculosUsuarios/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+    match /grupos/{grupoId} {
+      function userDocPath() { return /databases/$(database)/documents/grupos/$(grupoId)/users/$(request.auth.uid); }
+      function userDoc() { return get(userDocPath()).data; }
+      function userExists() {
+        return signedIn() && exists(/databases/$(database)/documents/vinculosUsuarios/$(request.auth.uid))
+          && get(/databases/$(database)/documents/vinculosUsuarios/$(request.auth.uid)).data.grupoId == grupoId
+          && get(/databases/$(database)/documents/vinculosUsuarios/$(request.auth.uid)).data.ativo == true
+          && get(/databases/$(database)/documents/grupos/$(grupoId)).data.ativo == true
+          && exists(userDocPath()) && userDoc().get('ativo', true) != false;
+      }
+      function isAdmin() { return userExists() && userDoc().role == 'admin'; }
+      function isTitular(uid) { return get(/databases/$(database)/documents/grupos/$(grupoId)).data.titularUid == uid; }
+      function myFuncionarioId() { return userExists() ? userDoc().get('funcionarioId', null) : null; }
+      function myFuncionarioDocPath() { return /databases/$(database)/documents/grupos/$(grupoId)/funcionarios/$(myFuncionarioId()); }
+      function myFuncionarioExists() { return userExists() && myFuncionarioId() != null && exists(myFuncionarioDocPath()); }
+      function myFuncionarioDoc() { return get(myFuncionarioDocPath()).data; }
+      function myLocaisPermitidos() { return myFuncionarioExists() && myFuncionarioDoc().locaisPermitidos is list ? myFuncionarioDoc().locaisPermitidos : []; }
+      allow get: if userExists();
+      allow list, write: if false;
+    // USERS
+    match /users/{uid} {
+      allow read: if userExists() && (isAdmin() || request.auth.uid == uid);
+      allow create, delete: if false;
+      allow update: if (isAdmin() && (!isTitular(uid) || (request.resource.data.role == 'admin' && request.resource.data.get('ativo',true) == true))) || (
+        userExists() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']) && request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
+      );
+    }
+
+    // FUNCIONARIOS
+    match /funcionarios/{funcionarioId} {
+      allow read: if userExists() && (isAdmin() || myFuncionarioId() == funcionarioId);
       allow write: if isAdmin();
+    }
+
+    match /filiais/{filialId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Conclusões diárias das tarefas da rotina fixa.
+    match /funcionarios/{funcionarioId}/conclusoesRotina/{conclusaoId} {
+      allow read: if userExists() && (isAdmin() || myFuncionarioId() == funcionarioId);
+      allow create: if userExists() && (
+        isAdmin() ||
+        (
+          myFuncionarioId() == funcionarioId &&
+          request.resource.data.keys().hasOnly(['tarefaId', 'dataKey', 'concluidaEm', 'concluidaPor']) &&
+          request.resource.data.concluidaEm == request.time &&
+          conclusaoId == request.resource.data.dataKey + '_' + request.resource.data.tarefaId &&
+          exists(/databases/$(database)/documents/grupos/$(grupoId)/tarefasSemanais/$(request.resource.data.tarefaId)) &&
+          request.resource.data.concluidaPor == funcionarioId &&
+          request.resource.data.tarefaId is string &&
+          request.resource.data.dataKey is string
+        )
+      );
+      allow update, delete: if false;
+    }
+
+    // LOCAIS (GPS)
+    match /locais/{localId} {
+      allow read: if userExists() && (
+        isAdmin() ||
+        (myFuncionarioExists() && localId in myLocaisPermitidos())
+      );
+      allow write: if isAdmin();
+    }
+
+    // REGISTROS (log do ponto)
+    match /registros/{id} {
+      allow read: if userExists() &&
+        (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
+
+      allow create: if false;
+
+      allow update, delete: if false;
+    }
+
+    // DIAS (resumo do ponto)
+    match /dias/{id} {
+      allow read: if userExists() &&
+        (isAdmin() || resource.data.funcionarioId == myFuncionarioId());
+
+      allow create, update: if false;
+
+      allow delete: if false;
+    }
+
+    // CATÁLOGO DE COMPRAS (lista de itens da casa)
+    match /catalogoCompras/{itemId} {
+      allow read: if userExists();
+      allow write: if false; // Validação e escrita pelas funções de compras.
+    }
+
+    match /categoriasCompras/{id} {
+      allow read: if userExists();
+      allow write: if false;
+    }
+    match /supermercados/{id} {
+      allow read: if userExists();
+      allow write: if false;
+    }
+    match /comprasListas/{listaId} {
+      allow read: if userExists();
+      allow write: if false;
+      match /itens/{itemId} {
+        allow read: if userExists();
+        allow write: if false;
+      }
+    }
+    match /comprasPrecos/{id} {
+      allow read, write: if false; // Apenas backend e relatório autenticado.
+    }
+
+    // LISTA DE COMPRAS ATIVA
+    match /listaCompras/{itemId} {
+
+      // todos logados podem ver
+      allow read: if userExists();
+
+      // funcionária pode solicitar itens
+      allow create: if userExists() && !exists(/databases/$(database)/documents/grupos/$(grupoId)/comprasListas/legado-v1) &&
+        (isAdmin() || request.resource.data.solicitadoPor == myFuncionarioId());
+
+      // admin atualiza tudo; funcionária altera apenas sua própria solicitação
+      allow update: if userExists() && !exists(/databases/$(database)/documents/grupos/$(grupoId)/comprasListas/legado-v1) && (
+        isAdmin() ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'solicitado', 'comprado', 'solicitadoPor', 'solicitadoPorNome', 'criadoEm'
+          ]) &&
+          myFuncionarioExists() &&
+          (resource.data.solicitadoPor == myFuncionarioId() || resource.data.solicitado == false) &&
+          request.resource.data.solicitadoPor == myFuncionarioId() &&
+          request.resource.data.comprado == false
+        )
+      );
+
+      // apenas admin pode apagar
+      allow delete: if isAdmin() && !exists(/databases/$(database)/documents/grupos/$(grupoId)/comprasListas/legado-v1);
+    }
+
+    // TAREFAS
+    match /tarefas/{tarefaId} {
+      allow read: if userExists();
+
+      // só admin cria tarefas
+      allow create: if isAdmin();
+
+      // admin pode atualizar tudo; funcionária só pode concluir
+      allow update: if userExists() && (
+        isAdmin() ||
+        (
+          resource.data.concluida == false &&
+          myFuncionarioExists() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['concluida', 'concluidaEm', 'concluidaPor']) &&
+          request.resource.data.concluidaPor == myFuncionarioId() &&
+          request.resource.data.concluidaEm == request.time &&
+          request.resource.data.concluida == true &&
+          request.resource.data.titulo == resource.data.titulo &&
+          request.resource.data.diaSemana == resource.data.diaSemana &&
+          request.resource.data.dataAgendada == resource.data.dataAgendada &&
+          request.resource.data.solicitadoPor == resource.data.solicitadoPor &&
+          request.resource.data.solicitadoPorNome == resource.data.solicitadoPorNome
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    match /tarefasSemanais/{tarefaId} {
+      allow read: if userExists();
+      allow write: if isAdmin();
+    }
+
+    // NOTIFICAÇÕES — alterações publicadas pelo Admin para a funcionária
+    match /notificacoes/{notificacaoId} {
+      allow read: if userExists();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Assinaturas e recibos de push são gerenciados somente pelas Cloud Functions.
+    match /pushDispositivos/{id} {
+      allow read, write: if false;
+    }
+    match /pushEnvios/{id} {
+      allow read, write: if false;
+    }
+    match /pushEventos/{id} {
+      allow read, write: if false;
+    }
+
+    match /financeiro/{lancamentoId} {
+      allow read: if userExists() && (isAdmin() || (myFuncionarioId() != null && resource.data.funcionarioId == myFuncionarioId()));
+      allow write: if false;
+    }
+
+    match /financeiroAuditoria/{registroId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /documentosTrabalhistas/{documentoId} {
+      allow read: if userExists() && (isAdmin() || (myFuncionarioId() != null && resource.data.funcionarioId == myFuncionarioId()));
+      allow write: if isAdmin();
+    }
+
+    match /folhasPagamento/{folhaId} {
+      function camposValidos() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['competencia','salarioBase','bonus','horasExtras','adicionais','horasDevidas','divisorHoras','bonusBaseDesconto','faltas','inss','adiantamentos','outrosDescontos','observacao','proventos','descontos','descontoHoras','valorHora','liquido','funcionarioId','funcionarioNome','status','versao','criadaEm','criadaPor','atualizadaEm','atualizadaPor','fechadaEm','fechadaPor'])
+          && d.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+          && folhaId == d.funcionarioId + '_' + d.competencia
+          && exists(/databases/$(database)/documents/grupos/$(grupoId)/funcionarios/$(d.funcionarioId))
+          && d.versao is int && d.versao > 0
+          && d.proventos is number && d.proventos >= 0 && d.descontos is number && d.descontos >= 0
+          && d.liquido is number && d.liquido >= 0
+          && d.observacao is string && d.observacao.size() <= 300
+          && d.atualizadaPor == request.auth.uid && d.atualizadaEm == request.time
+          && (d.status == 'em_andamento' || (d.status == 'pronta_pagamento' && d.proventos > 0 && d.descontos <= d.proventos && d.fechadaPor == request.auth.uid && d.fechadaEm == request.time));
+      }
+      allow read: if userExists() && (isAdmin() || (myFuncionarioId() != null && resource.data.funcionarioId == myFuncionarioId() && resource.data.status in ['pronta_pagamento','paga']));
+      allow create: if isAdmin() && camposValidos() && request.resource.data.status == 'em_andamento'
+        && request.resource.data.versao == 1 && request.resource.data.criadaPor == request.auth.uid && request.resource.data.criadaEm == request.time;
+      allow update: if isAdmin() && resource.data.status == 'em_andamento' && camposValidos()
+        && request.resource.data.versao == resource.data.versao + 1
+        && request.resource.data.funcionarioId == resource.data.funcionarioId && request.resource.data.competencia == resource.data.competencia
+        && request.resource.data.criadaPor == resource.data.criadaPor && request.resource.data.criadaEm == resource.data.criadaEm;
+      allow delete: if false;
+    }
+
+    // AJUSTES DE PONTO (LOG)
+    match /ajustesPonto/{ajusteId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     }
 
   }

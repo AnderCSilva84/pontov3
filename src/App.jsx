@@ -1,8 +1,12 @@
-﻿import { useEffect, useState } from "react";
+﻿import NoBolsoConnection from "./pages/NoBolsoConnection";
+import { useEffect, useState } from "react";
+import CadastroGrupo from './pages/CadastroGrupo';
+import MeusComprovantes from './pages/MeusComprovantes';
 import { observeAuth } from "./services/auth";
 import Ponto from "./pages/Ponto";
 import ListaCompras from "./pages/ListaCompras";
 import Tarefas from "./pages/Tarefas";
+import Lembretes from './pages/Lembretes';
 import Admin from "./pages/Admin";
 import Financeiro from "./pages/Financeiro";
 import NotificacoesPush from "./components/NotificacoesPush";
@@ -11,7 +15,7 @@ import { normalizeRole, ROLE_ADMIN } from "./utils/roles";
 import { resolverRotaUsuario, ehRotaCompras } from "./utils/rotas";
 import "./styles/App.css";
 
-const ROTAS_VALIDAS = new Set(["/ponto", "/lista-compras", "/tarefas", "/admin", "/admin/financeiro"]);
+const ROTAS_VALIDAS = new Set(["/ponto", "/lista-compras", "/tarefas", "/lembretes", "/admin", "/admin/financeiro"]);
 
 function normalizarRota(caminho) {
   if (!caminho || caminho === "/") return "/ponto";
@@ -22,7 +26,7 @@ function PaginaNaoEncontrada({ onNavigate }) {
   return <div className="page-bg"><main className="page-shell"><section className="card"><h1>Página não encontrada</h1><p className="text-muted">O endereço acessado não existe neste aplicativo.</p><button type="button" className="btn btn-primary" onClick={() => onNavigate("/ponto")}>Ir para o início</button></section></main></div>;
 }
 
-function AppConteudo({ user, setUser }) {
+function AppConteudo({ user }) {
   const [rotaAtual, setRotaAtual] = useState(normalizarRota(window.location.pathname));
   const role = normalizeRole(user?.role);
   const rotaEfetiva = resolverRotaUsuario(user, rotaAtual);
@@ -32,11 +36,6 @@ function AppConteudo({ user, setUser }) {
       window.history.replaceState({}, "", "/ponto");
     }
   }, []);
-
-  useEffect(() => {
-    const unsubscribe = observeAuth(setUser);
-    return () => unsubscribe();
-  }, [setUser]);
 
   useEffect(() => {
     function handlePopState() {
@@ -60,6 +59,9 @@ function AppConteudo({ user, setUser }) {
   }
 
   if (user === undefined) return <CarregandoGatinho />;
+  if (rotaAtual === '/cadastro') return <CadastroGrupo user={user} onNavigate={navegarPara} />;
+  if (rotaAtual === '/meus-comprovantes' && user?.grupoId && role === 'funcionario') return <MeusComprovantes user={user} onNavigate={navegarPara} />;
+  if (rotaAtual === "/integracoes/no-bolso") return <NoBolsoConnection user={user} onNavigate={navegarPara} />;
 
   if (user && role !== ROLE_ADMIN && rotaEfetiva === "/admin/financeiro") {
     return <Admin user={user} onNavigate={navegarPara} rotaAtual="/admin" />;
@@ -88,6 +90,7 @@ function AppConteudo({ user, setUser }) {
     return <Ponto user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
+  if (rotaEfetiva === '/lembretes') return <Lembretes key={user.uid} user={user} onNavigate={navegarPara} />;
   if (ehRotaCompras(rotaEfetiva)) {
     return <ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
@@ -109,5 +112,7 @@ function AppConteudo({ user, setUser }) {
 
 export default function App() {
   const [user, setUser] = useState(undefined);
-  return <>{user && !(import.meta.env.DEV && import.meta.env.MODE === 'compras-test') && <NotificacoesPush key={user.uid} uid={user.uid} />}<AppConteudo user={user} setUser={setUser} /></>;
+  useEffect(() => observeAuth(setUser), []);
+  const chave = `${user?.uid || 'visitante'}:${user?.grupoId || 'legado'}`;
+  return <>{user && !(import.meta.env.DEV && import.meta.env.MODE === 'compras-test') && <NotificacoesPush key={chave} uid={user.uid} />}<AppConteudo key={chave} user={user} /></>;
 }

@@ -1,5 +1,9 @@
 # API de compras AP1303 / No Bolso
 
+## Cupons fiscais (18/10/2026)
+
+Em listas com `origem: "cupom"`, `totalCentavos` é o líquido pago da nota, preservado mesmo com descarte de produtos. Novos campos opcionais: `totalOriginalCentavos`, `descontoCentavos`, `quantidadeItensCupom`, `quantidadeDescartados` e `itensCompletos`. Itens e observações de preço usam o valor original exibido no documento, sem ratear o desconto geral. Somar itens não recompõe necessariamente o líquido; o resumo pessoal do No Bolso continua somando o campo `totalCentavos` da lista. Data de fechamento de cupom é sua emissão, e não a importação. Não foram criados lançamentos financeiros. Fluxo, limites e pendência da consulta automática em [CUPONS_FISCAIS.md](CUPONS_FISCAIS.md).
+
 Base: `https://us-central1-ponto-app-1c55a.cloudfunctions.net/comprasApi`.
 API somente leitura. O backend do No Bolso envia um Google ID token com audiência igual à base e identidade `no-bolso-runtime@organizanderson.iam.gserviceaccount.com`. Tokens são obtidos pela identidade do runtime, sem chave permanente e sem credenciais no navegador.
 
@@ -39,3 +43,17 @@ Conexão real validada em 16/10/2026 pelo navegador autenticado do No Bolso: ace
 A tela atual Economize → Compras AP1303 → Análise do supermercado foi publicada pelo No Bolso no deploy `6ad2237b52efcbb2ca8196bb`, incluindo o commit de layout `17b97a9`. Totais mensais refletem apenas listas carregadas; mais páginas e dados ausentes são sinalizados.
 
 Atualização de acesso geral em 16/10/2026: funções de consulta/compatibilidade atualizadas e frontend `6ad2791b681d6fb959f5c11b` publicado. Testes confirmaram leitura sem concessão individual, concessão antiga desabilitada sem efeito e bloqueio imediato de perfil inativo/ausente. Fluxo real de consulta funcionou após atualização. Nenhuma escrita financeira, mudança de IAM ou exclusão de concessões antigas.
+
+Marca de compra: observações e ofertas passam a informar `marca` opcional, preservando contratos anteriores. Variações comparam mesma marca, apresentação, unidade e loja; nome do ranking e apresentação da oferta identificam a marca para clientes existentes. Listas excluídas deixam de aparecer; detalhe retorna 404 e preços removidos não entram nos rankings. Paginação pode retornar página vazia com `nextCursor` quando o trecho contém apenas marcadores de exclusão; o consumidor pode seguir o cursor.
+
+## Ponte de vinculação pessoal
+
+A página `/integracoes/no-bolso` usa a callable existente **`comprasOperacao`** (não `operarCompras`) com `noBolsoGerarCodigo` ou `noBolsoRevogar`. Exige conta ativa e autenticação vigente. O código é aleatório, de uso único, expira em dez minutos e somente seu hash é salvo. Coleções noBolsoGrants/noBolsoLinks/noBolsoOwners permanecem privadas nas regras existentes.
+
+Depois da verificação OIDC da identidade runtime existente, comprasApi aceita GET `/v1/no-bolso/status?noBolsoUid=...`, GET `/v1/no-bolso/resumo?noBolsoUid=...&mes=AAAA-MM` e POST exclusivamente em `/v1/no-bolso/vincular` (noBolsoUid/codigo) e `/v1/no-bolso/desvincular` (noBolsoUid). O gateway No Bolso deve atribuir noBolsoUid pela sessão autenticada, sem aceitar a identidade do navegador. As demais rotas continuam somente leitura.
+
+Resumo pessoal: três meses em America/Fortaleza, somente listas finalizadas por `finalizadaPor` da conta AP1303 vinculada. Nunca associa por e-mail/nome ou criador da lista. Não devolve listas brutas nem importa despesas. Limite de 300 compras; acima disso retorna 422, sem truncamento silencioso. Índice: comprasListas(finalizadaPor ASC, status ASC, finalizadaEm ASC). Novos módulos: functions/no-bolso-bridge.cjs e functions/no-bolso-functions.cjs.
+
+Ativação do No Bolso permanece uma etapa posterior: ENABLE_AP1303_PERSONAL não foi habilitada nesta publicação AP1303. Não houve vínculo real ou geração de código em produção na validação; consentimento e associação entre contas serão exercitados quando o gateway estiver preparado.
+
+Pré-requisitos AP1303 concluídos em 16/10/2026: `comprasOperacao` e `comprasApi` publicadas seletivamente; página no deploy Netlify `6ad2c4d3cca93dc2cbbfcbf2`; índice `CICAgJjmiJEK` confirmado **READY**. Índices anteriores preservados. Testes: 41 unitários aprovados (2 integrações ignoradas nessa execução), 16 testes de integração no emulador aprovados, lint/build aprovados. Página autenticada conferida sem gerar código; endpoints de ponte/código recusaram chamadas sem autenticação com 401. A flag de ativação do No Bolso permanece ausente/desligada.

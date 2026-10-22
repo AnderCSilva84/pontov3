@@ -28,6 +28,7 @@ if (config) {
     return self.registration.showNotification(data.title || "App Ponto", {
       body: data.body || "Há uma atualização no app.", icon: "/icon-192.png",
       tag: data.tag, data: { url: data.url || "/ponto" },
+      actions: data.url?.startsWith('/lembretes?') ? [{action:'ver-concluir',title:'Ver e concluir'}] : [],
     });
   });
 }

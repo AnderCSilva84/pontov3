@@ -3,8 +3,8 @@ export const ROLE_FUNCIONARIO = "funcionario";
 export const ROLE_CONSULTA = "consulta";
 
 export const ROLE_LABELS = {
-  [ROLE_ADMIN]: "Admin",
-  [ROLE_FUNCIONARIO]: "Funcionario",
+  [ROLE_ADMIN]: "Administrador",
+  [ROLE_FUNCIONARIO]: "Funcionário",
   [ROLE_CONSULTA]: "Consulta",
 };
 

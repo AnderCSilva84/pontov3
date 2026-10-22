@@ -10,3 +10,7 @@ export async function consultarPrecos(inicioMs, fimMs) {
   if (!navigator.onLine) throw new Error('Conecte-se para consultar os preços confirmados.');
   return (await httpsCallable(functions, 'comprasRelatorio', { timeout: 65000 })({ inicioMs, fimMs })).data;
 }
+export async function consultarEstimativa(listaId) {
+  if (!navigator.onLine) throw new Error('Conecte-se para atualizar a estimativa.');
+  return (await httpsCallable(functions, 'comprasEstimativa', { timeout: 65000 })({ listaId })).data;
+}

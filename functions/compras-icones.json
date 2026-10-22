@@ -30,5 +30,12 @@
   {"icone":"🛠️","nome":"Ferramentas"},
   {"icone":"🧸","nome":"Brinquedos"},
   {"icone":"👕","nome":"Roupas"},
-  {"icone":"🛒","nome":"Compras"}
+  {"icone":"🛒","nome":"Compras"},
+  {"icone":"🔧","nome":"Oficina"},
+  {"icone":"🚗","nome":"Carro"},
+  {"icone":"🏍️","nome":"Moto"},
+  {"icone":"⛽","nome":"Combustível"},
+  {"icone":"🛞","nome":"Pneus"},
+  {"icone":"🔋","nome":"Bateria"},
+  {"icone":"🚲","nome":"Bicicleta"}
 ]

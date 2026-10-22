@@ -1,0 +1,105 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+test('grupos: identidades independentes, dados isolados e permissões no cliente e servidor',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.ok(process.env.GCLOUD_PROJECT?.startsWith('demo-'));
+ process.env.FIREBASE_CONFIG=JSON.stringify({projectId:process.env.GCLOUD_PROJECT});
+ const admin=require('../functions/node_modules/firebase-admin'),api=require('../functions/index.js');const db=admin.firestore();
+ const {bancoDoGrupo,bancoDoUsuario}=require('../functions/grupos-contexto.cjs');
+ const {initializeApp,deleteApp}=await import('firebase/app');
+ const {getAuth,connectAuthEmulator,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut}=await import('firebase/auth');
+ const {getFirestore,connectFirestoreEmulator,doc,collection,getDoc,getDocs,setDoc,updateDoc,query,where,terminate}=await import('firebase/firestore');
+ const app=initializeApp({projectId:process.env.GCLOUD_PROJECT,apiKey:'demo-key'},'grupos-cliente'),auth=getAuth(app),client=getFirestore(app);
+ connectAuthEmulator(auth,'http://127.0.0.1:9098',{disableWarnings:true});connectFirestoreEmulator(client,'127.0.0.1',8877);
+ t.after(async()=>{await signOut(auth);await terminate(client);await deleteApp(app);await admin.app().delete();});
+ const senha='Ficticia-123456';
+ const a=(await createUserWithEmailAndPassword(auth,'titular-a@example.test',senha)).user.uid;
+ const b=(await createUserWithEmailAndPassword(auth,'titular-b@example.test',senha)).user.uid;
+ const chamada=(fn,uid,data={})=>api[fn].run({auth:{uid,token:{email:uid===a?'titular-a@example.test':'titular-b@example.test'}},data});
+ const A=(await chamada('criarGrupo',a,{nome:'Titular A',nomeGrupo:'Casa A'})).grupoId;
+ const B=(await chamada('criarGrupo',b,{nome:'Titular B',nomeGrupo:'Casa B'})).grupoId;
+ const ba=bancoDoGrupo(db,A),bb=bancoDoGrupo(db,B);
+ const op=(uid,operacao,dados={})=>chamada('comprasOperacao',uid,{operacao,...dados});
+ let empregado,colega;
+ await t.test('cadastro idempotente preserva titular e cria contas próprias sem aceitar grupo escolhido pelo cliente',async()=>{
+  assert.notEqual(A,B);assert.equal((await chamada('criarGrupo',a,{nome:'Titular A',nomeGrupo:'Não duplicar'})).jaCriado,true);
+  assert.equal((await bancoDoUsuario(db,a)).grupoId,A);
+  await db.doc('users/legado-adm').set({role:'admin',ativo:true,nome:'Legado'});
+  await assert.rejects(chamada('criarGrupo','legado-adm',{nome:'Legado',nomeGrupo:'Não mover dados'}),/migração/);
+  const dados={nome:'Empregada A',email:'empregada-a@example.test',senha,role:'funcionario',grupoId:B,chaveOperacao:'11111111-1111-4111-8111-111111111111'};
+  empregado=await chamada('criarMembroGrupo',a,dados);
+  assert.equal((await db.doc('vinculosUsuarios/'+empregado.uid).get()).data().grupoId,A);
+  assert.equal((await bb.doc('users/'+empregado.uid).get()).exists,false);
+  assert.equal((await chamada('criarMembroGrupo',a,dados)).jaCriado,true);
+  colega=await chamada('criarMembroGrupo',a,{...dados,nome:'Colega A',email:'colega-a@example.test',chaveOperacao:'22222222-2222-4222-8222-222222222222'});
+  await assert.rejects(chamada('criarMembroGrupo',empregado.uid,{...dados,email:'terceira@example.test'}),/administradores/);
+ });
+ await t.test('compras do mesmo grupo são compartilhadas; IDs iguais em grupos diferentes não se misturam',async()=>{
+  for(const [uid,nome]of[[a,'Arroz A'],[b,'Arroz B']]){
+   await op(uid,'inicializar');await op(uid,'produto',{produtoId:'arroz',nome,apresentacao:'Pacote 1 kg',categoriaId:'mercearia',unidadeCompra:'un'});
+   await op(uid,'criar',{listaId:'jantar',titulo:'Jantar '+nome});
+  }
+  await op(empregado.uid,'adicionar',{listaId:'jantar',produtoId:'arroz',quantidadePlanejada:2,grupoId:B});
+  assert.equal((await ba.doc('comprasListas/jantar/itens/arroz').get()).data().nomeSnapshot,'Arroz A');
+  assert.equal((await bb.doc('comprasListas/jantar/itens/arroz').get()).exists,false);
+  assert.equal((await db.doc('comprasListas/jantar').get()).exists,false);
+  await assert.rejects(op(empregado.uid,'iniciar',{listaId:'jantar'}),/administrador/);
+  await op(b,'criar',{listaId:'somente-b',titulo:'Privada B'});
+  await assert.rejects(op(a,'iniciar',{listaId:'somente-b',grupoId:B}),/encontrada/);
+ });
+ await t.test('regras recusam leitura entre grupos e alteração do vínculo, protegendo o titular',async()=>{
+  await signInWithEmailAndPassword(auth,'titular-a@example.test',senha);
+  assert.equal((await getDocs(collection(client,'grupos',A,'users'))).size,3);
+  assert.equal((await getDoc(doc(client,'grupos',A,'comprasListas','jantar'))).exists(),true);
+  for(const partes of [['grupos',B,'users',b],['grupos',B,'comprasListas','jantar'],['grupos',B],['catalogoCompras','arroz']]) await assert.rejects(getDoc(doc(client,...partes)),/permission/i);
+  await assert.rejects(getDocs(collection(client,'grupos',B,'catalogoCompras')),/permission/i);
+  await assert.rejects(updateDoc(doc(client,'vinculosUsuarios',a),{grupoId:B}),/permission/i);
+  await assert.rejects(updateDoc(doc(client,'grupos',A,'users',a),{role:'funcionario'}),/permission/i);
+  await assert.rejects(setDoc(doc(client,'grupos',A,'users','forjado'),{role:'admin'}),/permission/i);
+  await assert.rejects(chamada('excluirUsuario',a,{uid:b}),/encontrado/);
+ });
+ await t.test('retoma criação interrompida sem duplicar o login já criado',async()=>{
+  const chaveOperacao='33333333-3333-4333-8333-333333333333';
+  const uid='m_'+require('node:crypto').createHash('sha256').update(`${A}:${chaveOperacao}`).digest('hex').slice(0,48);
+  await admin.auth().createUser({uid,email:'retomada@example.test',password:senha});
+  const retomada=await chamada('criarMembroGrupo',a,{nome:'Cadastro retomado',email:'retomada@example.test',senha,role:'consulta',chaveOperacao});
+  assert.equal(retomada.uid,uid);
+  assert.equal((await db.doc('vinculosUsuarios/'+uid).get()).data().grupoId,A);
+  assert.equal((await ba.doc('users/'+uid).get()).data().senha,undefined);
+ });
+ await t.test('funcionária consulta apenas os próprios comprovantes e folhas fechadas',async()=>{
+  await ba.doc('financeiro/meu').set({funcionarioId:empregado.funcionarioId,valor:123});
+  await ba.doc('financeiro/colega').set({funcionarioId:colega.funcionarioId,valor:456});
+  await ba.doc('documentosTrabalhistas/meu').set({funcionarioId:empregado.funcionarioId,titulo:'Meu documento'});
+  await ba.doc('documentosTrabalhistas/colega').set({funcionarioId:colega.funcionarioId,titulo:'Documento do colega'});
+  await ba.doc('folhasPagamento/minha').set({funcionarioId:empregado.funcionarioId,status:'pronta_pagamento',liquido:123});
+  await ba.doc('folhasPagamento/rascunho').set({funcionarioId:empregado.funcionarioId,status:'em_andamento',liquido:456});
+  await signInWithEmailAndPassword(auth,'empregada-a@example.test',senha);
+  assert.equal((await getDocs(query(collection(client,'grupos',A,'dias'),where('funcionarioId','==',empregado.funcionarioId),where('dataKey','==','2026-10-21')))).size,0);
+  assert.equal((await getDocs(query(collection(client,'grupos',A,'financeiro'),where('funcionarioId','==',empregado.funcionarioId)))).size,1);
+  assert.equal((await getDoc(doc(client,'grupos',A,'documentosTrabalhistas','meu'))).exists(),true);
+  assert.equal((await getDoc(doc(client,'grupos',A,'folhasPagamento','minha'))).data().liquido,123);
+  for(const partes of [['financeiro','colega'],['documentosTrabalhistas','colega'],['folhasPagamento','rascunho'],['users',a]]) await assert.rejects(getDoc(doc(client,'grupos',A,...partes)),/permission/i);
+  await assert.rejects(updateDoc(doc(client,'grupos',A,'users',empregado.uid),{role:'admin'}),/permission/i);
+  await assert.rejects(setDoc(doc(client,'grupos',A,'documentosTrabalhistas','novo'),{funcionarioId:empregado.funcionarioId}),/permission/i);
+ });
+ await t.test('ponto e lançamentos não aceitam funcionários de outro grupo; grupo desativado não usa dados legados',async()=>{
+  await bb.doc('funcionarios/externa').set({nome:'Externa',ativo:true});
+  await assert.rejects(chamada('registrarPonto',empregado.uid,{funcionarioId:'externa',tipo:'ENTRADA',latitude:0,longitude:0}),/autorizado/);
+  await assert.rejects(chamada('registrarPonto',a,{funcionarioId:empregado.funcionarioId,tipo:'ENTRADA',latitude:0,longitude:0}),/autorizado/);
+  await ba.doc('locais/casa').set({ativo:true,raioMetros:100,localizacao:{latitude:0,longitude:0}});
+  await ba.doc('funcionarios/'+empregado.funcionarioId).update({locaisPermitidos:['casa']});
+  const ponto=await chamada('registrarPonto',empregado.uid,{funcionarioId:empregado.funcionarioId,tipo:'ENTRADA',latitude:0,longitude:0});
+  assert.equal((await ba.doc('dias/'+empregado.funcionarioId+'_'+ponto.dataKey).get()).data().entrada,ponto.hora);
+  assert.equal((await db.doc('dias/'+empregado.funcionarioId+'_'+ponto.dataKey).get()).exists,false);
+  const enviados=[];
+  await ba.doc('pushDispositivos/a').set({uid:a,token:'token-ficticio-grupo-a'});
+  await bb.doc('pushDispositivos/b').set({uid:b,token:'token-ficticio-grupo-b'});
+  const handlers=require('../functions/push.cjs').criarPush({admin:{messaging:()=>({sendEach:async mensagens=>{enviados.push(...mensagens);return{responses:mensagens.map(()=>({success:true}))};}})},db:ba,somenteHandlers:true});
+  await handlers.alertaRegistroPonto({id:'ponto-grupo-a',data:{data:()=>({funcionarioId:empregado.funcionarioId,registradoPor:empregado.uid,tipo:'ENTRADA',hora:ponto.hora,dataKey:ponto.dataKey})}});
+  assert.equal(enviados.length,1);assert.equal(enviados[0].token,'token-ficticio-grupo-a');assert.equal(enviados[0].data.uid,a);
+  await db.doc('grupos/'+A).update({ativo:false});
+  await assert.rejects(op(a,'inicializar'),/sem acesso/);
+  await assert.rejects(getDoc(doc(client,'grupos',A,'comprasListas','jantar')),/permission/i);
+  await db.doc('grupos/'+A).update({ativo:true});
+  assert.equal((await bancoDoUsuario(db,'legado-adm')),db);
+ });
+});

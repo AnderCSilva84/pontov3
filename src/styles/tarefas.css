@@ -220,3 +220,18 @@
 .tarefas-edicao { width: min(520px, 100%); display: grid; gap: 14px; }
 .tarefas-edicao-fechar { width: 38px; height: 38px; border: 0; border-radius: 50%; background: #f0e7d9; font-size: 1.4rem; cursor: pointer; }
 .tarefas-edicao-acoes { display: flex; gap: 10px; }
+/* Resumos recolhidos na tela de ponto. */
+.tarefas-resumo { padding: 16px 20px; }
+.tarefas-resumo > summary { display: flex; align-items: center; gap: 12px; min-height: 52px; cursor: pointer; list-style: none; }
+.tarefas-resumo > summary::-webkit-details-marker { display: none; }
+.tarefas-resumo-titulo { flex: 1; font-weight: 800; font-size: 1.05rem; }
+.tarefas-contador { display: grid; gap: 2px; text-align: center; padding: 8px 14px; border-radius: 14px; min-width: 80px; background: #f1efe9; color: #655c4e; }
+.tarefas-contador strong { font-size: 1.1rem; }
+.tarefas-contador small { font-size: .72rem; }
+.tarefas-contador.pendente { background: #fff0b5; color: #775000; animation: tarefas-pulso 2s ease-in-out infinite; }
+.tarefas-contador.completo { background: #d8f3e4; color: #17643f; }
+.tarefas-resumo[open] .tarefas-resumo-seta { transform: rotate(180deg); }
+.tarefas-resumo-conteudo { display: grid; gap: 12px; margin-top: 16px; }
+.tarefa-resumo-concluida { color: #17643f; }
+@keyframes tarefas-pulso { 50% { box-shadow: 0 0 0 5px #e9b80022; opacity: .72; } }
+@media (prefers-reduced-motion: reduce) { .tarefas-contador.pendente { animation: none; } }

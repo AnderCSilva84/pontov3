@@ -1,20 +1,21 @@
-import { useMemo, useState } from 'react';
-import { moeda, dataPreco, compararMercados, seriesPorMercado } from '../utils/comprasAnalise';
+import { useState } from 'react';
+import ProdutoAutocomplete from './ProdutoAutocomplete';
+import { moeda, dataPreco, compararMercados, seriesPorMercado, chaveProdutoPreco } from '../utils/comprasAnalise';
 
 const CORES = ['#2f7b5f', '#a75529', '#366ab5', '#9851a8', '#8a7019', '#b03e61'];
-export default function ComprasGraficos({ registros }) {
+export default function ComprasGraficos({ registros,catalogo,categorias }) {
   const [produtoId, setProdutoId] = useState('');
-  const produtos = useMemo(() => [...new Map(registros.map(r => [r.produtoId, { id: r.produtoId, nome: `${r.nomeSnapshot} · ${r.apresentacao || 'apresentação não informada'}` }])).values()].sort((a, b) => a.nome.localeCompare(b.nome)), [registros]);
-  const selecionado = produtos.some(p => p.id === produtoId) ? produtoId : produtos[0]?.id;
-  const pontos = registros.filter(r => r.produtoId === selecionado);
+  const pontos = registros.filter(r => chaveProdutoPreco(r) === produtoId);
   const mercados = compararMercados(pontos), series = seriesPorMercado(pontos);
-  if (!produtos.length) return <p className="card">Ainda não há preços confirmados neste período.</p>;
+  const busca=<ProdutoAutocomplete registros={registros} catalogo={catalogo} categorias={categorias} value={produtoId} onChange={setProdutoId} label="Comparar produto" />;
+  if (!registros.length) return <p className="card">Ainda não há preços confirmados neste período.</p>;
+  if(!pontos.length)return <>{busca}<p className="card">Busque e selecione um produto para comparar seus preços.</p></>;
   const maximo = Math.max(...pontos.map(p => p.precoUnitarioCentavos), 1);
   const inicio = Math.min(...pontos.map(p => p.compradoEmMs)), fim = Math.max(...pontos.map(p => p.compradoEmMs));
   const x = ms => fim === inicio ? 300 : 55 + (ms - inicio) / (fim - inicio) * 490;
   const y = centavos => 205 - centavos / maximo * 165;
   return <>
-    <label className="field"><span>Comparar produto</span><select value={selecionado} onChange={e => setProdutoId(e.target.value)}>{produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></label>
+    {busca}
     <section className="card compras-grafico"><h2>Último preço por supermercado</h2><p className="text-muted">Preços registrados no período, por unidade indicada. Confira a data de cada observação.</p>
       {mercados.map(r => <div className="compras-barra" key={`${r.supermercadoId}:${r.unidadeCompra}`}><div><strong>{r.supermercadoNome}</strong><span>{moeda(r.precoUnitarioCentavos)}/{r.unidadeCompra} · {dataPreco(r.compradoEmMs)}</span></div><div className="compras-barra-trilho"><span style={{ width: `${r.precoUnitarioCentavos / maximo * 100}%` }} /></div></div>)}
     </section>

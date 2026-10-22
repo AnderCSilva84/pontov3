@@ -4,24 +4,71 @@
       "collectionGroup": "dias",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "funcionarioId", "order": "ASCENDING" },
-        { "fieldPath": "dataKey", "order": "ASCENDING" }
+        {
+          "fieldPath": "funcionarioId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dataKey",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ajustesPonto",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "funcionarioId", "order": "ASCENDING" },
-        { "fieldPath": "criadoEm", "order": "DESCENDING" }
+        {
+          "fieldPath": "funcionarioId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "criadoEm",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "comprasListas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "finalizadaEm", "order": "DESCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "finalizadaEm",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "comprasListas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "finalizadaPor",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "finalizadaEm",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "comprasPrecos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "produtoId", "order": "ASCENDING" },
+        { "fieldPath": "valido", "order": "ASCENDING" },
+        { "fieldPath": "apresentacao", "order": "ASCENDING" },
+        { "fieldPath": "unidadeCompra", "order": "ASCENDING" },
+        { "fieldPath": "compradoEm", "order": "DESCENDING" }
       ]
     }
   ],

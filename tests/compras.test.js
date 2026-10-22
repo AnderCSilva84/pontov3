@@ -19,6 +19,14 @@ test('funcionária abre a lista dedicada sem liberar acesso ao escritório ou fi
   assert.equal(resolverRotaUsuario(user, '/lista-compras/categorias'), '/lista-compras');
 });
 
+test('aba lembretes permite receitas para funcionária sem liberar outras rotas', () => {
+  assert.equal(resolverRotaUsuario({ role: 'funcionario', babaCuidadora: true }, '/lembretes'), '/lembretes');
+  assert.equal(resolverRotaUsuario({ role: 'funcionario' }, '/lembretes'), '/lembretes');
+  assert.equal(resolverRotaUsuario({ role: 'consulta', babaCuidadora: true }, '/lembretes'), '/ponto');
+  assert.equal(resolverRotaUsuario({ role: 'admin' }, '/lembretes'), '/lembretes');
+  assert.equal(resolverRotaUsuario({ role: 'funcionario', babaCuidadora: true }, '/admin'), '/ponto');
+});
+
 test('compartilha apenas pendências e não inclui nomes de funcionários ou dados do cadastro', () => {
   const lista = [
     { nome: 'Sabão', categoria: 'Limpeza', solicitado: true, comprado: false, solicitadoPorNome: 'Pessoa privada' },

@@ -1,23 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { collection, doc } from '../services/dadosGrupo';
+import { PageHeader } from '../components/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { criarUsuario, excluirUsuario, login, logout } from "../services/auth";
 import { listarFuncionarios, buscarDiasPorPeriodo } from "../services/ponto";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  setDoc,
-  updateDoc,
-  getDoc,
-  deleteDoc,
-  query,
-  where,
-  serverTimestamp,
-  documentId,
-  limit,
-  orderBy,
-  startAfter,
-} from "firebase/firestore";
+import { addDoc, getDocs, setDoc, updateDoc, getDoc, deleteDoc, query, where, serverTimestamp, documentId, limit, orderBy, startAfter } from 'firebase/firestore';
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import {
@@ -273,6 +259,8 @@ function getUltimaAcao(dias) {
 export default function Admin({ user, onNavigate, rotaAtual }) {
   const podeConsultarSistema = canConsultSystem(user);
   const podeGerenciarUsuarios = canManageUsers(user);
+  const podeAlterarPonto = false; // Administradores apenas consultam marcações.
+  const [buscaUsuario,setBuscaUsuario] = useState(''), [filtroPerfil,setFiltroPerfil] = useState('');
   const [adminEmail, setAdminEmail] = useState("");
   const [adminSenha, setAdminSenha] = useState("");
   const [adminErro, setAdminErro] = useState("");
@@ -313,6 +301,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [usuarioSucesso, setUsuarioSucesso] = useState("");
   const [usuarioEditandoId, setUsuarioEditandoId] = useState("");
   const [usuarioEdicaoRole, setUsuarioEdicaoRole] = useState(ROLE_FUNCIONARIO);
+  const [usuarioEdicaoCuidadora, setUsuarioEdicaoCuidadora] = useState(false);
   const [usuarioEdicaoPermissoes, setUsuarioEdicaoPermissoes] = useState(
     getDefaultPermissionsForRole(ROLE_FUNCIONARIO)
   );
@@ -339,7 +328,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [locaisSalvando, setLocaisSalvando] = useState(false);
   const [locaisErro, setLocaisErro] = useState("");
   const [locaisSucesso, setLocaisSucesso] = useState("");
-  const [mostrarUsuarios, setMostrarUsuarios] = useState(false);
+  const [mostrarUsuarios, setMostrarUsuarios] = useState(true);
   const [mostrarAdmPonto, setMostrarAdmPonto] = useState(false);
   const ajusteSectionRef = useRef(null);
   const funcionarioAtual = useMemo(
@@ -602,13 +591,14 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       }
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao criar usuario:", error);
-      setErroUsuarios("Nao foi possivel criar o usuario. Verifique email/senha e tente novamente.");
+      setErroUsuarios(user?.grupoId ? error.message : "Nao foi possivel criar o usuario. Verifique email/senha e tente novamente.");
     } finally {
       setUsuarioSalvando(false);
     }
   }
 
   function iniciarEdicaoUsuario(item) {
+    setUsuarioEdicaoCuidadora(item.role === ROLE_ADMIN ? item.lembretesHabilitados === true : item.babaCuidadora === true);
     setUsuarioEditandoId(item.id);
     setUsuarioEdicaoRole(normalizeRole(item.role) || ROLE_FUNCIONARIO);
     setUsuarioEdicaoPermissoes(getUserPermissions(item));
@@ -624,6 +614,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   function cancelarEdicaoUsuario() {
+    setUsuarioEdicaoCuidadora(false);
     setUsuarioEditandoId("");
     setUsuarioEdicaoRole(ROLE_FUNCIONARIO);
     setUsuarioEdicaoPermissoes(getDefaultPermissionsForRole(ROLE_FUNCIONARIO));
@@ -705,6 +696,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       await updateDoc(doc(db, "users", item.id), {
         role: proximoRole,
         permissions: usuarioEdicaoPermissoes,
+        babaCuidadora: proximoRole === ROLE_FUNCIONARIO && usuarioEdicaoCuidadora,
+        lembretesHabilitados: proximoRole === ROLE_ADMIN && usuarioEdicaoCuidadora,
         funcionarioId: proximoFuncionarioId,
         atualizadoEm: serverTimestamp(),
         atualizadoPor: user?.uid || null,
@@ -791,7 +784,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }, [carregarAjustesLog, mostrarAjustesLog, funcionarioSelecionado, podeGerenciarUsuarios]);
 
   async function handleExcluirLogAjuste(logId) {
-    if (!podeGerenciarUsuarios) return;
+    if (!podeAlterarPonto) return;
     if (!logId) return;
     setAjustesLogExcluindo((prev) => ({ ...prev, [logId]: true }));
     setAjustesLogErro("");
@@ -844,7 +837,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   async function excluirHorarioPorData(dataKey) {
-    if (!podeGerenciarUsuarios) return;
+    if (!podeAlterarPonto) return;
     if (!funcionarioSelecionado || !dataKey) return;
     const confirmar = window.confirm("Tem certeza que deseja excluir este horário?");
     if (!confirmar) return;
@@ -887,7 +880,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   async function handleSalvarAjuste() {
-    if (!podeGerenciarUsuarios) return;
+    if (!podeAlterarPonto) return;
     setAjusteErro("");
     setAjusteSucesso("");
 
@@ -1059,7 +1052,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }
 
   async function handleExcluirAjuste() {
-    if (!podeGerenciarUsuarios) return;
+    if (!podeAlterarPonto) return;
     setAjusteErro("");
     setAjusteSucesso("");
 
@@ -1433,7 +1426,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                   required
                 />
               </label>
-              {adminErro && <p className="mensagem erro">{adminErro}</p>}
+              {adminErro && <p role="alert" className="mensagem erro">{adminErro}</p>}
               <p className="text-muted">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
               <button type="submit" className="btn btn-primary" disabled={adminLoading}>
                 {adminLoading ? "Entrando..." : "Entrar"}
@@ -1472,12 +1465,10 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   return (
     <div className="page-bg admin-bg">
       <main className="page-shell admin-shell">
-        <header className="admin-header">
-          <h1>Escritório</h1>
-        </header>
+        <PageHeader title="Gestão" subtitle="Usuários, acessos e escritório contábil." />
 
         <p className="admin-ola">
-          Ola, {user.nome} {normalizeRole(user.role) === ROLE_CONSULTA ? "(Consulta)" : ""}
+          Olá, {user.nome} {normalizeRole(user.role) === ROLE_CONSULTA ? "(Consulta)" : ""}
         </p>
 
         {normalizeRole(user.role) === ROLE_ADMIN && (
@@ -1490,11 +1481,11 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         {podeGerenciarUsuarios && (
           <section className="admin-section">
             <div className="section-header">
-              <h2>Usuarios</h2>
-              <span className="section-sub">Crie acessos para admin, funcionario e consulta</span>
+              <h2>Usuários</h2>
+              <span className="section-sub">Crie acessos para administrador, funcionário e consulta</span>
             </div>
 
-            <form className="card filtros-card" onSubmit={handleCriarUsuario}>
+            <details className="card"><summary>+ Novo usuário</summary><form className="filtros-card" onSubmit={handleCriarUsuario}>
               <label className="field">
                 <span>Nome</span>
                 <input
@@ -1521,7 +1512,9 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                   type="password"
                   value={usuarioSenha}
                   onChange={(event) => setUsuarioSenha(event.target.value)}
-                  placeholder="Minimo 6 caracteres"
+                  placeholder={user?.grupoId ? 'Mínimo 8 caracteres' : 'Mínimo 6 caracteres'}
+                  minLength={user?.grupoId ? 8 : 6}
+                  maxLength={user?.grupoId ? 128 : undefined}
                 />
               </label>
 
@@ -1535,26 +1528,28 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
               </label>
 
               <button type="submit" className="btn btn-primary" disabled={usuarioSalvando}>
-                {usuarioSalvando ? "Criando..." : "Criar usuario"}
+                {usuarioSalvando ? "Criando..." : "Criar usuário"}
               </button>
-            </form>
+            </form></details>
 
-            {erroUsuarios && <p className="mensagem erro">{erroUsuarios}</p>}
+            {erroUsuarios && <p role="alert" className="mensagem erro">{erroUsuarios}</p>}
             {usuarioSucesso && <p className="mensagem">{usuarioSucesso}</p>}
 
             <div className="card tarefas-lista">
-              <div className="usuarios-expandir"><h2>Usuarios cadastrados</h2><button type="button" className="btn btn-secondary" onClick={() => setMostrarUsuarios((atual) => !atual)}>{mostrarUsuarios ? "Recolher" : "Expandir"}</button></div>
-              {mostrarUsuarios && <>
-              {loadingUsuarios && <p className="text-muted">Carregando usuarios...</p>}
+              <div className="usuarios-expandir"><h2>Usuários cadastrados</h2><button type="button" className="btn btn-secondary" onClick={() => setMostrarUsuarios((atual) => !atual)}>{mostrarUsuarios ? "Recolher" : "Expandir"}</button></div>
+              {mostrarUsuarios && <><div className="ui-user-filtros"><label className="field"><span>Buscar usuários nesta página</span><input type="search" value={buscaUsuario} onChange={e => setBuscaUsuario(e.target.value)} /></label><label className="field"><span>Filtrar perfil</span><select value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}><option value="">Todos</option>{Object.entries(ROLE_LABELS).map(([id,nome]) => <option key={id} value={id}>{nome}</option>)}</select></label></div>
+              {loadingUsuarios && <p className="text-muted">Carregando usuários...</p>}
               {!loadingUsuarios && usuarios.length === 0 && (
-                <p className="text-muted">Nenhum usuario encontrado.</p>
+                <p className="text-muted">Nenhum usuário encontrado.</p>
               )}
               {!loadingUsuarios && usuarios.length > 0 && (
                 <><div className="tarefas-itens">
-                  {usuarios.map((item) => (
+                  {usuarios.filter(item => (!filtroPerfil || normalizeRole(item.role) === filtroPerfil) && `${item.nome || ""} ${item.email || ""}`.toLowerCase().includes(buscaUsuario.toLowerCase())).map((item) => (
                     <div key={item.id} className="tarefas-item">
                       <div>
-                        <strong>{item.nome || item.email || item.id}</strong>
+                        <strong>{item.nome || item.email || item.id}</strong><span className="ui-badge neutral">{item.ativo === false ? "Inativo" : "Ativo"}</span>
+                        {item.babaCuidadora === true && <span className="tarefas-por">Babá/Cuidadora · Lembretes habilitados</span>}
+                        {item.role === ROLE_ADMIN && item.lembretesHabilitados === true && <span className="tarefas-por">Lembretes habilitados · 24 horas</span>}
                         <span className="tarefas-por">{item.email || "-"}</span>
                         <span className="tarefas-por">
                           Perfil: {ROLE_LABELS[normalizeRole(item.role)] || item.role || "-"}
@@ -1568,7 +1563,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                           </span>
                         )}
                       </div>
-                      <div className="detalhe-actions">
+                      <details className="ui-user-menu" open={usuarioEditandoId === item.id}><summary>Ações do usuário</summary><div className="detalhe-actions">
                         {usuarioEditandoId === item.id ? (
                           <>
                             <label className="field">
@@ -1631,6 +1626,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                               <span>Criar tarefas</span>
                             </label>
 
+                            {normalizeRole(usuarioEdicaoRole) === ROLE_FUNCIONARIO && <label className="jornada-dia-header"><input type="checkbox" checked={usuarioEdicaoCuidadora} onChange={e => setUsuarioEdicaoCuidadora(e.target.checked)} /><span>Babá/Cuidadora — liberar aba Lembretes</span></label>}
+                            {normalizeRole(usuarioEdicaoRole) === ROLE_ADMIN && <label className="jornada-dia-header"><input type="checkbox" checked={usuarioEdicaoCuidadora} onChange={e => setUsuarioEdicaoCuidadora(e.target.checked)} /><span>Receber lembretes — disponível 24 horas</span></label>}
                             <button
                               type="button"
                               className="btn btn-primary"
@@ -1658,7 +1655,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                             Editar acesso
                           </button>{(item.funcionarioId || normalizeRole(item.role) === ROLE_FUNCIONARIO) && <button type="button" className="btn btn-primary" onClick={() => abrirCadastroFuncionario(item)}>Abrir cadastro</button>}{item.id !== user?.uid && <button type="button" className="btn btn-danger" onClick={() => handleExcluirUsuario(item)} disabled={usuarioAtualizandoId === item.id}>{usuarioAtualizandoId === item.id ? "Excluindo..." : "Excluir usuário"}</button>}</>
                         )}
-                      </div>
+                      </div></details>
                     </div>
                   ))}
                 </div><div className="admin-paginacao"><button type="button" className="btn btn-muted" disabled={paginaUsuarios === 0 || loadingUsuarios} onClick={() => carregarUsuarios(paginaUsuarios - 1)}>Anterior</button><span>Página {paginaUsuarios + 1}</span><button type="button" className="btn btn-secondary" disabled={!temProximaPaginaUsuarios || loadingUsuarios} onClick={() => carregarUsuarios(paginaUsuarios + 1)}>Próxima</button></div></>
@@ -1788,8 +1785,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                       Saldo:{" "}
                       {formatMinutos(dia?.ajusteTipo === "saida_mais_cedo" ? 0 : dia.saldoMin || 0)}
                     </span>
-                  </div>
-                  {podeGerenciarUsuarios && (
+                  </div>
+                  {podeAlterarPonto && (
                     <div className="detalhe-actions">
                       <button
                         type="button"
@@ -1901,7 +1898,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                 {jornadaSalvando ? "Salvando..." : "Salvar jornada"}
               </button>
 
-              {jornadaErro && <p className="mensagem erro">{jornadaErro}</p>}
+              {jornadaErro && <p role="alert" className="mensagem erro">{jornadaErro}</p>}
               {jornadaSucesso && <p className="mensagem">{jornadaSucesso}</p>}
             </div>
           </section>
@@ -2018,13 +2015,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                 {locaisSalvando ? "Salvando..." : "Salvar locais autorizados"}
               </button>
 
-              {locaisErro && <p className="mensagem erro">{locaisErro}</p>}
+              {locaisErro && <p role="alert" className="mensagem erro">{locaisErro}</p>}
               {locaisSucesso && <p className="mensagem">{locaisSucesso}</p>}
             </div>
           </section>
         )}
 
-        {mostrarAdmPonto && podeGerenciarUsuarios && (
+        {mostrarAdmPonto && podeAlterarPonto && (
           <section className="admin-section ajustes-section" ref={ajusteSectionRef}>
           <div className="section-header">
             <h2>Ajustes de ponto</h2>
@@ -2153,7 +2150,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
               </button>
             </div>
 
-            {ajusteErro && <p className="mensagem erro">{ajusteErro}</p>}
+            {ajusteErro && <p role="alert" className="mensagem erro">{ajusteErro}</p>}
             {ajusteSucesso && <p className="mensagem">{ajusteSucesso}</p>}
           </div>
 
@@ -2180,7 +2177,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                 Atualizar histórico
               </button>
               {ajustesLogLoading && <p className="text-muted">Carregando histórico...</p>}
-              {ajustesLogErro && <p className="mensagem erro">{ajustesLogErro}</p>}
+              {ajustesLogErro && <p role="alert" className="mensagem erro">{ajustesLogErro}</p>}
               {!ajustesLogLoading && ajustesLog.length === 0 && (
                 <p className="text-muted">Nenhum ajuste registrado.</p>
               )}
@@ -2216,6 +2213,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                       </div>
                       <button
                         type="button"
+                        hidden={!podeAlterarPonto}
                         className="btn btn-danger ajustes-log-excluir"
                         onClick={() => handleExcluirLogAjuste(item.id)}
                         disabled={Boolean(ajustesLogExcluindo[item.id])}

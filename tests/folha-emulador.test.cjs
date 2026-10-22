@@ -1,0 +1,105 @@
+﻿const test = require('node:test');
+const assert = require('node:assert/strict');
+test('folha: rascunho persistente, fechamento protegido e pagamento único', { skip: !process.env.FIRESTORE_EMULATOR_HOST }, async t => {
+  assert.ok(process.env.GCLOUD_PROJECT?.startsWith('demo-'));
+  const admin = require('../functions/node_modules/firebase-admin');
+  const backend = admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT }, 'folha-teste'); const db = backend.firestore();
+  const { initializeApp, deleteApp } = await import('firebase/app');
+  const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
+  const { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp, terminate } = await import('firebase/firestore');
+  const { pagarFolhaFechada } = require('../functions/folha-pagamento.cjs');
+  const app = initializeApp({ projectId: process.env.GCLOUD_PROJECT, apiKey: 'demo-key' }, 'folha-cliente');
+  const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
+  const client = getFirestore(app); connectFirestoreEmulator(client, '127.0.0.1', 8877);
+  t.after(async () => { await signOut(auth); await terminate(client); await deleteApp(app); await backend.delete(); });
+  const uid = (await createUserWithEmailAndPassword(auth, 'folha-adm@example.test', 'Senha-ficticia-123')).user.uid;
+  await db.doc(`users/${uid}`).set({ role: 'admin', ativo: true });
+  await db.doc('funcionarios/folha-ficticia').set({ nome: 'Funcionária fictícia', ativo: true });
+  const id = 'folha-ficticia_2026-10', ref = doc(client, 'folhasPagamento', id);
+  const base = { competencia: '2026-10', funcionarioId: 'folha-ficticia', funcionarioNome: 'Funcionária fictícia', salarioBase: '2500', bonus: '', horasExtras: '', adicionais: '', horasDevidas: '', divisorHoras: '220', bonusBaseDesconto: false, faltas: '', inss: '', adiantamentos: '', outrosDescontos: '', observacao: '', proventos: 2500, descontos: 0, descontoHoras: 0, valorHora: 2500 / 220, liquido: 2500, status: 'em_andamento', versao: 1, criadaPor: uid, criadaEm: serverTimestamp(), atualizadaPor: uid, atualizadaEm: serverTimestamp() };
+  await t.test('inicia, salva nova versão e retoma valores sem gerar pagamento', async () => {
+    await setDoc(ref, base);
+    await updateDoc(ref, { bonus: '200', proventos: 2700, liquido: 2700, observacao: 'Alteração fictícia', versao: 2, atualizadaEm: serverTimestamp(), atualizadaPor: uid });
+    const retomada = (await getDoc(ref)).data();
+    assert.equal(retomada.bonus, '200'); assert.equal(retomada.status, 'em_andamento'); assert.equal(retomada.versao, 2);
+    await assert.rejects(updateDoc(ref, { bonus: '999', versao: 2, atualizadaEm: serverTimestamp() }), /permission/i);
+    await assert.rejects(pagarFolhaFechada(db, { tipo: 'salario', folhaId: id, dataPagamento: '2026-10-20' }, uid), /feche/);
+    assert.equal((await db.doc(`financeiro/folha_${id}`).get()).exists, false);
+    await assert.rejects(setDoc(doc(client, 'folhasPagamento', 'folha-ficticia_2026-11'), { ...base, competencia: '2026-11', status: 'pronta_pagamento' }), /permission/i);
+  });
+  await t.test('finaliza sem apagar o rascunho e impede alteração, exclusão e baixa direta', async () => {
+    await updateDoc(ref, { status: 'pronta_pagamento', versao: 3, fechadaPor: uid, fechadaEm: serverTimestamp(), atualizadaEm: serverTimestamp(), atualizadaPor: uid });
+    for (const dados of [{ status: 'em_andamento', versao: 4 }, { salarioBase: '1', versao: 4 }, { status: 'paga' }]) await assert.rejects(updateDoc(ref, dados), /permission/i);
+    await assert.rejects(deleteDoc(ref), /permission/i);
+    assert.equal((await getDoc(ref)).data().status, 'pronta_pagamento');
+  });
+  await t.test('registro concorrente é idempotente, usa valores salvos e fecha junto com o lançamento', async () => {
+    const dados = { tipo: 'salario', folhaId: id, valor: 1, descontos: 999, dataPagamento: '2026-10-20' };
+    const [a, b] = await Promise.all([pagarFolhaFechada(db, dados, uid), pagarFolhaFechada(db, dados, uid)]);
+    assert.equal(a.id, b.id);
+    const f = (await getDoc(ref)).data(), pagamento = (await db.doc(`financeiro/${a.id}`).get()).data();
+    assert.equal(f.status, 'paga'); assert.equal(f.pagamentoId, a.id); assert.equal(pagamento.valor, 2700); assert.equal(pagamento.descontos, 0);
+    assert.equal(pagamento.observacao, 'Alteração fictícia');
+    await assert.rejects(setDoc(ref, base), /permission/i);
+    await assert.rejects(pagarFolhaFechada(db, { ...dados, dataPagamento: '2026-99-99' }, uid), /Data/);
+    await db.doc('folhasPagamento/folha-ficticia_2026-09').set({ ...base, status: 'pronta_pagamento', competencia: '2026-09', criadaEm: admin.firestore.FieldValue.serverTimestamp(), atualizadaEm: admin.firestore.FieldValue.serverTimestamp() });
+    const antiga = await pagarFolhaFechada(db, { ...dados, folhaId: 'folha-ficticia_2026-09' }, uid);
+    assert.ok(antiga.id, 'folhas antigas continuam pagáveis');
+    await db.doc('folhasPagamento/folha-ficticia_2026-08').set({ ...base, status: 'pronta_pagamento', competencia: '2026-08', criadaEm: admin.firestore.FieldValue.serverTimestamp(), atualizadaEm: admin.firestore.FieldValue.serverTimestamp() });
+    await db.doc('financeiro/folha-legada').set({ tipo: 'salario', folhaId: 'folha-ficticia_2026-08', funcionarioId: 'folha-ficticia', valor: 2500, descontos: 0, criadoPor: uid });
+    const recuperada = await pagarFolhaFechada(db, { ...dados, folhaId: 'folha-ficticia_2026-08' }, uid);
+    assert.equal(recuperada.id, 'folha-legada');
+    assert.equal((await db.collection('financeiro').where('folhaId', '==', 'folha-ficticia_2026-08').get()).size, 1);
+  });
+  await t.test('funcionária não consulta nem altera folhas', async () => {
+    const empregada = (await createUserWithEmailAndPassword(auth, 'folha-func@example.test', 'Senha-ficticia-123')).user.uid;
+    await db.doc(`users/${empregada}`).set({ role: 'funcionario', ativo: true, funcionarioId: 'folha-ficticia' });
+    await assert.rejects(getDoc(ref), /permission/i);
+    await assert.rejects(setDoc(doc(client, 'folhasPagamento', 'folha-ficticia_2026-11'), { ...base, competencia: '2026-11' }), /permission/i);
+  });
+});
+
+test('folha automática: transporte pago, cálculo no servidor, fechamento e pagamentos especiais', {skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+  const admin=require('../functions/node_modules/firebase-admin');const app=admin.initializeApp({projectId:process.env.GCLOUD_PROJECT+'-folha-auto'},'folha-auto');const db=app.firestore();t.after(()=>app.delete());
+  const {salvarFolha,pagarFolhaFechada}=require('../functions/folha-pagamento.cjs');const {pagarEspecial}=require('../functions/pagamentos-especiais.cjs');
+  await db.doc('users/adm').set({role:'admin',ativo:true});await db.doc('users/func').set({role:'funcionario',ativo:true});await db.doc('funcionarios/x').set({nome:'Funcionária fictícia',ativo:true});
+  const folha={competencia:'2026-10',salarioBase:2500,divisorHoras:220,inssAutomatico:true,cobrarValeTransporte:true,proporcaoVt:100,observacao:''};
+  const premio = await salvarFolha(db,{folha:{...folha,competencia:'2026-09',salarioBase:1621,bonus:300,bonusSemIncidenciaInss:true},funcionarioId:'x',versao:0},'adm');
+  assert.equal(premio.totais.inss,121.58);assert.equal(premio.totais.proventos,1921);
+  assert.equal((await db.doc('folhasPagamento/x_2026-09').get()).data().bonusSemIncidenciaInss,true);
+  const semHoras=await salvarFolha(db,{folha:{...folha,competencia:'2026-07',horasDevidas:2,descontarHoras:false},funcionarioId:'x',versao:0},'adm');
+  assert.equal(semHoras.totais.descontoHoras,0);assert.equal(semHoras.totais.baseInss,2500);
+  const gravada=(await db.doc('folhasPagamento/x_2026-07').get()).data();assert.equal(gravada.descontarHoras,false);assert.equal(gravada.horasDevidas,2);
+  const salvar=(versao,fechar=false,uid='adm')=>salvarFolha(db,{folha,funcionarioId:'x',versao,fechar,revisao:{proventos:2500,descontos:350.69,valeTransportePago:200},totais:{liquido:1}},uid);
+  await assert.rejects(salvar(0,true),/Salve/);await assert.rejects(salvar(0,false,'func'),/restrito/);await assert.rejects(salvar(0,false,''),/Entre/);
+  const a=await salvar(0);assert.equal(a.totais.inss,200.69);assert.equal(a.totais.valeTransportePago,0);
+  await db.doc('financeiro/vt1').set({tipo:'transporte',funcionarioId:'x',valor:100,competenciaMes:'2026-10'});
+  const b=await salvar(1);assert.equal(b.totais.valeTransportePago,100);assert.equal(b.totais.descontoValeTransporte,100);
+  await db.doc('financeiro/vt2').set({tipo:'transporte',funcionarioId:'x',valor:100,competenciaMes:'2026-10'});
+  await assert.rejects(salvarFolha(db,{folha,funcionarioId:'x',versao:2,fechar:true,revisao:{proventos:2500,descontos:300.69,valeTransportePago:100}},'adm'),/atualizados/);
+  const c=await salvar(2,true);assert.equal(c.totais.valeTransportePago,200);assert.equal(c.totais.descontoValeTransporte,150);assert.equal(c.totais.liquido,2149.31);
+  await assert.rejects(salvar(3),/fechada/);
+  await db.doc('financeiro/vt3').set({tipo:'transporte',funcionarioId:'x',valor:999,competenciaMes:'2026-10'});
+  const pago=await pagarFolhaFechada(db,{tipo:'salario',folhaId:'x_2026-10',dataPagamento:'2026-10-21'},'adm');
+  const recibo=(await db.doc(`financeiro/${pago.id}`).get()).data();assert.equal(recibo.valeTransportePago,200);assert.equal(recibo.valorLiquido,2149.31);
+  const entrada={tipo:'decimo_terceiro',funcionarioId:'x',competenciaMes:'2026-10',dataPagamento:'2026-10-21',conferido:true,chaveOperacao:'teste-especial-123456',calculoEspecial:{salario:3000,avos13:12,parcela:'segunda',adiantado:1500},valor:1};
+  await assert.rejects(pagarEspecial(db,{...entrada,conferido:false},'adm'),/Confira/);await assert.rejects(pagarEspecial(db,entrada,'func'),/restrito/);
+  const [p1,p2]=await Promise.all([pagarEspecial(db,entrada,'adm'),pagarEspecial(db,entrada,'adm')]);assert.equal(p1.id,p2.id);
+  const especial=(await db.doc(`financeiro/${p1.id}`).get()).data();assert.equal(especial.valor,3000);assert.equal(especial.valorLiquido,1251.4);assert.ok(especial.detalhamento.length>0);
+  await assert.rejects(pagarEspecial(db,{...entrada,calculoEspecial:{...entrada.calculoEspecial,salario:4000}},'adm'),/outros dados/);
+});
+
+test('callables financeiros: transporte real, gravação de folha e recibo especial', {skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+  const admin=require('../functions/node_modules/firebase-admin');
+  const api=require('../functions/index.js'), db=admin.firestore();t.after(()=>admin.app().delete());
+  const uid='callable-adm',fid='callable-func';await db.doc(`users/${uid}`).set({role:'admin',ativo:true});await db.doc(`funcionarios/${fid}`).set({nome:'Teste callable',ativo:true});
+  const request=data=>({auth:{uid},data});
+  const transporte=await api.criarLancamentoFinanceiro.run(request({tipo:'transporte',valor:300,dataPagamento:'2026-10-21',periodoInicio:'2026-10-21',periodoFim:'2026-10-25',competenciaMes:'2026-10',funcionarioId:fid}));
+  assert.ok((await db.doc(`financeiro/${transporte.id}`).get()).data().criadoEm);
+  const f={competencia:'2026-10',salarioBase:2500,divisorHoras:220,inssAutomatico:true,cobrarValeTransporte:true,proporcaoVt:100,observacao:''};
+  const salva=await api.salvarFolhaPagamento.run(request({folha:f,funcionarioId:fid,versao:0}));assert.equal(salva.totais.valeTransportePago,300);
+  await api.salvarFolhaPagamento.run(request({folha:f,funcionarioId:fid,versao:1,fechar:true,revisao:salva.totais}));
+  await assert.rejects(api.excluirLancamentoFinanceiro.run(request({id:transporte.id})),/folha fechada/);
+  const especial=await api.criarLancamentoFinanceiro.run(request({tipo:'decimo_terceiro',funcionarioId:fid,dataPagamento:'2026-10-21',competenciaMes:'2026-10',conferido:true,chaveOperacao:'callable-especial-12345',calculoEspecial:{salario:3000,avos13:12,parcela:'primeira'}}));
+  assert.equal((await db.doc(`financeiro/${especial.id}`).get()).data().valorLiquido,1500);
+});

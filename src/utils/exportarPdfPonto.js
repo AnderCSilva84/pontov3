@@ -1,6 +1,7 @@
-﻿import jsPDF from "jspdf";
+import { collection } from '../services/dadosGrupo';
+import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from "../services/firebase";
 import { minutesToHHMM } from "./time";
 

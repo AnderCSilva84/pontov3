@@ -1,0 +1,39 @@
+.lembretes-shell { max-width: 820px; padding-bottom: 140px; }
+.lembretes-icone { font-size: 2rem; }
+.lembrete-form, .lembrete-form-campos { display: grid; gap: 16px; }
+.lembrete-form-campos { border: 0; padding: 0; margin: 0; min-width: 0; }
+.lembrete-form .field, .lembrete-dupla > * { min-width: 0; }
+.lembrete-form input, .lembrete-form select, .lembrete-form textarea { box-sizing: border-box; max-width: 100%; min-height: 44px; }
+.lembrete-form textarea { width: 100%; padding: 12px; font: inherit; border-radius: 12px; border: 1px solid var(--border); }
+.lembrete-dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lembrete-dias { display: flex; gap: 8px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+.lembrete-dias label { display: flex; align-items: center; gap: 4px; padding: 8px; }
+.lembrete-dias input { width: auto; min-height: 0; }
+.lembrete-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.lembrete-acoes .btn { flex: 1; width: auto; }
+.lembrete-card { display: grid; gap: 12px; overflow-wrap: anywhere; }
+.lembrete-card > header { display: flex; gap: 12px; align-items: center; }
+.lembrete-card > header > span { font-size: 1.8rem; }
+.lembrete-card > header > div { flex: 1; min-width: 0; }
+.lembrete-card h2 { margin: 4px 0; font-size: 1.1rem; }
+.lembrete-card p { margin: 0; }
+.lembrete-hora { font-size: 1.35rem; color: #865c12; }
+.lembrete-remedio { background: #f5efe2; padding: 14px; border-radius: 14px; display: grid; gap: 8px; }
+.lembrete-card.pausado { opacity: .7; }
+.lembrete-concluido { color: #17643f; font-weight: 700; }
+.lembrete-atual { border-top: 4px solid #35986b; }
+.lembrete-seguinte { font-size: .85rem; padding-top: 12px; border-top: 1px solid var(--border); }
+.lembrete-gerenciar { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--border); }
+.pratos-dia { display:grid; gap:12px; }
+.pratos-dia > summary { gap:10px; }
+.pratos-dia > summary .ui-badge { margin-left:auto; }
+.prato-cartao { border:1px solid var(--border); border-radius:12px; padding:12px; margin:12px 0; }
+.prato-cartao > summary { align-items:flex-start; }
+.prato-cartao summary strong,.prato-cartao summary small { display:block; }
+.prato-cartao summary small { font-size:12px; color:var(--text-muted); }
+.prato-conteudo { display:grid; gap:12px; margin-top:12px; }
+.prato-foto { width:100%; max-height:300px; object-fit:contain; border-radius:12px; background:var(--bg-page); }
+.prato-receita p { white-space:pre-wrap; }
+.prato-form fieldset { min-width:0; border:0; padding:0; display:grid; gap:14px; }
+.prato-form .lembrete-dias { display:flex; flex-wrap:wrap; }
+.prato-acoes { display:flex; flex-wrap:wrap; gap:10px; }

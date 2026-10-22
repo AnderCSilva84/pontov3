@@ -1,12 +1,5 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-} from "firebase/firestore";
+import { collection, doc } from './dadosGrupo';
+import { getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, functions } from "./firebase";
 import { httpsCallable } from "firebase/functions";
 
@@ -65,25 +58,14 @@ function isSabado() {
 =========================== */
 
 export async function carregarDiaAtual(funcionarioId) {
-  const dataKey = getDataKey();
-  const diaId = `${funcionarioId}_${dataKey}`;
-  const diaRef = doc(db, "dias", diaId);
-
-  const snap = await getDoc(diaRef);
-  if (!snap.exists()) return null;
-
-  return snap.data();
+  return carregarDiaPorData(funcionarioId, getDataKey());
 }
 
 export async function carregarDiaPorData(funcionarioId, dataKey) {
   if (!funcionarioId || !dataKey) return null;
 
-  const diaId = `${funcionarioId}_${dataKey}`;
-  const diaRef = doc(db, "dias", diaId);
-  const snap = await getDoc(diaRef);
-
-  if (!snap.exists()) return null;
-  return snap.data();
+  const snap = await getDocs(query(collection(db, 'dias'), where('funcionarioId', '==', funcionarioId), where('dataKey', '==', dataKey)));
+  return snap.docs[0]?.data() || null;
 }
 
 /* ===========================

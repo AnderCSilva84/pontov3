@@ -162,6 +162,9 @@
   color: var(--success);
 }
 
+.ponto-indicador.positivo strong, .status-row strong.positivo { color: #16803d; }
+.ponto-indicador.negativo strong, .status-row strong.negativo { color: #c62828; }
+
 .negativo {
   color: var(--danger);
 }

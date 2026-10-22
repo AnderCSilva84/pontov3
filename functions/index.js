@@ -2,6 +2,8 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const { bancoDoUsuario } = require("./grupos-contexto.cjs");
+const { FieldValue } = require("firebase-admin/firestore");
 
 
 admin.initializeApp();
@@ -17,7 +19,7 @@ exports.registrarPonto = onCall(async (request) => {
       !Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) {
     throw new HttpsError("invalid-argument", "Funcionário ou localização inválida.");
   }
-  const db = admin.firestore();
+  const db = await bancoDoUsuario(admin.firestore(), request.auth.uid);
   // Capturado uma vez para manter a mesma data e hora em tentativas da transação.
   const agora = new Date();
   const partes = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
@@ -31,7 +33,7 @@ exports.registrarPonto = onCall(async (request) => {
   await db.runTransaction(async (transaction) => {
     const userSnap = await transaction.get(db.collection("users").doc(request.auth.uid));
     const user = userSnap.data();
-    if (!user || user.ativo === false || (user.role !== "admin" && (user.role !== "funcionario" || user.funcionarioId !== funcionarioId))) {
+    if (!user || user.ativo === false || (user.role !== "funcionario" || user.funcionarioId !== funcionarioId)) {
       throw new HttpsError("permission-denied", "Acesso não autorizado para registrar este ponto.");
     }
     const funcionarioSnap = await transaction.get(db.collection("funcionarios").doc(funcionarioId));
@@ -51,25 +53,31 @@ exports.registrarPonto = onCall(async (request) => {
     let alteracoes;
     try { alteracoes = aplicarAcao(dia, tipo, hora, funcionario, diaSemana); }
     catch (error) { throw new HttpsError("failed-precondition", error.message); }
-    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    const timestamp = FieldValue.serverTimestamp();
     transaction.set(diaRef, { ...alteracoes, funcionarioId, dataKey, atualizadoEm: timestamp }, { merge: true });
-    transaction.set(registroRef, { funcionarioId, tipo, dataKey, hora, timestamp, latitude, longitude, localId: localAutorizado, distanciaMetros: distancia, registradoPor: request.auth.uid });
+    transaction.set(registroRef, { funcionarioId, funcionarioNome: funcionario.nome || "", tipo, dataKey, hora, timestamp, latitude, longitude, localId: localAutorizado, distanciaMetros: distancia, registradoPor: request.auth.uid });
   });
   return { ok: true, dataKey, hora };
 });
 
 async function exigirAdmin(request) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para continuar.");
-  const userSnap = await admin.firestore().collection("users").doc(request.auth.uid).get();
+  const db = await bancoDoUsuario(admin.firestore(), request.auth.uid);
+  const userSnap = await db.collection("users").doc(request.auth.uid).get();
   if (!userSnap.exists || userSnap.data()?.role !== "admin" || userSnap.data()?.ativo === false) {
     throw new HttpsError("permission-denied", "Acesso restrito ao administrador.");
   }
+  return db;
 }
 
+exports.salvarFolhaPagamento = onCall(async request => require('./folha-pagamento.cjs').salvarFolha(await bancoDoUsuario(admin.firestore(), request.auth?.uid), request.data || {}, request.auth?.uid || ''));
+
 exports.criarLancamentoFinanceiro = onCall(async (request) => {
-  await exigirAdmin(request);
+  const db = await exigirAdmin(request);
   const dados = request.data || {};
-  const tipos = { transporte: "Transporte", salario: "Salário", vale: "Vale / adiantamento" };
+  if (dados.folhaId) return require('./folha-pagamento.cjs').pagarFolhaFechada(db, dados, request.auth.uid);
+  const tipos = { transporte: "Transporte", salario: "Salário", vale: "Vale / adiantamento", decimo_terceiro: "13º salário", ferias: "Férias", rescisao: "Rescisão" };
+  if (['decimo_terceiro','ferias','rescisao'].includes(dados.tipo)) return require('./pagamentos-especiais.cjs').pagarEspecial(db, dados, request.auth.uid);
   const valor = Number(dados.valor);
   if (!Object.hasOwn(tipos, dados.tipo) || !Number.isFinite(valor) || valor <= 0) {
     throw new HttpsError("invalid-argument", "Tipo ou valor inválido.");
@@ -86,7 +94,7 @@ exports.criarLancamentoFinanceiro = onCall(async (request) => {
   if (typeof dados.funcionarioId !== "string" || !dados.funcionarioId || dados.funcionarioId.includes("/") || dados.funcionarioId.length > 128) {
     throw new HttpsError("invalid-argument", "Funcionário inválido.");
   }
-  const funcionarioSnap = await admin.firestore().collection("funcionarios").doc(dados.funcionarioId).get();
+  const funcionarioSnap = await db.collection("funcionarios").doc(dados.funcionarioId).get();
   if (!funcionarioSnap.exists) throw new HttpsError("not-found", "Funcionário não encontrado.");
   if (!dataValida(dados.dataPagamento)) {
     throw new HttpsError("invalid-argument", "Data de pagamento inválida.");
@@ -95,7 +103,8 @@ exports.criarLancamentoFinanceiro = onCall(async (request) => {
     if (!dataValida(dados.periodoInicio) || !dataValida(dados.periodoFim) || dados.periodoFim < dados.periodoInicio) {
       throw new HttpsError("invalid-argument", "Período de transporte inválido.");
     }
-  } else if (typeof dados.competenciaMes !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(dados.competenciaMes)) {
+  }
+  if (typeof dados.competenciaMes !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(dados.competenciaMes)) {
     throw new HttpsError("invalid-argument", "Mês de referência inválido.");
   }
   const permitido = {
@@ -123,23 +132,27 @@ exports.criarLancamentoFinanceiro = onCall(async (request) => {
     proventos: Math.max(0, Number(dados.proventos) || valor),
     observacao: String(dados.observacao || "").trim().slice(0, 300),
     criadoPor: request.auth.uid,
-    criadoEm: admin.firestore.FieldValue.serverTimestamp(),
+    criadoEm: FieldValue.serverTimestamp(),
   };
-  const ref = await admin.firestore().collection("financeiro").add(permitido);
+  const ref = await db.collection("financeiro").add(permitido);
   return { id: ref.id };
 });
 
 exports.excluirLancamentoFinanceiro = onCall(async (request) => {
-  await exigirAdmin(request);
+  const db = await exigirAdmin(request);
   const id = String(request.data?.id || "");
   if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) throw new HttpsError("invalid-argument", "Lançamento inválido.");
-  const ref = admin.firestore().collection("financeiro").doc(id);
-  await admin.firestore().runTransaction(async (transaction) => {
+  const ref = db.collection("financeiro").doc(id);
+  await db.runTransaction(async (transaction) => {
     const snap = await transaction.get(ref);
     if (!snap.exists) throw new HttpsError("not-found", "Lançamento não encontrado.");
-    transaction.set(admin.firestore().collection("financeiroAuditoria").doc(), {
+    if (snap.data().tipo === 'transporte') {
+      const folhas = await transaction.get(db.collection('folhasPagamento').where('funcionarioId', '==', snap.data().funcionarioId));
+      if (folhas.docs.some(d => d.data().status !== 'em_andamento' && d.data().transportes?.some(i => i.id === id))) throw new HttpsError('failed-precondition', 'Este transporte integra uma folha fechada e não pode ser apagado.');
+    }
+    transaction.set(db.collection("financeiroAuditoria").doc(), {
       acao: "exclusao", lancamentoId: id, dados: snap.data(),
-      executadoPor: request.auth.uid, executadoEm: admin.firestore.FieldValue.serverTimestamp(),
+      executadoPor: request.auth.uid, executadoEm: FieldValue.serverTimestamp(),
     });
     transaction.delete(ref);
   });
@@ -147,7 +160,7 @@ exports.excluirLancamentoFinanceiro = onCall(async (request) => {
 });
 
 exports.excluirUsuario = onCall(async (request) => {
-  await exigirAdmin(request);
+  const db = await exigirAdmin(request);
   const uid = String(request.data?.uid || "");
   if (!/^[A-Za-z0-9_-]{10,128}$/.test(uid)) {
     throw new HttpsError("invalid-argument", "Usuário inválido.");
@@ -156,10 +169,10 @@ exports.excluirUsuario = onCall(async (request) => {
     throw new HttpsError("failed-precondition", "Você não pode excluir seu próprio acesso.");
   }
 
-  const db = admin.firestore();
   const userRef = db.collection("users").doc(uid);
   const userSnap = await userRef.get();
   if (!userSnap.exists) throw new HttpsError("not-found", "Usuário não encontrado.");
+  if (db.grupoId && (await admin.firestore().doc('grupos/' + db.grupoId).get()).data()?.titularUid === uid) throw new HttpsError('permission-denied', 'O acesso do titular não pode ser excluído por um administrador.');
   const dados = userSnap.data() || {};
   const funcionarioId = String(dados.funcionarioId || "");
 
@@ -169,10 +182,11 @@ exports.excluirUsuario = onCall(async (request) => {
 
   const batch = db.batch();
   batch.delete(userRef);
+  if (db.grupoId) batch.delete(admin.firestore().doc('vinculosUsuarios/' + uid));
   if (funcionarioId) {
     batch.set(db.collection("funcionarios").doc(funcionarioId), {
       ativo: false,
-      acessoExcluidoEm: admin.firestore.FieldValue.serverTimestamp(),
+      acessoExcluidoEm: FieldValue.serverTimestamp(),
       acessoExcluidoPor: request.auth.uid,
     }, { merge: true });
   }
@@ -182,10 +196,16 @@ exports.excluirUsuario = onCall(async (request) => {
     role: dados.role || null,
     funcionarioId: funcionarioId || null,
     executadoPor: request.auth.uid,
-    executadoEm: admin.firestore.FieldValue.serverTimestamp(),
+    executadoEm: FieldValue.serverTimestamp(),
   });
   await batch.commit();
   return { ok: true };
 });
 
 Object.assign(exports, require("./push.cjs").criarPush({ admin }));
+Object.assign(exports, require("./push.cjs").criarPushGrupos({ admin }));
+Object.assign(exports, require('./lembretes.cjs').criarLembretes({ admin, enviar: (...args) => require('./push.cjs').enviarPush(admin, ...args) }));
+Object.assign(exports, require('./compras-estimativa.cjs').criarEstimativaCompras({ admin }));
+
+exports.criarGrupo = onCall(request => require('./grupos.cjs').criarGrupo(admin.firestore(), request));
+exports.criarMembroGrupo = onCall(request => require('./grupos.cjs').criarMembro(admin.firestore(), admin.auth(), request));

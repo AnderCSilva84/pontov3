@@ -1,3 +1,7 @@
+import RelogioPonto from '../components/RelogioPonto';
+import PratosDia from '../components/PratosDia';
+import { collection, doc } from '../services/dadosGrupo';
+import { BrandMark, Badge, Icon, ConnectionStatus } from '../components/ui';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { login, logout } from "../services/auth";
 import {
@@ -8,12 +12,13 @@ import {
   calcularBancoHorasMes,
   buscarDiasPorPeriodo,
 } from "../services/ponto";
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { getDoc, onSnapshot, query, where, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import PontoResumo from "../components/PontoResumo";
+import ResumoTarefas from "../components/ResumoTarefas";
 import logoAp1303 from "../assets/ap1303.jpeg";
-import { canAccessPonto } from "../utils/roles";
+import { canAccessPonto, normalizeRole } from "../utils/roles";
 import { obterPosicaoAtual } from "../utils/localizacao";
 import { nomeFeriado } from "../utils/feriados";
 import "../styles/funcionaria.css";
@@ -303,6 +308,11 @@ function formatMinutosComSinal(min) {
 
 export default function Ponto({ user, onNavigate, rotaAtual }) {
   const podeAcessarPonto = canAccessPonto(user);
+  const administrador = normalizeRole(user?.role) === 'admin';
+  const podeRegistrar = podeAcessarPonto && normalizeRole(user?.role) === 'funcionario';
+  const [funcionariosPonto, setFuncionariosPonto] = useState([]);
+  const [funcionarioConsulta, setFuncionarioConsulta] = useState('');
+  const [funcionarioNome, setFuncionarioNome] = useState(null);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erroLogin, setErroLogin] = useState("");
@@ -317,6 +327,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [diaSelecionadoSemana, setDiaSelecionadoSemana] = useState(null);
   const [logDiaSelecionado, setLogDiaSelecionado] = useState(null);
   const [loadingLogDia, setLoadingLogDia] = useState(false);
+  const [carregandoDia, setCarregandoDia] = useState(true), [erroDia,setErroDia] = useState('');
   const [tickTempoReal, setTickTempoReal] = useState(0);
   const [validandoLocalizacao, setValidandoLocalizacao] = useState(false);
   const [diasSemana, setDiasSemana] = useState([]);
@@ -326,6 +337,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [desconsiderarIntervalo, setDesconsiderarIntervalo] = useState(false);
   const [intervaloPrevistoMin, setIntervaloPrevistoMin] = useState(60);
   const [tarefasPendentes, setTarefasPendentes] = useState([]);
+  const [avulsasConcluidasHoje, setAvulsasConcluidasHoje] = useState([]);
   const [loadingTarefas, setLoadingTarefas] = useState(true);
   const [erroTarefas, setErroTarefas] = useState("");
   const [quantidadeNovasTarefas, setQuantidadeNovasTarefas] = useState(0);
@@ -335,14 +347,28 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const notificacoesWrapRef = useRef(null);
-  const funcionarioId = podeAcessarPonto ? user?.funcionarioId || user?.uid : "";
+  const funcionarioId = !podeAcessarPonto ? '' : administrador ? funcionarioConsulta : user?.funcionarioId || '';
   const usuarioSemLogin = !funcionarioId;
-  const nomeExibicao = "Joseane Santos";
+  const nomeExibicao = funcionarioNome?.id === funcionarioId ? funcionarioNome.nome : 'Funcionária';
+  useEffect(() => {
+    if (!administrador || !podeAcessarPonto) return;
+    return onSnapshot(collection(db, 'users'), snapshot => {
+      const porId = new Map();
+      snapshot.docs.forEach(d => {
+        const perfil = d.data();
+        if (normalizeRole(perfil.role) === 'funcionario' && perfil.ativo !== false && perfil.funcionarioId) porId.set(perfil.funcionarioId, { id: perfil.funcionarioId, nome: perfil.nome || 'Funcionária' });
+      });
+      const opcoes = [...porId.values()];
+      setFuncionariosPonto(opcoes);
+      setFuncionarioConsulta(atual => porId.has(atual) ? atual : opcoes[0]?.id || '');
+    }, () => setMensagem('Não foi possível consultar as funcionárias.'));
+  }, [administrador, podeAcessarPonto]);
   const dataHojeExibicao = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "2-digit",
     month: "long",
   });
+  const dataHojeKey = dataKeyDeDate(new Date());
 
   const carregarBancoHorasAtual = useCallback(async () => {
     if (!funcionarioId) return;
@@ -394,23 +420,24 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   }, [funcionarioId, cargaSegSexMin, cargaSabadoMin, dia?.dataKey]);
 
   useEffect(() => {
-    async function fetchDia() {
-      if (!funcionarioId) return;
-      const dados = await carregarDiaAtual(funcionarioId);
-      setDia(dados || null);
-    }
-
-    fetchDia();
-  }, [funcionarioId]);
+    setCarregandoDia(Boolean(funcionarioId)); setErroDia(''); setDia(null);
+    if (!funcionarioId) return;
+    return onSnapshot(query(collection(db, 'dias'), where('funcionarioId', '==', funcionarioId), where('dataKey', '==', dataHojeKey)), snapshot => {
+      setDia(snapshot.docs[0]?.data() || null); setCarregandoDia(false);
+    }, () => { setErroDia('Não foi possível carregar a jornada. Atualize a página.'); setCarregandoDia(false); });
+  }, [funcionarioId, dataHojeKey]);
 
   useEffect(() => {
+    let ativo = true;
     async function carregarEscala() {
       if (!funcionarioId) return;
       const ref = doc(db, "funcionarios", funcionarioId);
       const snap = await getDoc(ref);
+      if (!ativo) return;
 
       if (snap.exists()) {
         const data = snap.data();
+        setFuncionarioNome({ id: funcionarioId, nome: data.nome || 'Funcionária' });
         setEscala(data.escala || null);
 
         const cargaSegSex = Number(data?.cargaSegSexMin);
@@ -425,7 +452,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
       }
     }
 
-    if (funcionarioId) carregarEscala();
+    if (funcionarioId) carregarEscala().catch(() => { if (ativo) setMensagem('Não foi possível carregar o cadastro da funcionária.'); });
+    return () => { ativo = false; };
   }, [funcionarioId]);
 
   useEffect(() => {
@@ -441,13 +469,12 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     const unsubscribe = onSnapshot(
       collection(db, "tarefas"),
       (snapshot) => {
-        const pendentes = [];
+        const pendentes = [], concluidas = [];
         const diaAtual = getDiaSemanaAtualKey();
         const indiceHoje = getIndiceDiaSemana(diaAtual);
         const hojeEhFeriado = Boolean(nomeFeriado(new Date()));
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() || {};
-          if (data.concluida) return;
           const dataAgendada = data.dataAgendada || "";
           if (dataAgendadaEhFolga(dataAgendada)) return;
           if (!dataAgendada && hojeEhFeriado) return;
@@ -456,6 +483,11 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
           const diaTarefa = normalizarDiaSemana(data.diaSemana);
           const indiceTarefa = getIndiceDiaSemana(diaTarefa);
           if (!dataAgendada && indiceTarefa !== -1 && indiceTarefa > indiceHoje) return;
+          if (data.concluida) {
+            const quando = data.concluidaEm?.toDate?.();
+            if (quando && dataKeyDeDate(quando) === hojeDataKey) concluidas.push({ id: docSnap.id, titulo: data.titulo || docSnap.id });
+            return;
+          }
           pendentes.push({
             id: docSnap.id,
             titulo: data.titulo || docSnap.id,
@@ -476,6 +508,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
           return (a.titulo || "").localeCompare(b.titulo || "");
         });
         setTarefasPendentes(pendentes);
+        setAvulsasConcluidasHoje(concluidas);
         setLoadingTarefas(false);
       },
       (error) => {
@@ -570,12 +603,15 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     return () => clearInterval(intervalId);
   }, []);
 
+  const registroEmAndamento = useRef(false);
   const proximaAcao = getProximaAcao(dia, desconsiderarIntervalo);
   const diaAtualSemana = DIAS_ORDEM[new Date().getDay()];
 
   async function handleClick() {
-    if (proximaAcao === "ENCERRADO" || !funcionarioId) return;
+    if (!podeRegistrar) return;
+    if (carregandoDia || erroDia || proximaAcao === "ENCERRADO" || !funcionarioId || registroEmAndamento.current) return;
 
+    registroEmAndamento.current = true;
     setLoading(true);
     setValidandoLocalizacao(true);
     setMensagem("");
@@ -600,6 +636,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         setMensagem(error?.message || "GPS indisponível. Não foi possível validar localização.");
       }
     } finally {
+      registroEmAndamento.current = false;
       setValidandoLocalizacao(false);
       setLoading(false);
     }
@@ -802,6 +839,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
               {erroLogin && <p className="mensagem erro">{erroLogin}</p>}
               <p className="text-muted">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
+              <button type="button" className="compras-link" onClick={() => onNavigate('/cadastro')}>Criar minha conta e grupo</button>
 
               <button type="submit" className="btn btn-primary" disabled={loadingLogin}>
                 {loadingLogin ? "Entrando..." : "Entrar"}
@@ -850,14 +888,10 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   return (
     <div className="page-bg page-ponto">
       <main className="page-shell">
-        <header className="ponto-header page-header">
-          <div className="page-title-row">
-            <img className="ponto-logo" src={logoAp1303} alt="AP1303" />
-          </div>
-          <p className="page-subtitle">Registro de ponto de {nomeExibicao}</p>
+        <header className="ui-header ponto-cabecalho"><div className="ui-header-top"><BrandMark /><div className="ui-header-actions">
           <div className="notificacoes-wrap" ref={notificacoesWrapRef}>
             <button type="button" className="notificacoes-balao" aria-label={`${quantidadeNovasTarefas} notificações não lidas`} aria-expanded={notificacoesAbertas} onClick={() => setNotificacoesAbertas((aberta) => !aberta)}>
-              <span aria-hidden="true">🔔</span>
+              <Icon name="bell" />
               {quantidadeNovasTarefas > 0 && <b>{quantidadeNovasTarefas > 9 ? "9+" : quantidadeNovasTarefas}</b>}
             </button>
             {notificacoesAbertas && <section className="card notificacoes-painel">
@@ -865,44 +899,57 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
               {notificacoes.length ? notificacoes.map((item) => <article key={item.id}><span aria-hidden="true">📌</span><div><strong>{item.titulo}</strong><p>{item.mensagem}</p></div></article>) : <p className="text-muted">Nenhuma notificação nova.</p>}
             </section>}
           </div>
-        </header>
+        </div></div><section className="ponto-identidade" aria-label="Identificação da funcionária"><span className="ponto-avatar" aria-hidden="true">{nomeExibicao.trim().split(/\s+/).filter(Boolean).filter((_,i,partes)=>i===0 || i===partes.length-1).map(parte=>parte[0]).join('').toLocaleUpperCase('pt-BR')}</span><div className="ponto-identidade-nome"><span className="ponto-identidade-rotulo">Registro de ponto</span><h1>{nomeExibicao}</h1></div><div className="ponto-identidade-data"><Icon name="clock" /><span>{dataHojeExibicao}</span></div></section></header>
 
-        {tarefasFixasHoje.length > 0 && <section className="card tarefas-fixas-hoje">
-          <div className="tarefas-fixas-titulo"><span aria-hidden="true">📌</span><div><h2>Rotina fixa de hoje</h2><time dateTime={dataKeyDeDate(new Date())}>{dataHojeExibicao}</time></div></div>
-          <div className="tarefas-fixas-lista">{tarefasFixasHoje.map((tarefa) => {
-            const concluida = tarefasFixasConcluidas.has(tarefa.id);
-            return <button type="button" className={`tarefa-fixa-destaque ${concluida ? "concluida" : "pendente"}`} key={tarefa.id} disabled={concluida || tarefaFixaSalvando === tarefa.id || usuarioSemLogin} onClick={() => handleConcluirTarefaFixa(tarefa.id)} aria-label={concluida ? `${tarefa.titulo}: realizada` : `Marcar ${tarefa.titulo} como realizada`}><span className="tarefa-pin" aria-hidden="true">{concluida ? "✓" : "•"}</span><strong>{tarefa.titulo}</strong><span className={`tarefas-status ${concluida ? "concluida" : "pendente"}`}>{concluida ? "Realizada" : tarefaFixaSalvando === tarefa.id ? "Salvando..." : "Pendente"}</span><span className={`tarefa-periodo ${tarefa.turno === "tarde" ? "tarde" : "manha"}`}>{tarefa.turno === "tarde" ? "☀️ Tarde" : "🌤️ Manhã"}{tarefa.horario ? ` · ${tarefa.horario}` : ""}</span></button>;
-          })}</div>
-        </section>}
-
-        <section className={`card tarefas-lista tarefas-ponto-topo ${tarefasPendentes.some((t) => t.atrasada) ? "tem-atraso" : tarefasPendentes.length ? "vence-hoje" : ""}`}>
-          <h2>Tarefas pendentes</h2>
-          {loadingTarefas && <p className="text-muted">Carregando tarefas...</p>}
-          {erroTarefas && <p className="mensagem erro">{erroTarefas}</p>}
-          {!loadingTarefas && tarefasPendentes.length === 0 && <p className="text-muted">Nenhuma tarefa pendente.</p>}
-          {!loadingTarefas && tarefasPendentes.length > 0 && <div className="tarefas-itens">{tarefasPendentes.map((tarefa) => <div key={tarefa.id} className={`tarefas-item ${tarefa.atrasada ? "atrasada" : "vence-hoje"}`}><div><strong>{tarefa.titulo}</strong>{tarefa.solicitadoPorNome && <span className="tarefas-por">Solicitado por: {tarefa.solicitadoPorNome}</span>}{tarefa.dataAgendada && <span className="tarefas-por">Agendada para: {formatarDataBr(tarefa.dataAgendada)}</span>}{tarefa.diaSemana && <span className="tarefas-por">Dia: <span className={tarefa.atrasada ? "tarefas-dia-atrasada" : "tarefas-dia-selecionado"}>{tarefa.diaSemana}</span></span>}</div><button type="button" className="btn btn-secondary tarefas-concluir" disabled={usuarioSemLogin} onClick={() => handleConcluirTarefa(tarefa.id)}>Concluir</button></div>)}</div>}
-        </section>
-
-        <PontoResumo bancoHoras={bancoHoras} horasPendentesAnterior={horasPendentesAnterior} formatMinutos={formatMinutos} formatMinutosCompact={formatMinutosCompact} formatMinutosRelogio={formatMinutosRelogio} horasTrabalhadasMin={horasTrabalhadasMin} metaMin={metaMin} progressoPct={progressoPct} horarioDia={horarioDia} />
-
-        <button
+        {administrador && <section className="card"><p>Somente leitura. As marcações são feitas pela funcionária na própria conta.</p><label className="field"><span>Funcionária</span><select value={funcionarioConsulta} onChange={e => setFuncionarioConsulta(e.target.value)}><option value="">Selecione</option>{funcionariosPonto.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label></section>}
+        <div className="ponto-painel">
+        <section className="card ponto-hero">
+          <Badge tone={proximaAcao === 'ENTRADA' || proximaAcao === 'ENCERRADO' ? 'neutral' : 'success'}>{carregandoDia ? 'Carregando jornada…' : erroDia ? 'Jornada indisponível' : proximaAcao === 'ENTRADA' ? 'Fora do expediente' : proximaAcao === 'ENCERRADO' ? 'Expediente encerrado' : proximaAcao === 'ENTRADA_INTERVALO' ? 'Em intervalo' : 'Em expediente'}</Badge>
+          <RelogioPonto />
+        {podeRegistrar && <button
           onClick={handleClick}
-          disabled={loading || validandoLocalizacao || proximaAcao === "ENCERRADO" || usuarioSemLogin}
+          disabled={carregandoDia || Boolean(erroDia) || loading || validandoLocalizacao || proximaAcao === "ENCERRADO" || usuarioSemLogin}
           className={`ponto-action ${getButtonClass()}`}
         >
-          {validandoLocalizacao
+          {carregandoDia ? "Carregando jornada…" : validandoLocalizacao
             ? "Validando localização..."
             : loading
             ? "Processando..."
             : getLabel()}
-        </button>
+        </button>}
+        <div className="ponto-registros"><h2>Registros de hoje</h2><ol className="ponto-timeline">{[['Entrada',dia?.entrada],['Saída para intervalo',dia?.saidaIntervalo],['Volta do intervalo',dia?.entradaIntervalo],['Saída',dia?.saida]].map(([titulo,hora]) => <li key={titulo}><span>{titulo}</span><b>{formatHora(hora)}</b></li>)}</ol></div>
+        </section>
+        <PontoResumo bancoHoras={bancoHoras} horasPendentesAnterior={horasPendentesAnterior} formatMinutos={formatMinutos} formatMinutosCompact={formatMinutosCompact} formatMinutosRelogio={formatMinutosRelogio} horasTrabalhadasMin={horasTrabalhadasMin} metaMin={metaMin} progressoPct={progressoPct} horarioDia={horarioDia} />
+        </div>
+        {['admin','funcionario'].includes(user.role) && <PratosDia user={user} apenasHoje />}
+        <ResumoTarefas titulo="Tarefas fixas" concluidas={tarefasFixasHoje.filter(t => tarefasFixasConcluidas.has(t.id)).length} total={tarefasFixasHoje.length}>
+          <p className="text-muted">{dataHojeExibicao}</p>
+          {!tarefasFixasHoje.length && <p>Nenhuma tarefa fixa para hoje.</p>}
+          <div className="tarefas-fixas-lista">{tarefasFixasHoje.map((tarefa) => {
+            const concluida = tarefasFixasConcluidas.has(tarefa.id);
+            return <button type="button" className={`tarefa-fixa-destaque ${concluida ? "concluida" : "pendente"}`} key={tarefa.id} disabled={concluida || tarefaFixaSalvando === tarefa.id || usuarioSemLogin} onClick={() => handleConcluirTarefaFixa(tarefa.id)} aria-label={concluida ? `${tarefa.titulo}: realizada` : `Marcar ${tarefa.titulo} como realizada`}><span className="tarefa-pin" aria-hidden="true">{concluida ? "✓" : "•"}</span><strong>{tarefa.titulo}</strong><span className={`tarefas-status ${concluida ? "concluida" : "pendente"}`}>{concluida ? "Realizada" : tarefaFixaSalvando === tarefa.id ? "Salvando..." : "Pendente"}</span><span className={`tarefa-periodo ${tarefa.turno === "tarde" ? "tarde" : "manha"}`}>{tarefa.turno === "tarde" ? "☀️ Tarde" : "🌤️ Manhã"}{tarefa.horario ? ` · ${tarefa.horario}` : ""}</span></button>;
+          })}</div>
+        </ResumoTarefas>
+
+        <ResumoTarefas titulo="Tarefas avulsas" concluidas={avulsasConcluidasHoje.length} total={tarefasPendentes.length + avulsasConcluidasHoje.length} carregando={loadingTarefas}>
+          {loadingTarefas && <p className="text-muted">Carregando tarefas...</p>}
+          {erroTarefas && <p className="mensagem erro">{erroTarefas}</p>}
+          {!loadingTarefas && tarefasPendentes.length === 0 && <p className="text-muted">Nenhuma tarefa pendente.</p>}
+          {!loadingTarefas && tarefasPendentes.length > 0 && <div className="tarefas-itens">{tarefasPendentes.map((tarefa) => <div key={tarefa.id} className={`tarefas-item ${tarefa.atrasada ? "atrasada" : "vence-hoje"}`}><div><strong>{tarefa.titulo}</strong>{tarefa.solicitadoPorNome && <span className="tarefas-por">Solicitado por: {tarefa.solicitadoPorNome}</span>}{tarefa.dataAgendada && <span className="tarefas-por">Agendada para: {formatarDataBr(tarefa.dataAgendada)}</span>}{tarefa.diaSemana && <span className="tarefas-por">Dia: <span className={tarefa.atrasada ? "tarefas-dia-atrasada" : "tarefas-dia-selecionado"}>{tarefa.diaSemana}</span></span>}</div><button type="button" className="btn btn-secondary tarefas-concluir" disabled={usuarioSemLogin} onClick={() => handleConcluirTarefa(tarefa.id)}>Concluir</button></div>)}</div>}
+          {avulsasConcluidasHoje.map(tarefa => <p className="tarefa-resumo-concluida" key={tarefa.id}>✓ {tarefa.titulo} — concluída hoje</p>)}
+        </ResumoTarefas>
+
+
+
+
 
         {usuarioSemLogin && (
           <p className="text-muted">
-            Acesse o Admin pelo rodapé para entrar e liberar o ponto.
+            {administrador ? 'Selecione uma funcionária para consultar o ponto.' : 'Esta conta precisa estar vinculada ao cadastro da funcionária para registrar ponto.'}
           </p>
         )}
 
+        <details className="card"><summary>Banco de horas, resumo mensal e escala</summary>
         <section className="card status-card">
           <h2>Status do Dia</h2>
           <div className="status-row">
@@ -985,7 +1032,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
           )}
         </section>
 
-        {mensagem && <p className="mensagem">{mensagem}</p>}
+        </details><ConnectionStatus />{erroDia && <p className="mensagem erro" role="alert">{erroDia}</p>}
+        {mensagem && <p role="status" className="mensagem">{mensagem}</p>}
 
         {!usuarioSemLogin && (
           <button onClick={logout} className="btn btn-muted">
@@ -998,6 +1046,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     </div>
   );
 }
+
+
 
 
 

@@ -105,6 +105,7 @@ export async function observarPush(uid) {
     await registro?.showNotification(payload.data.title || "App Ponto", {
       body: payload.data.body || "Há uma atualização no app.", icon: "/icon-192.png",
       tag: payload.data.tag, data: { url: payload.data.url || "/ponto" },
+      actions: payload.data.url?.startsWith('/lembretes?') ? [{action:'ver-concluir',title:'Ver e concluir'}] : [],
     });
   });
 }

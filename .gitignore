@@ -30,3 +30,9 @@ dist-ssr
 # Local Netlify folder
 .netlify
 tmp/
+
+# Evidências locais e configurações temporárias de publicação
+output/
+firebase.cupom-lista.json
+ponte-indexes-antes.json
+ponte-indexes-depois.json

@@ -1,5 +1,5 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { jsPDF } from "jspdf";
+import { autoTable } from "jspdf-autotable";
 import logoUrl from "../assets/ap1303.jpeg";
 
 const PAGANTE = "Aline Lopes Gonçalves Porto e Silva";
@@ -24,6 +24,7 @@ function referenciaPagamento(item) {
     return item.periodoInicio && item.periodoFim ? `transporte do período de ${dataBr(item.periodoInicio)} a ${dataBr(item.periodoFim)}` : (item.descricao || "transporte");
   }
   if (item.tipo === "vale") return item.competenciaMes ? `vale referente ao mês de ${mesPorExtenso(item.competenciaMes)}` : (item.descricao || "vale");
+  if (['decimo_terceiro','ferias','rescisao'].includes(item.tipo)) return `${item.tipoLabel} · ${mesPorExtenso(item.competenciaMes)}`;
   return item.descricao || "pagamento informado";
 }
 
@@ -58,11 +59,13 @@ async function gerarContracheque(item) {
     ["010", "Bônus", "bonus", true], ["020", "Horas extras", "horasExtras", true], ["030", "Outros adicionais", "adicionais", true],
     ["101", "Horas devidas", "descontoHoras", false], ["110", "Faltas / atrasos", "faltas", false], ["120", "INSS", "inss", false],
     ["130", "Vales / adiantamentos", "adiantamentos", false], ["140", "Outros descontos", "outrosDescontos", false],
+    ["150", "Participação no vale-transporte", "descontoValeTransporte", false],
   ].forEach(([codigo, descricao, campo, provento]) => {
     const valor = numero(item[campo]);
     if (valor) itens.push(linha(codigo, descricao, campo === "descontoHoras" && item.horasDevidas ? `${item.horasDevidas} h` : "", provento ? valor : 0, provento ? 0 : valor));
   });
-  const descontosDetalhados = numero(item.descontoHoras) + numero(item.faltas) + numero(item.inss) + numero(item.adiantamentos) + numero(item.outrosDescontos);
+  if (numero(item.valeTransportePago)) itens.push(["VT", "Vale-transporte antecipado - PAGO", moeda(item.valeTransportePago), "", ""]);
+  const descontosDetalhados = numero(item.descontoHoras) + numero(item.faltas) + numero(item.inss) + numero(item.adiantamentos) + numero(item.outrosDescontos) + numero(item.descontoValeTransporte);
   if (!descontosDetalhados && totalDescontos) itens.push(linha("199", "Descontos", "", 0, totalDescontos));
 
   pdf.setTextColor(35, 54, 47);
@@ -100,12 +103,15 @@ async function gerarContracheque(item) {
   pdf.setTextColor(50);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8.5);
-  pdf.text(`Base salarial: ${moeda(salarioBase)}`, 14, y + 36);
-  pdf.text(`Base de INSS: ${moeda(numero(item.baseInss || totalProventos))}`, 14, y + 42);
-  if (item.observacao) pdf.text(pdf.splitTextToSize(`Observação: ${item.observacao}`, 180), 14, y + 51);
-  pdf.line(50, 244, 160, 244);
-  pdf.text(item.funcionarioNome || RECEBEDORA, 105, 250, { align: "center" });
-  pdf.text("Assinatura do(a) empregado(a)", 105, 255, { align: "center" });
+  pdf.text(`Base salarial: ${moeda(salarioBase)}`, 14, y + 31);
+  pdf.text(`Base de INSS: ${moeda(numero(item.baseInss ?? totalProventos))}`, 14, y + 37);
+  const observacoes = item.observacao ? pdf.splitTextToSize(`Observação: ${item.observacao}`, 180) : [];
+  if (observacoes.length) pdf.text(observacoes, 14, y + 46);
+  let assinatura = Math.max(244, y + 46 + observacoes.length * 4 + 12);
+  if (assinatura > 258) { pdf.addPage(); assinatura = 60; }
+  pdf.line(50, assinatura, 160, assinatura);
+  pdf.text(item.funcionarioNome || RECEBEDORA, 105, assinatura + 6, { align: "center" });
+  pdf.text("Assinatura do(a) empregado(a)", 105, assinatura + 11, { align: "center" });
   pdf.setTextColor(100);
   pdf.text("Desenvolvido por ACS Informática", 105, 278, { align: "center" });
   return { blob: pdf.output("blob"), nomeArquivo: `Contracheque_${item.competenciaMes || item.dataPagamento}.pdf` };
@@ -141,5 +147,23 @@ async function gerarReciboComum(item) {
 }
 
 export function gerarReciboFinanceiro(item) {
-  return item.tipo === "salario" ? gerarContracheque(item) : gerarReciboComum(item);
+  return item.tipo === "salario" ? gerarContracheque(item) : item.detalhamento?.length ? gerarReciboEspecial(item) : gerarReciboComum(item);
+}
+
+async function gerarReciboEspecial(item) {
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+  await adicionarLogo(pdf);
+  pdf.setTextColor(35,54,47); pdf.setFont('helvetica','bold'); pdf.setFontSize(16);
+  pdf.text(`RECIBO · ${item.tipoLabel || 'PAGAMENTO'}`, 196, 20, { align: 'right' });
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+  pdf.text(`Competência: ${mesPorExtenso(item.competenciaMes)}`, 196, 28, { align: 'right' });
+  autoTable(pdf, { startY: 43, theme: 'grid', body: [['Empregador', PAGANTE], ['Empregado(a)', item.funcionarioNome || RECEBEDORA], ['Pagamento', dataBr(item.dataPagamento)]], styles: {fontSize:10,cellPadding:3}, columnStyles:{0:{fontStyle:'bold',cellWidth:40}} });
+  autoTable(pdf, { startY: pdf.lastAutoTable.finalY + 8, theme:'grid', head:[['Descrição','Proventos','Descontos']], body:item.detalhamento.map(l=>[l.descricao,l.desconto?'':moeda(l.valor),l.desconto?moeda(l.valor):'']), foot:[['TOTAIS',moeda(item.valor),moeda(item.descontos)]], styles:{fontSize:10,cellPadding:3}, headStyles:{fillColor:[47,123,95]}, columnStyles:{0:{cellWidth:105},1:{halign:'right'},2:{halign:'right'}} });
+  let y = pdf.lastAutoTable.finalY + 10;
+  if (y > 222) { pdf.addPage(); y = 24; }
+  pdf.setFont('helvetica','bold'); pdf.setFontSize(13); pdf.text(`Líquido pago: ${moeda(item.valorLiquido)}`,14,y);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+  if(item.descricao) pdf.text(pdf.splitTextToSize(item.descricao,180),14,y+9);
+  pdf.line(45,260,165,260); pdf.text(item.funcionarioNome || RECEBEDORA,105,266,{align:'center'});
+  return { blob: pdf.output('blob'), nomeArquivo:`Recibo_${item.tipo}_${item.dataPagamento}.pdf` };
 }

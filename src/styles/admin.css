@@ -468,3 +468,8 @@
 .recibo-modal iframe { min-height: 160px; }
 .recibo-modal-acoes, .comprovantes-mes .financeiro-acoes { flex-wrap: wrap; gap: 8px; }
 @media (max-width: 600px) { .comprovantes-mes .financeiro-item { flex-wrap: wrap; } .comprovantes-mes .financeiro-acoes { width: 100%; } .recibo-modal-painel { height: 100dvh; max-height: 100dvh; } }
+.folha-editor { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 16px; }
+.folha-acoes { display: flex; gap: 12px; flex-wrap: wrap; }
+.folha-acoes .btn { flex: 1; min-width: 180px; }
+.resumo-card strong.positivo, .detalhe-total .positivo { color: #16803d; }
+.resumo-card strong.negativo, .detalhe-total .negativo { color: #c62828; }

@@ -1,4 +1,5 @@
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection } from './dadosGrupo';
+import { onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "./firebase";
 

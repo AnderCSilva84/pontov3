@@ -1,6 +1,7 @@
 export const moeda = centavos => (Number(centavos || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 export const dataPreco = ms => new Date(ms).toLocaleDateString('pt-BR', { timeZone: 'America/Fortaleza' });
-export const numeroCompras = valor => Number(valor).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+export const numeroCompras = valor => Number(valor).toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+export const chaveProdutoPreco = r => JSON.stringify([r.produtoId, (r.marca || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' '), r.apresentacao || '', r.unidadeCompra]);
 export function lerPreco(texto) {
   const valor = String(texto).trim().replace(',', '.');
   if (!/^\d{1,7}(\.\d{1,2})?$/.test(valor)) throw new Error('Informe o preço com até duas casas decimais.');

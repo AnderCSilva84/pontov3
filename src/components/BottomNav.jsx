@@ -1,4 +1,5 @@
-import { normalizeRole, ROLE_ADMIN, ROLE_FUNCIONARIO } from "../utils/roles";
+import { Icon } from './ui';
+import { normalizeRole, ROLE_ADMIN, ROLE_FUNCIONARIO, canConsultSystem } from "../utils/roles";
 
 export default function BottomNav({ activePath, onNavigate, user }) {
   const themeClass =
@@ -45,7 +46,7 @@ export default function BottomNav({ activePath, onNavigate, user }) {
     },
     {
       path: "/admin",
-      label: "Escritório",
+      label: "Gestão",
       icon: (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z" />
@@ -56,11 +57,15 @@ export default function BottomNav({ activePath, onNavigate, user }) {
   ];
 
   const role = normalizeRole(user?.role);
+  if (role === ROLE_FUNCIONARIO && user?.grupoId) tabs.push({ path: '/meus-comprovantes', label: 'Comprovantes' });
+  if (role === ROLE_ADMIN || role === ROLE_FUNCIONARIO) {
+    tabs.splice(3, 0, { path: '/lembretes', label: 'Lembretes', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8" /><path d="M10 21h4" /></svg> });
+  }
   const tabsVisiveis = role === ROLE_FUNCIONARIO
-    ? tabs.filter((tab) => tab.path === "/ponto" || tab.path === "/lista-compras")
+    ? tabs.filter((tab) => tab.path === "/ponto" || tab.path === "/lista-compras" || tab.path === '/lembretes' || tab.path === '/meus-comprovantes')
     : role === ROLE_ADMIN
       ? tabs
-      : tabs.filter((tab) => tab.path !== "/ponto");
+      : tabs.filter((tab) => tab.path !== "/ponto" && (tab.path !== '/admin' || !user || canConsultSystem(user)));
 
   return (
     <nav className={`bottom-nav ${themeClass}`} aria-label="Navegação principal">
@@ -68,10 +73,11 @@ export default function BottomNav({ activePath, onNavigate, user }) {
         <button
           key={tab.path}
           type="button"
-          className={`nav-item ${activePath === tab.path ? "active" : ""}`}
+          className={`nav-item ${(activePath === tab.path || tab.path === "/admin" && activePath?.startsWith("/admin/")) ? "active" : ""}`}
+          aria-current={(activePath === tab.path || tab.path === "/admin" && activePath?.startsWith("/admin/")) ? "page" : undefined}
           onClick={() => onNavigate && onNavigate(tab.path)}
         >
-          <span className="nav-icon">{tab.icon}</span>
+          <span className="nav-icon">{<Icon name={{"/ponto":"clock","/lista-compras":"cart","/tarefas":"tasks","/lembretes":"bell","/admin":"chart","/meus-comprovantes":"tasks"}[tab.path]} />}</span>
           <span className="nav-label">{tab.label}</span>
         </button>
       ))}
