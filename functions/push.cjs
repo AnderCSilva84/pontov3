@@ -1,3 +1,5 @@
+const { montarMensagem, revisaoTarefa, permiteEnvio } = require('./push-contrato.cjs');
+const {registrarNativo,removerNativo}=require('./push-dispositivos.cjs');
 const { bancoDoUsuario, bancoDoGrupo } = require('./grupos-contexto.cjs');
 const { createHash } = require('node:crypto');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
@@ -27,12 +29,17 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
     const uid = await usuario(request, destino);
     if (request.data?.uid !== uid) throw new HttpsError('permission-denied', 'Sessão alterada durante a ativação.');
     const value = token(request);
-    await destino.collection('pushDispositivos').doc(chave(value)).set({ uid, token: value, atualizadoEm: timestamp() });
+    if (request.data?.transporte === 'fcm-android' && (request.data.grupoId||'') !== (destino.grupoId||'')) throw new HttpsError('permission-denied','O grupo mudou.');
+    if (request.data?.transporte === 'fcm-android') return registrarNativo(db.raiz||db,destino,uid,{...request.data,token:value});
+    if (request.data?.transporte && request.data.transporte !== 'webpush') throw new HttpsError('invalid-argument','Transporte inválido.');
+    const ref=destino.collection('pushDispositivos').doc(chave(value));
+    await destino.runTransaction(async tx=>{const exclusao=await tx.get((db.raiz||db).doc('contaSolicitacoes/'+uid));if(exclusao.data()?.etapa)throw new HttpsError('permission-denied','Exclusão de conta iniciada.');const antigo=(await tx.get(ref)).data();if(antigo&&antigo.uid!==uid)throw new HttpsError('permission-denied','Dispositivo vinculado a outra conta.');tx.set(ref,{uid,token:value,transporte:'webpush',plataforma:'web',versao:1,atualizadoEm:timestamp()});});
     return { ok: true };
   });
   const removerDispositivoPush = onCall(async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Entre no app.');
     const destino = await bancoDoUsuario(db, request.auth.uid);
+    if (request.data?.transporte === 'fcm-android') return removerNativo(db.raiz||db,destino,request.auth.uid,request.data);
     const ref = destino.collection('pushDispositivos').doc(chave(token(request)));
     await destino.runTransaction(async (tx) => {
       if ((await tx.get(ref)).data()?.uid === request.auth.uid) tx.delete(ref);
@@ -41,12 +48,15 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
   });
 
   async function enviar(titulo, mensagem, url, eventoId, apenasUid, apenasAdmins = false, opcoes = {}) {
+    if (db.grupoId === 'demo_play_ap1303_v1') return 0; // Grupo de revisão nunca envia push.
     const [devices, users] = await Promise.all([
-      apenasUid ? db.collection('pushDispositivos').where('uid', '==', apenasUid).get() : db.collection('pushDispositivos').get(),
-      db.collection('users').get(),
+      apenasUid ? db.collection('pushDispositivos').where('uid', '==', apenasUid).limit(101).get() : db.collection('pushDispositivos').limit(5001).get(),
+      apenasUid ? db.collection('users').doc(apenasUid).get().then(doc=>({docs:doc.exists?[doc]:[]})) : db.collection('users').limit(1001).get(),
     ]);
+    if(devices.docs.length>5000||users.docs.length>1000||apenasUid&&devices.docs.length>100)throw new Error('Destinatários acima do limite permitido.');
     const ativos = new Set(users.docs.filter((doc) => doc.data().ativo !== false && (!apenasAdmins || doc.data().role === 'admin')).map((doc) => doc.id));
-    const elegiveis = devices.docs.filter((doc) => ativos.has(doc.data().uid));
+    const elegiveis = devices.docs.filter((doc) => ativos.has(doc.data().uid) && permiteEnvio(doc.data(),url,opcoes.acao));
+    if(opcoes.diagnostico)opcoes.diagnostico.dispositivos=elegiveis.length;
     let enviados = 0;
     let falhas = false;
     // Cada mensagem inclui seu proprietário: o celular descarta dados de outra sessão.
@@ -57,11 +67,7 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
       const snapshots = await db.getAll(...recibos);
       lote.forEach((device, index) => { if (!snapshots[index].exists) pendentes.push({ device, recibo: recibos[index] }); else if (opcoes.contarConfirmados) enviados++; });
       if (!pendentes.length) continue;
-      const response = await admin.messaging().sendEach(pendentes.map(({ device }) => ({
-        token: device.data().token,
-        data: { title: String(titulo).slice(0, 100), body: String(mensagem).slice(0, 300), url, tag: chave(eventoId), uid: device.data().uid },
-        webpush: { headers: { TTL: String(Number.isInteger(opcoes.ttl) && opcoes.ttl >= 0 && opcoes.ttl <= 86400 ? opcoes.ttl : 86400), Urgency: opcoes.urgency === 'high' ? 'high' : 'normal' } },
-      })));
+      const response = await admin.messaging().sendEach(pendentes.map(({device})=>montarMensagem(device.data(),{titulo,mensagem,url,eventoId,grupoId:db.grupoId||'',ttl:opcoes.ttl,urgency:opcoes.urgency,acao:opcoes.acao})));
       const batch = db.batch();
       const invalidos = [];
       response.responses.forEach((result, index) => {
@@ -76,7 +82,8 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
       await batch.commit();
       await Promise.all(invalidos.map((device) => db.runTransaction(async (tx) => {
         // Não remove a nova assinatura se o celular trocou de usuário durante o envio.
-        if ((await tx.get(device.ref)).data()?.uid === device.data().uid) tx.delete(device.ref);
+        const atual=(await tx.get(device.ref)).data();
+        if(atual?.uid===device.data().uid&&atual?.token===device.data().token){tx.delete(device.ref);if(atual.transporte==='fcm-android'){const raiz=db.raiz||db;tx.delete(raiz.doc('pushTokensNativos/'+chave(atual.token)));tx.delete(raiz.doc('pushInstalacoes/'+atual.instalacaoHash));}}
       })));
     }
     if (falhas) throw new Error('Algumas notificações push falharam; nova tentativa necessária.');
@@ -133,18 +140,33 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
     const data = event.data?.data();
     if (!data) return;
     if (event.time && Date.now() - Date.parse(event.time) >= 86400000) return;
-    await executarEvento(event.id, () => enviar(data.titulo || 'App Ponto', data.mensagem || 'Há uma atualização nas tarefas.', '/ponto', event.id));
+    let acao={categoria:'tarefas'};
+    if(['tarefa_avulsa_criada','tarefa_fixa_criada'].includes(data.tipo)&&/^[\w-]{1,128}$/.test(data.tarefaId||'')){
+      const fixa=data.tipo==='tarefa_fixa_criada';const tarefa=(await db.doc((fixa?'tarefasSemanais/':'tarefas/')+data.tarefaId).get()).data();
+      const hoje=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
+      if(tarefa&&tarefa.ativa!==false&&!tarefa.concluida&&(!fixa?tarefa.dataAgendada===hoje:Number(tarefa.diaSemana)===new Date(hoje+'T12:00:00-03:00').getUTCDay()))acao={tipo:fixa?'tarefa_fixa':'tarefa',id:data.tarefaId,dataKey:hoje,revisao:revisaoTarefa(tarefa)};
+    }
+    await executarEvento(event.id, () => enviar(data.titulo || 'App Ponto', data.mensagem || 'Há uma atualização nas tarefas.', '/ponto', event.id,undefined,false,{acao}));
   };
   const alertaNotificacoes = onDocumentCreated({ document: 'notificacoes/{id}', region: 'southamerica-east1', retry: true, timeoutSeconds: 300 }, tratar_alertaNotificacoes);
   const testarNotificacaoPush = onCall(async (request) => {
-    const uid = await usuario(request);
+    const destino=await bancoDoUsuario(db,request.auth?.uid);
+    const uid = await usuario(request,destino);
     // Evita testes repetidos a cada clique, inclusive por chamadas diretas à API.
-    const periodo = Math.floor(Date.now() / 30000);
-    const enviados = await criarPush({ admin, db: destino, somenteEnvio: true })('App Ponto', 'Os avisos do celular estão funcionando!', '/ponto', `teste:${uid}:${periodo}`, uid);
-    if (!enviados) throw new HttpsError('failed-precondition', 'Ative os avisos primeiro ou aguarde 30 segundos para repetir o teste.');
+    const agoraTeste=Date.now(),rate=destino.collection('pushTestes').doc(uid);
+    await destino.runTransaction(async tx=>{
+      const anterior=(await tx.get(rate)).data();
+      if(anterior&&agoraTeste-anterior.ultimoEmMs<30000)throw new HttpsError('failed-precondition','Aguarde 30 segundos antes de repetir o teste.',{motivo:'intervalo'});
+      tx.set(rate,{ultimoEmMs:agoraTeste});
+    });
+    const periodo = Math.floor(agoraTeste / 30000);
+    const diagnostico={};
+    const enviados = await criarPush({ admin, db: destino, somenteEnvio: true })('App Ponto', 'Os avisos do celular estão funcionando!', '/ponto', `teste:${uid}:${periodo}`, uid,false,{diagnostico});
+    if (!enviados) throw new HttpsError('failed-precondition', 'Ative os avisos primeiro ou aguarde 30 segundos para repetir o teste.',{motivo:diagnostico.dispositivos===0?'sem-dispositivo':'intervalo'});
     return { enviados };
   });
   const tratar_alertaRegistroPonto = async (event) => {
+    if (event.data?.data()?.origem === 'revisao_offline') return;
     if (await redirecionarEvento('alertaRegistroPonto',event)) return;
     const registro = event.data?.data();
     if (!registro || !['ENTRADA', 'SAIDA'].includes(registro.tipo)) return;
@@ -173,6 +195,7 @@ const enviarPush = (admin, ...args) => criarPush({ admin, somenteEnvio: true })(
 function criarPushGrupos({ admin }) {
   const caminhos = { alertaListaComprasGrupo: ['onDocumentWritten', 'listaCompras/{itemId}', 'alertaListaCompras'], alertaComprasItemGrupo: ['onDocumentCreated', 'comprasListas/{listaId}/itens/{itemId}', 'alertaComprasItem'], alertaNotificacoesGrupo: ['onDocumentCreated', 'notificacoes/{id}', 'alertaNotificacoes'], alertaRegistroPontoGrupo: ['onDocumentCreated', 'registros/{id}', 'alertaRegistroPonto'] };
   return Object.fromEntries(Object.entries(caminhos).map(([nome,[tipo,caminho,handler]]) => [nome, ({onDocumentWritten,onDocumentCreated})[tipo]({document:'grupos/{grupoId}/'+caminho,region:'southamerica-east1',retry:true,timeoutSeconds:300}, async evento => {
+    if(handler==='alertaRegistroPonto'&&evento.data?.data()?.origem==='revisao_offline')return;
     const raiz=admin.firestore(),grupo=(await raiz.doc('grupos/'+evento.params.grupoId).get()).data();
     if(grupo?.ativo!==true)return;
     // Eventos da cópia podem ser entregues depois da ativação; não são novas ações.

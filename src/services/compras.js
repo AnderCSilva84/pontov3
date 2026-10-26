@@ -1,3 +1,4 @@
+import {nomesProdutosMaiusculos} from '../utils/nomeProduto';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
 
@@ -6,9 +7,10 @@ export async function operarCompras(operacao, dados = {}) {
   const chamada = httpsCallable(functions, 'comprasOperacao', { timeout: 65000 });
   return (await chamada({ ...dados, operacao })).data;
 }
-export async function consultarPrecos(inicioMs, fimMs) {
+export async function consultarPrecos(inicioMs, fimMs, tipoCompra = 'supermercado') {
   if (!navigator.onLine) throw new Error('Conecte-se para consultar os preços confirmados.');
-  return (await httpsCallable(functions, 'comprasRelatorio', { timeout: 65000 })({ inicioMs, fimMs })).data;
+  const dados=(await httpsCallable(functions, 'comprasRelatorio', { timeout: 65000 })({ inicioMs, fimMs, tipoCompra })).data;
+  return {...dados,registros:dados.registros.map(nomesProdutosMaiusculos)};
 }
 export async function consultarEstimativa(listaId) {
   if (!navigator.onLine) throw new Error('Conecte-se para atualizar a estimativa.');

@@ -20,6 +20,7 @@ async function salvarFolha(db, dados, uid) {
     if (anterior && anterior.status !== 'em_andamento') throw new HttpsError('failed-precondition', 'Esta folha já foi fechada e não pode ser alterada.');
     if (dados.fechar && !anterior) throw new HttpsError('failed-precondition', 'Salve a folha em andamento antes de fechar.');
     if ((anterior?.versao || 0) !== dados.versao) throw new HttpsError('aborted', 'A folha foi alterada em outra sessão. Reabra antes de salvar.');
+    if (anterior?.pontoRevisaoPendente && f.confirmarRevisaoPonto !== true) throw new HttpsError('failed-precondition', 'O ponto foi revisado. Confira as horas e confirme a revisão na folha antes de salvar ou fechar.');
     const lancamentos = await tx.get(db.collection('financeiro').where('funcionarioId', '==', fid));
     const totais = calcularFolha(f, transportesDaCompetencia(lancamentos.docs.map(d => ({ ...d.data(), id: d.id })), fid, f.competencia));
     if (totais.erroCalculo) throw new HttpsError('failed-precondition', totais.erroCalculo);

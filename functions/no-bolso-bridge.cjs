@@ -1,3 +1,4 @@
+const {ehSupermercado}=require('./compras-tipo.cjs');
 // Installed in AP1303/functions. This module never trusts a browser-supplied buyer.
 const { randomBytes, createHash, timingSafeEqual } = require('node:crypto')
 const problem = (status, message) => Object.assign(new Error(message), { status })
@@ -87,6 +88,7 @@ function createNoBolsoBridge({
     const origem = await bancoDaOrigem(uid)
     const secret = randomBytes(24).toString('base64url')
     await db.runTransaction(async (tx) => {
+      if((await tx.get(db.doc('contaSolicitacoes/'+uid))).data()?.etapa)throw problem(403,'Conta em exclusão.');
       const profile = (await tx.get(origem.doc(`users/${uid}`))).data()
       const owner = await tx.get(reverse(uid))
       if (!active(profile)) throw problem(403, 'Conta AP1303 indisponível.')
@@ -111,6 +113,7 @@ function createNoBolsoBridge({
     await assertAuthUser(uid)
     const origem = await bancoDaOrigem(uid)
     await db.runTransaction(async (tx) => {
+      if((await tx.get(db.doc('contaSolicitacoes/'+uid))).data()?.etapa)throw problem(403,'Conta em exclusão.');
       const source = await tx.get(grant(uid))
       const owner = await tx.get(reverse(uid))
       const target = await tx.get(link(noBolsoUid))
@@ -241,6 +244,7 @@ function createNoBolsoBridge({
       )
       for (const doc of snap.docs) {
         const value = doc.data()
+        if(!ehSupermercado(value)) continue
         if (
           value.finalizadaPor !== uid ||
           value.status !== 'finalizada' ||

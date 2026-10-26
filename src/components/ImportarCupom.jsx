@@ -1,9 +1,15 @@
+import {produtosPrincipais} from '../utils/catalogoProdutos';
+import {SugestoesProduto} from './AssociacoesProdutos';
+import {tipoCompra as tipoDaLista} from '../utils/comprasTipo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { operarCompras } from '../services/compras';
 import { moeda, numeroCompras } from '../utils/comprasAnalise';
 import { compararCupomComLista } from '../utils/cupomComparacao';
 import { normalizarQrCupom, mensagemLinkCupom } from '../utils/cupomQr';
-import { lerImagemQr } from '../utils/cupomImagem';
+import { iniciarScannerQr, abrirConfiguracoesCamera, cameraAndroid } from '../services/scannerQr';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../services/firebase';
+import { conectarCicloScanner } from '../utils/scannerQr';
 
 function ConfirmarDescarte({ nome, confirmar, cancelar }) {
   const ref = useRef(null);
@@ -14,51 +20,37 @@ function ConfirmarDescarte({ nome, confirmar, cancelar }) {
 function CameraCupom({ aoLer, fechar }) {
   const video = useRef(null), [erro, setErro] = useState(''), [ajuda, setAjuda] = useState(false);
   const [cameras, setCameras] = useState([]), [cameraId, setCameraId] = useState(''), [cameraAtual, setCameraAtual] = useState('');
+  const [tentativa, setTentativa] = useState(0);
+  const callbacks = useRef({ aoLer, fechar });
+  useEffect(() => { callbacks.current = { aoLer, fechar }; }, [aoLer, fechar]);
   useEffect(() => {
-    let ativo = true, stream, controles, alternativa, lendo = false;
+    let ativo = true;
     const timer = setTimeout(() => { if (ativo) setAjuda(true); }, 15000);
-    async function iniciar() {
-      try {
-        setErro(''); setAjuda(false);
-        const { BrowserQRCodeReader } = await import('@zxing/browser');
+    const sessao = auth.currentUser?.uid;
+    const scanner = iniciarScannerQr({ video: video.current, cameraId,
+      aoLer: resultado => {
         if (!ativo) return;
-        stream = await navigator.mediaDevices.getUserMedia({ video: { ...(cameraId ? { deviceId: { exact: cameraId } } : { facingMode: { ideal: 'environment' } }), width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
-        if (!ativo) { stream.getTracks().forEach(t => t.stop()); return; }
-        const track = stream.getVideoTracks()[0];
-        if (track.getCapabilities?.().focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
-        if (!ativo) { stream.getTracks().forEach(t => t.stop()); return; }
-        setCameraAtual(track.getSettings().deviceId || '');
-        navigator.mediaDevices.enumerateDevices().then(devices => { if (ativo) setCameras(devices.filter(d => d.kind === 'videoinput')); }).catch(() => {});
-        const leitor = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 200, delayBetweenScanSuccess: 500 });
-        controles = await leitor.decodeFromStream(stream, video.current, (resultado, _erro, controle) => {
-          if (!ativo || !resultado) return;
-          const valor = resultado.getText();
-          if (!destinoSeguro(valor)) { setErro('Este QR Code não é um link de NFC-e do Pará. Aponte para o QR Code do cupom.'); return; }
-          ativo = false; controle.stop(); clearTimeout(timer); aoLer(valor);
-        });
-        if (!ativo) controles.stop();
-        // Alguns aparelhos exibem vídeo normalmente, mas o leitor contínuo não reconhece.
-        alternativa = setInterval(async () => {
-          if (!ativo || lendo || !video.current?.videoWidth) return;
-          lendo = true;
-          try {
-            const imagem = document.createElement('canvas');
-            imagem.width = video.current.videoWidth; imagem.height = video.current.videoHeight;
-            imagem.getContext('2d').drawImage(video.current, 0, 0);
-            const valor = await lerImagemQr(imagem);
-            if (ativo && valor && destinoSeguro(valor)) {
-              ativo = false; controles?.stop(); clearInterval(alternativa); clearTimeout(timer); aoLer(valor);
-            }
-          } catch { /* A leitura contínua permanece ativa. */ }
-          finally { lendo = false; }
-        }, 1800);
-        if (!ativo) clearInterval(alternativa);
-      } catch { controles?.stop(); stream?.getTracks().forEach(t => t.stop()); if (ativo) setErro('Não foi possível abrir a câmera. Permita o acesso ou cole o link do QR Code.'); }
-    }
-    iniciar();
-    return () => { ativo = false; clearTimeout(timer); clearInterval(alternativa); controles?.stop(); stream?.getTracks().forEach(t => t.stop()); };
-  }, [aoLer, cameraId]);
-  return <section className="compras-form"><div className="cupom-camera-quadro"><video ref={video} autoPlay muted playsInline className="cupom-camera" aria-label="Câmera para ler o QR Code" /><span aria-hidden="true" /></div><p>Mantenha o QR Code inteiro no centro, com boa luz, e afaste um pouco o celular até a imagem ficar nítida.</p>{cameras.length > 1 && <label className="field"><span>Trocar câmera</span><select value={cameraId || cameraAtual} onChange={e => setCameraId(e.target.value)}>{cameras.map((c, index) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Câmera ${index + 1}`}</option>)}</select></label>}{ajuda && <p role="status">Se não reconhecer, tente outra câmera ou cole o link reconhecido pela câmera do celular.</p>}{erro && <p role="alert">{erro}</p>}<button type="button" className="btn btn-secondary" onClick={fechar}>Fechar câmera</button></section>;
+        clearTimeout(timer);
+        if (!destinoSeguro(resultado.textoBruto)) { setErro('Este QR Code não é uma NFC-e do Pará compatível. Tente novamente ou cole o link da nota.'); return; }
+        callbacks.current.aoLer(resultado.textoBruto);
+      },
+      aoErro: e => { if (ativo) { clearTimeout(timer); setErro(e.message); } },
+      aoCameras: id => {
+        if (!ativo) return;
+        setCameraAtual(id);
+        navigator.mediaDevices.enumerateDevices().then(ds => { if (ativo) setCameras(ds.filter(d => d.kind === 'videoinput')); }).catch(() => {});
+      },
+    });
+    const cancelar = () => { scanner.parar(); callbacks.current.fechar(); };
+    const sairCiclo = conectarCicloScanner(window, document, cancelar);
+    const sairAuth = onAuthStateChanged(auth, u => { if (u?.uid !== sessao) cancelar(); });
+    return () => {
+      ativo = false; clearTimeout(timer); scanner.parar(); sairAuth();
+      sairCiclo();
+    };
+  }, [cameraId, tentativa]);
+  const reiniciar = () => { setErro(''); setAjuda(false); setTentativa(t => t + 1); };
+  return <section className="compras-form" aria-label="Leitor de QR Code"><div className="cupom-camera-quadro"><video ref={video} autoPlay muted playsInline className="cupom-camera" aria-label="Câmera para ler o QR Code" /><span aria-hidden="true" /></div><p>Posicione o QR Code inteiro no centro, com boa luz.</p>{cameras.length > 1 && <label className="field"><span>Trocar câmera</span><select value={cameraId || cameraAtual} onChange={e => { setErro(''); setAjuda(false); setCameraId(e.target.value); }}>{cameras.map((c, i) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Câmera ${i + 1}`}</option>)}</select></label>}{ajuda && !erro && <p role="status">Afaste um pouco o celular até ficar nítido ou cole o link como alternativa.</p>}{erro && <><p role="alert">{erro}</p><button type="button" className="btn btn-secondary" onClick={reiniciar}>Tentar novamente</button>{cameraAndroid() && <button type="button" className="btn btn-secondary" onClick={() => abrirConfiguracoesCamera().catch(() => setErro('Abra Configurações → Aplicativos → AP1303 → Permissões → Câmera.'))}>Configurações da câmera</button>}</>}<button type="button" className="btn btn-secondary" onClick={fechar}>Cancelar leitura</button></section>;
 }
 const destinoSeguro = normalizarQrCupom;
 export default function ImportarCupom({ categorias, catalogo, mercados, aoImportar, listaDestino = null, listasDisponiveis = [] }) {
@@ -68,6 +60,7 @@ export default function ImportarCupom({ categorias, catalogo, mercados, aoImport
   const [novaFilial, setNovaFilial] = useState({ nome: '', filial: '', cidade: '' });
   const [vinculando, setVinculando] = useState(null);
   const [titulo, setTitulo] = useState(listaDestino?.titulo || '');
+  const [tipo, setTipo]=useState('supermercado');
   const [comparando, setComparando] = useState(null);
   const [descartePendente, setDescartePendente] = useState(null);
   const [destinoId, setDestinoId] = useState(listaDestino?.id || '');
@@ -80,14 +73,14 @@ export default function ImportarCupom({ categorias, catalogo, mercados, aoImport
   async function colarLink() {
     try {
       const valor = await navigator.clipboard.readText();
-      if (!valor.trim()) { setErro('Copie o link da nota na câmera do iPhone antes de colar.'); return; }
+      if (!valor.trim()) { setErro('Copie o link da nota na câmera do celular antes de colar.'); return; }
       recebeuLink(valor.trim());
     } catch { setErro('Toque e segure o campo “Link completo do QR Code” e escolha Colar.'); }
   }
   async function preparar(e, automatico = false) {
     e?.preventDefault(); setOcupado(true); setErro('');
     try {
-      const r = await operarCompras('cupomPreparar', { link: notaUrl || link, ...(automatico ? { automatico: true } : { texto }), ...(destinoId ? { listaDestinoId: destinoId } : {}) });
+      const r = await operarCompras('cupomPreparar', { tipoCompra:tipo, link: notaUrl || link, ...(automatico ? { automatico: true } : { texto }), ...(destinoId ? { listaDestinoId: destinoId } : {}) });
       setRevisao(r); setRetirados([]); setLinhas(r.nota.itens.map(i => ({ ...i, descartar: false })));
       setTitulo(t => t.trim() || r.destino?.titulo || `Cupom · ${r.nota.emitente}`.slice(0, 120));
       const correspondentes = mercados.filter(m => m.ativo !== false && m.cnpj?.replace(/\D/g, '') === r.nota.cnpj);
@@ -110,7 +103,7 @@ export default function ImportarCupom({ categorias, catalogo, mercados, aoImport
   async function confirmar(e) {
     e.preventDefault(); setOcupado(true); setErro('');
     try {
-      const r = await operarCompras('cupomConfirmar', { titulo, rascunhoId: revisao.rascunhoId, supermercadoId: mercado, retirarPlanejados: retirados, itens: linhas.map(i => ({ linha: i.linha, descartar: i.descartar, unidadeConfirmada: i.unidadeConfirmada === true, itemPlanejadoId: i.itemPlanejadoId || '', produtoId: i.produtoId || '', nome: i.nome, marca: i.marca || '', categoriaId: i.categoriaId, apresentacao: i.apresentacao })) });
+      const r = await operarCompras('cupomConfirmar', { versaoIdentidade:1,titulo, rascunhoId: revisao.rascunhoId, supermercadoId: mercado, retirarPlanejados: retirados, itens: linhas.map(i => ({ linha: i.linha, novoConfirmado:i.novoConfirmado===true, descartar: i.descartar, unidadeConfirmada: i.unidadeConfirmada === true, itemPlanejadoId: i.itemPlanejadoId || '', produtoId: i.produtoId || '', nome: i.nome, marca: i.marca || '', categoriaId: i.categoriaId, apresentacao: i.apresentacao })) });
       aoImportar(r);
     } catch (e) { setErro(e.message); } finally { setOcupado(false); }
   }
@@ -125,16 +118,17 @@ export default function ImportarCupom({ categorias, catalogo, mercados, aoImport
     <p>{destinoEscolhido ? `Compare o cupom com “${destinoEscolhido.titulo}”, confira os produtos e finalize esta lista com os valores da nota.` : 'Importe a compra como uma nova lista ou associe o cupom a uma lista que você já preparou.'}</p>
     {erro && <p role="alert" className="mensagem erro">{erro}</p>}
     <fieldset disabled={ocupado} className="compras-fieldset">
-    {!revisao ? <>
+    {!revisao ? <><label className="field"><span>Classificação</span><select value={destinoId?tipoDaLista(destinos.find(l=>l.id===destinoId)):tipo} disabled={Boolean(destinoId)} onChange={e=>setTipo(e.target.value)}><option value="supermercado">Supermercado</option><option value="farmacia">Farmácia</option></select></label>
       <label className="field"><span>Associar a qual lista?</span><select value={destinoId} onChange={e => { const id = e.target.value; setDestinoId(id); setTitulo(destinos.find(l => l.id === id)?.titulo || ''); }}><option value="">Criar nova lista com esta nota</option>{destinos.filter(l => ['rascunho', 'em_compra'].includes(l.status)).map(l => <option key={l.id} value={l.id}>{l.titulo}</option>)}</select></label>
       <label className="field"><span>Nome da lista de compras</span><input value={titulo} onChange={e => setTitulo(e.target.value)} maxLength={120} placeholder="Ex.: Compras da semana" /><small>Você pode definir o nome agora e ajustar antes de finalizar a importação.</small></label>
       {camera && <CameraCupom aoLer={recebeuLink} fechar={() => setCamera(false)} />}
       <div className="compras-acoes-principais">{!camera && <button type="button" className="btn btn-secondary" disabled={ocupado} onClick={() => setCamera(true)}>Escanear QR Code</button>}</div>
       <form className="compras-form" onSubmit={preparar}>
-        <p>Se a leitura interna não funcionar: abra a Câmera do iPhone, aponte para o QR Code e copie o link reconhecido. Volte aqui e cole o endereço completo, antes de abrir a página de resumo.</p>
+        <p>Se a leitura interna não funcionar: abra a câmera do celular, aponte para o QR Code e copie o link reconhecido. Volte aqui e cole o endereço completo, antes de abrir a página de resumo.</p>
         <button type="button" className="btn btn-secondary" onClick={colarLink}>Colar link da nota</button>
         <label className="field"><span>Link completo do QR Code (opcional)</span><input type="url" value={link} onChange={e => setLink(e.target.value)} maxLength={1000} placeholder="https://app.sefa.pa.gov.br/consulta-nfce/#/qrcode?p=…" /></label>
         {mensagemLinkCupom(link) && <p role="alert" className="mensagem erro">{mensagemLinkCupom(link)}</p>}
+        {notaUrl && <p role="status">Link pronto. Abra a nota e cole o texto abaixo para conferir os produtos. A compra ainda não foi importada.</p>}
         {notaUrl && <a className="btn btn-secondary" href={notaUrl} target="_blank" rel="noopener noreferrer">Abrir nota na SEFA</a>}
         <p className="mensagem">Você também pode importar sem link: cole o texto completo da SEFA, incluindo produtos, totais, data e chave de acesso. O carregamento automático dos produtos ainda está indisponível.</p>
         <label className="field"><span>Texto completo da nota</span><textarea value={texto} onChange={e => setTexto(e.target.value)} required maxLength={150000} rows={8} placeholder="Cole o conteúdo da nota aberta na SEFA…" /></label>
@@ -158,7 +152,9 @@ export default function ImportarCupom({ categorias, catalogo, mercados, aoImport
         {!i.descartar && <div className="cupom-campos">
           {i.unidadeConferir && <label className="field"><span>A nota usa a unidade comercial “{i.unidadeOriginal}”. Confira a embalagem: não haverá conversão de quantidade ou preço.</span><span><input type="checkbox" required checked={i.unidadeConfirmada === true} onChange={e => atualizar(index, { unidadeConfirmada: e.target.checked })} /> Confirmo que quantidade e preço estão por unidade / embalagem, conforme a nota.</span><small>Ao importar, essa confirmação será lembrada para o mesmo produto e estabelecimento.</small></label>}
           {revisao.destino && <div><button type="button" className="compras-link" onClick={() => setComparando(comparando === index ? null : index)}>{i.itemPlanejadoId ? `Da lista: ${revisao.destino.itens.find(p => p.id === i.itemPlanejadoId)?.nome}` : 'Associar a um item da lista'}</button>{comparando === index && <label className="field"><span>Corresponde a qual item da lista?</span><select value={i.itemPlanejadoId || ''} aria-label={`Item planejado para linha ${i.linha}`} onChange={e => { const item = revisao.destino.itens.find(p => p.id === e.target.value), p = item && catalogo.find(p => p.id === item.produtoId); atualizar(index, p ? { itemPlanejadoId: item.id, produtoId: p.id, nome: p.nome, apresentacao: p.apresentacao, categoriaId: p.categoriaId, reconhecido: false } : { itemPlanejadoId: '' }); setComparando(null); }}><option value="">Produto extra da nota</option>{revisao.destino.itens.filter(p => p.unidadeCompra === i.unidadeCompra && catalogo.some(c => c.id === p.produtoId && c.ativo !== false && c.unidadeCompra === i.unidadeCompra)).map(p => <option key={p.id} value={p.id}>{p.nome} · {numeroCompras(p.quantidadePlanejada)} {p.unidadeCompra}</option>)}</select></label>}</div>}
-          <button type="button" className="compras-link" onClick={() => setVinculando(vinculando === index ? null : index)}>{i.produtoId ? 'Trocar produto associado' : 'Escolher produto já cadastrado'}</button>{vinculando === index && <div><label className="field"><span>Produto do catálogo</span><select value={i.produtoId || ''} onChange={e => { const p = catalogo.find(p => p.id === e.target.value); atualizar(index, p ? { itemPlanejadoId: '', produtoId: p.id, nome: p.nome, apresentacao: p.apresentacao, categoriaId: p.categoriaId, reconhecido: false } : { itemPlanejadoId: '', produtoId: '', reconhecido: false }); setVinculando(null); }}><option value="">Cadastrar com o nome abaixo</option>{catalogo.filter(p => p.ativo !== false && p.unidadeCompra === i.unidadeCompra).map(p => <option key={p.id} value={p.id}>{p.nome} · {p.apresentacao}</option>)}</select></label>{i.produtoId && <button type="button" className="compras-link" onClick={() => { atualizar(index, { itemPlanejadoId: '', produtoId: '', reconhecido: false }); setVinculando(null); }}>Cadastrar como outro produto</button>}</div>}
+          <button type="button" className="compras-link" onClick={() => setVinculando(vinculando === index ? null : index)}>{i.produtoId ? 'Trocar produto associado' : 'Escolher produto já cadastrado'}</button>{vinculando === index && <div><label className="field"><span>Produto do catálogo</span><select value={i.produtoId || ''} onChange={e => { const p = catalogo.find(p => p.id === e.target.value); atualizar(index, p ? { itemPlanejadoId: '', produtoId: p.id, nome: p.nome, apresentacao: p.apresentacao, categoriaId: p.categoriaId, reconhecido: false } : { itemPlanejadoId: '', produtoId: '', reconhecido: false }); setVinculando(null); }}><option value="">Cadastrar com o nome abaixo</option>{produtosPrincipais(catalogo).filter(p => p.unidadeCompra === i.unidadeCompra).map(p => <option key={p.id} value={p.id}>{p.nome} · {p.apresentacao}</option>)}</select></label>{i.produtoId && <button type="button" className="compras-link" onClick={() => { atualizar(index, { itemPlanejadoId: '', produtoId: '', reconhecido: false }); setVinculando(null); }}>Cadastrar como outro produto</button>}</div>}
+          {!i.produtoId&&<button type="button" className="btn btn-secondary" onClick={()=>atualizar(index,{novoConfirmado:true})}>{i.novoConfirmado?'Novo produto confirmado':'Cadastrar como novo'}</button>}
+          {!i.produtoId&&<SugestoesProduto entrada={i} catalogo={catalogo} associar={p=>atualizar(index,{produtoId:p.id,nome:p.nome,apresentacao:p.apresentacao,categoriaId:p.categoriaId,reconhecido:false})}/>}
           <label className="field"><span>Nome para o catálogo</span><input value={i.nome} disabled={Boolean(i.produtoId)} onChange={e => atualizar(index, { nome: e.target.value })} required maxLength={120} /></label>
           <label className="field"><span>Marca do produto (opcional)</span><input value={i.marca || ''} onChange={e => atualizar(index, { marca: e.target.value })} maxLength={80} placeholder="Ex.: marca da embalagem" /></label>
           <label className="field"><span>Apresentação / embalagem</span><input value={i.apresentacao || ''} disabled={Boolean(i.produtoId)} onChange={e => atualizar(index, { apresentacao: e.target.value })} required maxLength={120} placeholder="Ex.: pacote com 8 rolos, venda por kg…" /></label>

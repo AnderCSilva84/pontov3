@@ -14,8 +14,9 @@ function iniciar() {
     registration: { showNotification: async (title, options) => { avisos.push({ title, options }); } },
     clients: { claim: async () => {}, matchAll: async () => [], openWindow: async (url) => { abertos.push(url); } },
   };
-  runInNewContext(source, { self, URL, importScripts: () => {}, firebase: { initializeApp: () => {}, messaging: () => ({ onBackgroundMessage: (handler) => { background = handler; } }) } });
-  return { handlers, avisos, abertos, background, self };
+  const estado={bloqueado:false};
+  runInNewContext(source, { self, URL, caches:{open:async()=>({match:async()=>({text:async()=>estado.bloqueado?'1':'0'})})}, importScripts: () => {}, firebase: { initializeApp: () => {}, messaging: () => ({ onBackgroundMessage: (handler) => { background = handler; } }) } });
+  return { handlers, avisos, abertos, background, self, estado };
 }
 
 test('worker exibe um único aviso e descarta mensagens de outro usuário', async () => {
@@ -25,6 +26,12 @@ test('worker exibe um único aviso e descarta mensagens de outro usuário', asyn
   assert.equal(worker.avisos.length, 1);
   assert.equal(worker.avisos[0].options.data.url, '/lista-compras');
   assert.equal(worker.avisos[0].options.tag, 'event-1');
+});
+test('logout bloqueia avisos persistidos e contexto de outro grupo é descartado',async()=>{
+  const worker=iniciar();worker.estado.bloqueado=true;
+  await worker.background({data:{uid:'alice',title:'Antigo'}});assert.equal(worker.avisos.length,0);
+  worker.estado.bloqueado=false;await worker.background({data:{uid:'alice',grupoId:'outro',title:'Outro grupo'}});assert.equal(worker.avisos.length,0);
+  worker.handlers.message({data:{tipo:'ap1303-bloquear-push'}});await worker.background({data:{uid:'alice'}});assert.equal(worker.avisos.length,0);
 });
 
 test('toque abre a rota local e bloqueia endereço de outro domínio', async () => {

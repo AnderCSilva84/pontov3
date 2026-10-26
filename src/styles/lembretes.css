@@ -24,16 +24,18 @@
 .lembrete-atual { border-top: 4px solid #35986b; }
 .lembrete-seguinte { font-size: .85rem; padding-top: 12px; border-top: 1px solid var(--border); }
 .lembrete-gerenciar { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--border); }
-.pratos-dia { display:grid; gap:12px; }
+.pratos-dia { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
 .pratos-dia > summary { gap:10px; }
 .pratos-dia > summary .ui-badge { margin-left:auto; }
 .prato-cartao { border:1px solid var(--border); border-radius:12px; padding:12px; margin:12px 0; }
 .prato-cartao > summary { align-items:flex-start; }
 .prato-cartao summary strong,.prato-cartao summary small { display:block; }
 .prato-cartao summary small { font-size:12px; color:var(--text-muted); }
-.prato-conteudo { display:grid; gap:12px; margin-top:12px; }
+.prato-conteudo { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin-top:12px; }
 .prato-foto { width:100%; max-height:300px; object-fit:contain; border-radius:12px; background:var(--bg-page); }
 .prato-receita p { white-space:pre-wrap; }
 .prato-form fieldset { min-width:0; border:0; padding:0; display:grid; gap:14px; }
 .prato-form .lembrete-dias { display:flex; flex-wrap:wrap; }
 .prato-acoes { display:flex; flex-wrap:wrap; gap:10px; }
+
+.pratos-dia > summary > span:nth-child(2),.prato-cartao > summary > span:nth-child(2) { min-width:0; flex:1; overflow-wrap:anywhere; }

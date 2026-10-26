@@ -1,3 +1,4 @@
+import { entregarPdf, pdfAndroid, registrarPdf, validarPdf } from '../services/pdfArquivos';
 import { collection } from '../services/dadosGrupo';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,6 +26,7 @@ function formatarDataBr(dataIso) {
 }
 
 export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim) {
+  const sessaoPdf = registrarPdf({});
   const q = query(
     collection(db, "dias"),
     where("funcionarioId", "==", funcionarioId),
@@ -104,5 +106,7 @@ export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim)
   const saldoAjustado = saldoPeriodo;
   pdf.text(`Saldo no período: ${minutesToHHMM(saldoAjustado)}`, 14, finalY + 7);
 
-  pdf.save(`Relatorio_${nome}_${dataInicio}_${dataFim}.pdf`);
+  validarPdf(sessaoPdf);
+  if (pdfAndroid()) await entregarPdf(registrarPdf(new File([pdf.output('blob')], 'Jornada.pdf', { type: 'application/pdf' })), 'escolher');
+  else pdf.save(`Relatorio_${nome}_${dataInicio}_${dataFim}.pdf`);
 }

@@ -1,9 +1,11 @@
+import { registrarPdf, validarPdf } from '../services/pdfArquivos';
+import { PdfAcoes } from '../components/PdfAcoes';
 import LembreteNotificacao from '../components/LembreteNotificacao';
 import PratosDia from '../components/PratosDia';
 import { collection } from '../services/dadosGrupo';
 import { PageHeader, Segmented, Icon } from '../components/ui';
 import { acoesPendentesDoDia } from '../utils/lembretesSequencia';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { operarLembrete } from '../services/lembretes';
@@ -73,6 +75,7 @@ function LembretesCuidados({ user, onNavigate }) {
   const [agora, setAgora] = useState(Date.now());
   const [atualizacao, setAtualizacao] = useState(0), [erroConsulta, setErroConsulta] = useState('');
   const [cuidadoPdf, setCuidadoPdf] = useState('todos');
+  const consultaPdf = useRef(null);
   const [arquivo, setArquivo] = useState(null), [gerandoPdf, setGerandoPdf] = useState(false), [testandoAviso, setTestandoAviso] = useState(false);
   const alvo = admin && pessoas.some(p => p.id === selecionada) ? selecionada : user.uid;
   const pessoasConsulta = [{ id: user.uid, nome: user.nome || user.email, role: user.role }, ...pessoas.filter(p => p.id !== user.uid)];
@@ -90,10 +93,11 @@ function LembretesCuidados({ user, onNavigate }) {
   useEffect(() => {
     if (!cuidadoIdAtual && !alvo) return;
     let ativo = true, consultando = false;
+    consultaPdf.current = null;
     async function carregar() {
       if (consultando) return;
       consultando = true;
-      try { const r = await operarLembrete('listar', cuidadoIdAtual ? { visao: 'cuidados', cuidadoId: cuidadoIdAtual } : cuidadoAtual === 'todos' || admin && !selecionada ? { visao: 'cuidados' } : { usuarioId: alvo }); if (ativo) { setLembretes(r.lembretes); setErroConsulta(''); } }
+      try { const sessao = registrarPdf({}); const parametros = cuidadoIdAtual ? { visao: 'cuidados', cuidadoId: cuidadoIdAtual } : cuidadoAtual === 'todos' || admin && !selecionada ? { visao: 'cuidados' } : { usuarioId: alvo }; const r = await operarLembrete('listar', parametros); if (ativo) { consultaPdf.current = parametros.visao === 'cuidados' ? { cuidadoId: parametros.cuidadoId || '', lembretes: r.lembretes, sessao } : null; setLembretes(r.lembretes); setErroConsulta(''); } }
       catch (e) { if (ativo) setErroConsulta(e.message); }
       finally { consultando = false; if (ativo) setCarregando(false); }
     }
@@ -104,17 +108,22 @@ function LembretesCuidados({ user, onNavigate }) {
   async function executar(operacao, dados, mensagem) {
     if (ocupado) return;
     setOcupado(true); setErro(''); setAviso('');
+    consultaPdf.current = null;
     try { const resultado = await operarLembrete(operacao, dados); if (operacao === 'concluir') setLembretes(antes => antes.map(l => l.id === dados.id ? { ...l, ocorrencias: [...(l.ocorrencias || []).filter(o => o.id !== dados.ocorrenciaId), { id: dados.ocorrenciaId, status: 'concluido' }] } : l)); if (operacao === 'salvarCuidado') { setCuidadoSelecionado(resultado.id); setEdicaoCuidado(null); }  setArquivo(null); setAviso(mensagem); setAtualizacao(n => n + 1); if (operacao === 'salvar') { setEdicao(null); setSelecionada(''); setCuidadoSelecionado('todos'); setFiltroCuidado('todos'); } }
     catch (e) { setErro(e.message); }
     finally { setOcupado(false); }
   }
   async function gerarRelatorio() {
+    const sessaoPdf = registrarPdf({});
     setGerandoPdf(true); setErro(''); setArquivo(null);
     try {
-      const dados = await operarLembrete('listar', { visao: 'cuidados', ...(cuidadoPdf !== 'todos' && !cuidadoPdf.includes('|') ? { cuidadoId: cuidadoPdf } : {}) });
+      const cache = consultaPdf.current;
+      if (cache) validarPdf(cache.sessao);
+      const dados = cache && (!cache.cuidadoId || cache.cuidadoId === cuidadoPdf) ? { lembretes: cache.lembretes } : await operarLembrete('listar', { visao: 'cuidados', ...(cuidadoPdf !== 'todos' && !cuidadoPdf.includes('|') ? { cuidadoId: cuidadoPdf } : {}) });
       const { gerarPdfLembretes } = await import('../utils/exportarPdfLembretes');
       const pdf = await gerarPdfLembretes({ responsavel: pessoasConsulta.find(p => p.id === alvo)?.nome || user.nome, lembretes: dados.lembretes.filter(l => cuidadoPdf === 'todos' || l.cuidadoId === cuidadoPdf || !l.cuidadoId && `${l.destinatarioCuidado}|${l.nomeCuidado}` === cuidadoPdf) });
-      setArquivo({ ...pdf, file: new File([pdf.blob], pdf.nomeArquivo, { type: 'application/pdf' }), url: URL.createObjectURL(pdf.blob) });
+      validarPdf(sessaoPdf);
+      setArquivo({ ...pdf, file: registrarPdf(new File([pdf.blob], pdf.nomeArquivo, { type: 'application/pdf' })), url: URL.createObjectURL(pdf.blob) });
     } catch (e) { setErro(e.message); } finally { setGerandoPdf(false); }
   }
   const lista = lembretes.filter(l => (cuidadoAtual === 'todos' || cadastroAtual ? !cadastroAtual || l.cuidadoId === cadastroAtual.id : !l.cuidadoId) && (!selecionada || l.usuarioId === selecionada || l.destinatarios === 'todos')).filter(l => filtroCuidado === 'todos' || (['cao','gato'].includes(l.destinatarioCuidado) ? filtroCuidado === 'pets' : filtroCuidado === 'pessoas')).sort((a, b) => (a.proximoDisparoEmMs || Infinity) - (b.proximoDisparoEmMs || Infinity) || a.horario.localeCompare(b.horario));
@@ -149,7 +158,7 @@ function LembretesCuidados({ user, onNavigate }) {
     </section>}
     {admin && lista.length > 0 && <details className="card"><summary>Gerenciar lembretes cadastrados ({lista.length})</summary>{lista.map(l => <article className="lembrete-card lembrete-gerenciar" key={l.id}><h2>{l.nomeCuidado ? l.nomeCuidado + ' · ' : ''}{l.titulo}</h2><p className="text-muted">{l.responsavelDescricao} · Criado por {l.criadaPorNome}{l.criadaEmMs ? ` · ${new Date(l.criadaEmMs).toLocaleDateString('pt-BR')}` : ''}</p><p>{(l.horarios || [l.horario]).join(' · ')} · {l.ativo ? 'Ativo' : 'Pausado'}</p><div className="lembrete-acoes"><button className="btn btn-secondary" disabled={ocupado} onClick={() => setEdicao(l)}>Editar</button><button className="btn btn-secondary" disabled={ocupado} onClick={() => executar('pausar', { id: l.id, versao: l.versao, ativo: !l.ativo }, l.ativo ? 'Lembrete pausado.' : 'Lembrete reativado.')}>{l.ativo ? 'Pausar' : 'Reativar'}</button><button className="compras-link" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir o lembrete “${l.titulo}”?`)) executar('excluir', { id: l.id, versao: l.versao }, 'Lembrete excluído.'); }}>Excluir</button></div></article>)}</details>}
     {admin && <button className="btn btn-primary" onClick={() => setEdicao({})}>+ Novo lembrete</button>}
-    {(alvo || cuidados.length > 0) && <details className="card"><summary>Escala de remédios e cuidados · PDF</summary><label className="field"><span>Pessoa ou pet no PDF</span><select value={cuidadoPdf} onChange={e => { setCuidadoPdf(e.target.value); setArquivo(null); }}><option value="todos">Todos, separados por pessoa ou pet</option>{cuidadosPdf.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label><button className="btn btn-secondary" disabled={gerandoPdf} onClick={gerarRelatorio}>{gerandoPdf ? 'Gerando PDF…' : 'Gerar PDF da escala'}</button>{arquivo && <div className="lembrete-acoes"><a className="btn btn-secondary" href={arquivo.url} download={arquivo.nomeArquivo}>Baixar PDF</a><a className="btn btn-secondary" href={arquivo.url} target="_blank" rel="noopener noreferrer">Abrir / Imprimir</a><button className="btn btn-success" onClick={async () => { try { if (!await compartilharPdfNativo(arquivo.file)) setErro('Baixe o PDF e anexe ao WhatsApp.'); } catch (e) { if (e.name !== 'AbortError') setErro(e.message); } }}>Compartilhar PDF</button></div>}</details>}
+    {(alvo || cuidados.length > 0) && <details className="card"><summary>Escala de remédios e cuidados · PDF</summary><label className="field"><span>Pessoa ou pet no PDF</span><select value={cuidadoPdf} onChange={e => { setCuidadoPdf(e.target.value); setArquivo(null); }}><option value="todos">Todos, separados por pessoa ou pet</option>{cuidadosPdf.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label><button className="btn btn-secondary" disabled={gerandoPdf} onClick={gerarRelatorio}>{gerandoPdf ? 'Gerando PDF…' : 'Gerar PDF da escala'}</button>{arquivo && <div className="lembrete-acoes"><PdfAcoes arquivo={arquivo.file} url={arquivo.url} nome={arquivo.nomeArquivo} onErro={setErro} /><button className="btn btn-success" onClick={async () => { try { if (!await compartilharPdfNativo(arquivo.file)) setErro('Baixe o PDF e anexe ao WhatsApp.'); } catch (e) { if (e.name !== 'AbortError') setErro(e.message); } }}>Compartilhar PDF</button></div>}</details>}
   </main><BottomNav user={user} activePath="/lembretes" onNavigate={onNavigate} /></div>;
 }
 

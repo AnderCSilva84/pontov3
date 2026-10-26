@@ -1,9 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 
 
 :root {
   color-scheme: light;
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 500;
   font-synthesis: none;
@@ -24,9 +23,9 @@
   --text-main: #2f2417;
   --text-muted: #73624c;
   --text-soft: #8e7b63;
-  --accent: #2f7b5f;
-  --accent-strong: #245f49;
-  --accent-soft: rgba(47, 123, 95, 0.12);
+  --accent: #2b529d;
+  --accent-strong: #203e77;
+  --accent-soft: #edf2fc;
   --success: #2f9e6b;
   --warning: #c87b1f;
   --danger: #c85647;
@@ -348,7 +347,7 @@ textarea:focus {
 }
 
 /* Mantém a escala do PWA e evita o zoom automático dos campos no celular. */
-html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 @media (pointer: coarse) {
   input, select, textarea { font-size: max(16px, 1em) !important; }
 }

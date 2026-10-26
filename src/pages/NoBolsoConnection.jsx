@@ -2,7 +2,13 @@
 import { httpsCallable } from 'firebase/functions'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, functions } from '../services/firebase'
-export default function NoBolsoConnection({ user, onNavigate }) {
+import { Capacitor } from '@capacitor/core'
+import NoBolsoConsulta from './NoBolsoConsulta'
+export default function NoBolsoConnection(props) {
+  if (Capacitor.getPlatform() === 'android') return <NoBolsoConsulta key={`${props.user?.uid}:${props.user?.grupoId}`} {...props} />
+  return <WebConnection {...props} />
+}
+function WebConnection({ user, onNavigate }) {
   const [session, setSession] = useState(undefined)
   useEffect(
     () =>

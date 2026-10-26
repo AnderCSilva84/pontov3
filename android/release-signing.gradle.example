@@ -1,0 +1,40 @@
+// PREPARAÇÃO, NÃO APLICADO: não cria chave, não libera release, não define identidade final.
+// Em rodada autorizada, aplicar pelo app/build.gradle após a validação da configuração final.
+def arquivoAssinatura = rootProject.file('signing.local.json')
+if (!arquivoAssinatura.exists()) throw new GradleException('Configure signing.local.json ignorado.')
+def assinaturaLocal = new groovy.json.JsonSlurper().parse(arquivoAssinatura)
+def senhaStore = System.getenv('AP1303_STORE_PASSWORD')
+def senhaKey = System.getenv('AP1303_KEY_PASSWORD')
+if (!senhaStore || !senhaKey || !assinaturaLocal.keyAlias || !assinaturaLocal.storeFile) {
+    throw new GradleException('Assinatura incompleta; credenciais não são exibidas.')
+}
+def configuracaoFinal = rootProject.file('release.local.json')
+if (!configuracaoFinal.exists() || new groovy.json.JsonSlurper().parse(configuracaoFinal).assinaturaAprovada != true) {
+    throw new GradleException('Uso da chave de upload ainda não aprovado.')
+}
+def chaveUpload = rootProject.file(assinaturaLocal.storeFile)
+// A chave privada deve permanecer fora de todo o repositório, mesmo se ignorada.
+if (!new File(assinaturaLocal.storeFile).isAbsolute() || chaveUpload.canonicalFile.toPath().startsWith(rootProject.projectDir.parentFile.canonicalFile.toPath())) {
+    throw new GradleException('Keystore exige caminho absoluto externo ao repositório.')
+}
+def fingerprintEsperado = (assinaturaLocal.certificadoSha256 ?: '').replace(':', '').toLowerCase()
+if (!chaveUpload.isFile() || !(fingerprintEsperado ==~ /[0-9a-f]{64}/) || assinaturaLocal.keyAlias == 'androiddebugkey' || chaveUpload.name == 'debug.keystore') {
+    throw new GradleException('Chave/certificado de upload final não configurado; não usar Android Debug.')
+}
+// JDK21: detecta o formato da keystore; não registra senha, chave privada ou conteúdo.
+def keystore = java.security.KeyStore.getInstance(chaveUpload, senhaStore.toCharArray())
+def certificado = keystore.getCertificate(assinaturaLocal.keyAlias)
+if (certificado == null || !keystore.isKeyEntry(assinaturaLocal.keyAlias)) throw new GradleException('Alias de upload indisponível.')
+def fingerprintAtual = java.security.MessageDigest.getInstance('SHA-256').digest(certificado.encoded).encodeHex().toString()
+if (fingerprintAtual != fingerprintEsperado || fingerprintAtual == '6a4b3f5f402f9e72415f5aa50511d408651152c3e1a01880b3ad790ed461ea06') {
+    throw new GradleException('Certificado não corresponde ao aprovado ou é Android Debug.')
+}
+android.signingConfigs {
+    upload {
+        storeFile rootProject.file(assinaturaLocal.storeFile)
+        storePassword senhaStore
+        keyAlias assinaturaLocal.keyAlias
+        keyPassword senhaKey
+    }
+}
+android.buildTypes.release.signingConfig = android.signingConfigs.upload

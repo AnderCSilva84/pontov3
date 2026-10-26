@@ -1,0 +1,6 @@
+.local-mapa {display:grid;gap:12px;margin-block:16px;min-width:0;}
+.local-mapa small {display:block;color:var(--text-muted);}
+.local-mapa-acoes {display:flex;flex-wrap:wrap;gap:10px;}
+.local-mapa-visao {display:block;width:100%;aspect-ratio:4/3;background:#edf1f5;border:1px solid var(--border,#ccd4df);border-radius:14px;touch-action:none;cursor:crosshair;}
+.local-mapa-resultados {list-style:none;padding:0;margin:0;display:grid;gap:8px;}
+.local-mapa-resultados button {width:100%;text-align:left;padding:12px;border:1px solid var(--border,#ccd4df);border-radius:10px;background:var(--surface,#fff);color:var(--text);overflow-wrap:anywhere;}

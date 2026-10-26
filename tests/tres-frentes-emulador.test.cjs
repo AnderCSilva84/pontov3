@@ -35,8 +35,8 @@ test('ponto somente pela funcionária e importação GF com compra sem preço', 
     const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
     const { getFirestore, connectFirestoreEmulator, setDoc, getDoc, updateDoc, deleteDoc, doc, terminate } = await import('firebase/firestore');
     const app = initializeApp({ projectId: process.env.GCLOUD_PROJECT, apiKey: 'demo-key' }, 'frentes-regras');
-    const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
-    const client = getFirestore(app); connectFirestoreEmulator(client, '127.0.0.1', 8877);
+    const auth = getAuth(app); connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
+    const client = getFirestore(app); connectFirestoreEmulator(client, process.env.FIRESTORE_EMULATOR_HOST.split(':')[0], Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]));
     try {
       const pessoa = await createUserWithEmailAndPassword(auth, 'frentes-admin@example.test', 'Teste-ficticio-123');
       await db.doc(`users/${pessoa.user.uid}`).set({ role: 'admin', ativo: true });

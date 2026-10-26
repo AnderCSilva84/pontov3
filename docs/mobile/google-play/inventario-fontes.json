@@ -1,0 +1,1293 @@
+{
+  "head": "aabad8a5d08a634d0d4a3f82c997cbeb314bf952",
+  "branch": "feat/ponto-operacoes-offline",
+  "arvoreLocalComAlteracoes": true,
+  "escopo": "Fontes relevantes, locks, recursos e testes; exclui credenciais, configurações locais e outputs gerados.",
+  "fingerprint": "ddf9e8c6a1bf982e7a6ea291818a30053e71b71c6ceeca3c23fbb71b2d7eb98c",
+  "arquivos": [
+    {
+      "path": "android/.gitignore",
+      "sha256": "065e4a92a240fe11a0ea230491ad9dabef143f5fd5a3e6884ad6f0395666a971"
+    },
+    {
+      "path": "android/app/.gitignore",
+      "sha256": "99c54e51ee601a60fbde8016b2cbf717483bc2e92773be86c9247d02a7fa6ea4"
+    },
+    {
+      "path": "android/app/build.gradle",
+      "sha256": "de1def4829268d09c8b88520debace5df7863ce61c4e91cdc499dc12cff33598"
+    },
+    {
+      "path": "android/app/capacitor.build.gradle",
+      "sha256": "4111897e25444ae7c69bbdaf776ca2625f2b56a11042956945ba993922883be8"
+    },
+    {
+      "path": "android/app/proguard-rules.pro",
+      "sha256": "1cf8c57e8f79c250b0af9c1a5a4edad71a5c348a79ab70243b6bae086c150ad2"
+    },
+    {
+      "path": "android/app/src/androidTest/java/com/getcapacitor/myapp/ExampleInstrumentedTest.java",
+      "sha256": "52d98dd06046e0eb4769730c914c7e87000e208c9fefa9aa061471849d127a7b"
+    },
+    {
+      "path": "android/app/src/debug/AndroidManifest.xml",
+      "sha256": "e0fe8ca3eaac957e4cc7e32906c6f11ef2e75af8f890aa3d36adc1e3477762c7"
+    },
+    {
+      "path": "android/app/src/debug/res/values/strings.xml",
+      "sha256": "8ed275cb15b0d38b642124ef63c75b3ebb60fd3c2afc8323a0d906bb27b0f2d6"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "69a669f591bd5fbd884fdfef379112640f200fda2aaab3035829b9374f141d3b"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/CameraQrPlugin.java",
+      "sha256": "f4f6d5b5dc08d486f412510211c5d7cba118e488b99a3f724afd9f390487431d"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/MainActivity.java",
+      "sha256": "f4c9c0cac6ef0d925dec2fdb4e5310e26bad372ee936e4c4e88c9ff76f1a6327"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PdfArquivosPlugin.java",
+      "sha256": "09eb1db8b6c39d4dfe79b3b774f71f7a10557ea299097fd2a8f18af5442fe85a"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PdfCacheSeguro.java",
+      "sha256": "c67d61427d6712b952945924c42083ef3e2e552a2f25e144e5d0158ed6eee0eb"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PushDiagnostico.java",
+      "sha256": "09bb38b4f3127ff99456f5685780eeed2f95528287c093bea32018854f61f3b9"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PushEstado.java",
+      "sha256": "decd5cfacf8b03e7dd8a74844aa77415cbad41bb6eebcde62e905c65f46c4038"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PushFiltro.java",
+      "sha256": "45d06df46e5e521bc37d1d152a5d94ad27621ebdeca65fc7167d97356ad8a855"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PushMessagingService.java",
+      "sha256": "e03a77a8e410eaba40504d46e9b2118b672655e2878b547169654e77f59a997a"
+    },
+    {
+      "path": "android/app/src/main/java/br/dev/acstech/ap1303/dev/PushNativoPlugin.java",
+      "sha256": "10f5dc8858cf1515b7d9aa83e120b603c38d530a0a906334a40cdff2878cbfa5"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-land-hdpi/splash.png",
+      "sha256": "1c412d63d089ef08eb45d6e3e46c7727106549f32a496f345c57629da09f3c35"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-land-mdpi/splash.png",
+      "sha256": "8b5cdd72202be112516ed623cbbe9551c4c810b02de707c82b32827af27073e8"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-land-xhdpi/splash.png",
+      "sha256": "3cc44f608fbf6a271f197b56c8e7a533c31f97e8397249060265cad6c84cd8d9"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-land-xxhdpi/splash.png",
+      "sha256": "509da741d79fc282a67eb29c2d6b431b13e7cc879323b14f6f3ceefb37443702"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-land-xxxhdpi/splash.png",
+      "sha256": "8547dc0a684e92f6aaae4d26fcf0b205d31fd9c1b76e053f522c215adc34569c"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-port-hdpi/splash.png",
+      "sha256": "e20cdcf0fbfaf7fef8aec1c7a8ca5d2a6c4f000079c5270d5cbeb31573f50923"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-port-mdpi/splash.png",
+      "sha256": "389ec8e3161942996aa930dbbd8592c2f14e57c66dc4b4fa2aef3825579502c5"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-port-xhdpi/splash.png",
+      "sha256": "1fba2b75fc588ced28ebb10836ef195e2457359957533e3dfc7042b5175ca7f2"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-port-xxhdpi/splash.png",
+      "sha256": "05bf22b46c32d118331e691379dde95d6439eafeb0906f2231d4c36bb3feb84b"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-port-xxxhdpi/splash.png",
+      "sha256": "43d915b12e21af32a6a4d7aa28f4b2751c5084574f686f88d1649bf555e706a9"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_notificacao.xml",
+      "sha256": "66d9e4a539037b09c40f5241d6a77ddc04ff303cd655af0430cff670f7c1b4b1"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/splash.png",
+      "sha256": "8b5cdd72202be112516ed623cbbe9551c4c810b02de707c82b32827af27073e8"
+    },
+    {
+      "path": "android/app/src/main/res/layout/activity_main.xml",
+      "sha256": "5d770feb791313b947020cbfc57e5c733c556dac5e9e49261a1190e527073253"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "d02c9bb2f716593edddadca71340730da6fc1b32da51cd9badb1d1b383c83334"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "sha256": "d02c9bb2f716593edddadca71340730da6fc1b32da51cd9badb1d1b383c83334"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "sha256": "93efa09d2824cbdd507a3bb9b313117ecff8ce9722229dc9668e723717bbfff8"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
+      "sha256": "0798be05bdba905d00eab8e75b0339669bedb04bd554d94deea6704b3cf68779"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher_monochrome.png",
+      "sha256": "d074bb36c0716801a66799e88f4e44c67a4e12bf77aff7bc32f4d070b81ed9ea"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "sha256": "0a71265e705db799cb756ecf703053ff7355c9bed953578b13db3d0c29167180"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "sha256": "8b8e6c36bc7cb35a12727677e8b7dcea15706fa17a18c7ea539e4c528cdedfc2"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
+      "sha256": "e354caf88d754f30b7ffcb0c587eae362c1bed806a394318088e404ec3222226"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher_monochrome.png",
+      "sha256": "4a6d013299cefe5a31c2c6c39bf22ac559a145c6771dd00ba1a7b517db137890"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "sha256": "f835037cf9ed43c4721c578edfd55fed5754933db2c821bf130f7e6100e81cab"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "10ca57aaa0e9f1651c1f1253a34232bbf027ec83cc59da1dcb96c9fa52486d1b"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+      "sha256": "95531ddba605634899008571931b6dbd601e224f6ca168ca8fe459a99b87c0a5"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_monochrome.png",
+      "sha256": "36c9630dccfd8bbb0af164d97fb182d7e50ab4cf186a3f62c086f4cf2b81b200"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "sha256": "7700d56b0609915973f6df935a10ead7903a3d82495a988f5f1929cd8b8d9d4c"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "264e9d227db2f048b460fcc197c16c4bf5bdcb5471199be194309f260797fb3a"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "sha256": "6380848488c2b53dd6bf0fe365837e35e440d687dbf9964b698a2a8139888d9e"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_monochrome.png",
+      "sha256": "e86d3bf00a219f1e697285980a3b20358f8617c481d839ec94b4816ed599fe0d"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "sha256": "34952623706d365494fe88e15fb4af8630aa2ba026ef6bd1282d3f51f17849be"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "027fce7dbe57a07fc8d19eb3b17e78d8f286aede6c17ab6c7cde8634a6a06c65"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "sha256": "7b3e2a6feb8751d2847657f3ccffd6bfc584fa37aaff7a6020c5ca5cd75b79ba"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
+      "sha256": "604b00d5ca377f0ac71fbf4c120cbeac507bb6cd79be681504742f6c7c93d606"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "sha256": "b8b1dfba561062b95222e48f03fed3e115dbc3916c461aa9b04e6c3a0f991974"
+    },
+    {
+      "path": "android/app/src/main/res/values/ic_launcher_background.xml",
+      "sha256": "826ebb3bbe9b17cab76acc4156e5e8ea5fcc4e2fc039e177242ced497f365c12"
+    },
+    {
+      "path": "android/app/src/main/res/values/strings.xml",
+      "sha256": "bca938fe8a3cd59a63dfec0214b5efad80efe04df914bfecfdb8f1ded817e2d0"
+    },
+    {
+      "path": "android/app/src/main/res/values/styles.xml",
+      "sha256": "5e115a07dbd81aef4f87db40b2dcdad066396d1b8a456b9444e68332b9b3c4ce"
+    },
+    {
+      "path": "android/app/src/main/res/xml/file_paths.xml",
+      "sha256": "a46ed43ef65c90cb6778f4581decf3556e3f0055aad8f36d69dae16f9a0e99aa"
+    },
+    {
+      "path": "android/app/src/main/res/xml/pdf_paths.xml",
+      "sha256": "827debbc164314335b02fddb938738c901349d0a178ef1b840139fdd40eb5cb4"
+    },
+    {
+      "path": "android/app/src/test/java/br/dev/acstech/ap1303/dev/PdfCacheSeguroTest.java",
+      "sha256": "7fcea5d7a9bd37f2d421491ada52e37a7d295f419dc29651a5d479373637ee9f"
+    },
+    {
+      "path": "android/app/src/test/java/br/dev/acstech/ap1303/dev/PushFiltroTest.java",
+      "sha256": "80dd826745355dc6d4ed90dc0d4413c6f2ad3f35d86864d774de935b847af85e"
+    },
+    {
+      "path": "android/app/src/test/java/com/getcapacitor/myapp/ExampleUnitTest.java",
+      "sha256": "d4045ae8fac1f0807e6b24eb34e68409a9a235df9d1a3f896fb8c9a49424363d"
+    },
+    {
+      "path": "android/build.gradle",
+      "sha256": "46ade7db7afeb8049ccea59fce83095dca736ceb8c9acd79cc944e988c3357d9"
+    },
+    {
+      "path": "android/capacitor.settings.gradle",
+      "sha256": "83181fe6faee6f8b43984952751e3b469379c28ad55e4423d3f279f30db69e59"
+    },
+    {
+      "path": "android/gradle.properties",
+      "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "9a479a85aa879bb55284fc16d0de5b81a745c3854f4e2d88c42e7debaf007435"
+    },
+    {
+      "path": "android/gradlew",
+      "sha256": "b187b4c52e749f5760afdd6fadc31b2a98ad35fb249bf0dff03b72650f320409"
+    },
+    {
+      "path": "android/gradlew.bat",
+      "sha256": "1d297e00bd21de3ace22b4d7f2de1f9dfa858883d66bbf7c1ccbecccec8f4f3b"
+    },
+    {
+      "path": "android/release-signing.gradle.example",
+      "sha256": "0a54ce7a00d9f871f3821b9d201fe94ebcb6c7ae8d6110ea2447f882ee802174"
+    },
+    {
+      "path": "android/settings.gradle",
+      "sha256": "6ce098d15ebd69b44c4ecd786bca1bdc366340d2459b2af4d7bb0ab317aa9669"
+    },
+    {
+      "path": "android/variables.gradle",
+      "sha256": "83d502c9ed8fcf1dd4791482067abeedbebae49fafe9cd14a8a1f5891deb0d88"
+    },
+    {
+      "path": "capacitor.config.json",
+      "sha256": "2de74b460766806e6293df9c06dd43887e79c663a590ce83263ce5defcd254fd"
+    },
+    {
+      "path": "firebase.json",
+      "sha256": "f2f6532518cb0bb85b5e69f443b279d81023042e194ec34fa865775628a467c9"
+    },
+    {
+      "path": "firestore.indexes.json",
+      "sha256": "efe3f1322261e3c7a94ec67b5be63ed6b4ba57e83bd63ffdf40c0bf4b5501c50"
+    },
+    {
+      "path": "firestore.rules",
+      "sha256": "a001c93bf1e0ecdb2976ae451a6bd376a2a708a302005e2aebf9c17aca32c6b0"
+    },
+    {
+      "path": "functions/.eslintrc.js",
+      "sha256": "13a3ca71d288798361cb3f05e8e4a3cfecf2d8893414a1700f3d3c0d7b76f2e8"
+    },
+    {
+      "path": "functions/.gitignore",
+      "sha256": "e7c878f1962b5d93d05eb30ef6cb9f15afd803595a5d47208c7d62c10213d3a9"
+    },
+    {
+      "path": "functions/compras-api-dominio.cjs",
+      "sha256": "a777e7ce58b112426ee5304e94889d5ef8619336eabc5c9278913cf6015ee667"
+    },
+    {
+      "path": "functions/compras-api.cjs",
+      "sha256": "f16ffddc5ba90879122b7501395e83a29b1ee550d4ba0a75e47551c3a7e8ad8d"
+    },
+    {
+      "path": "functions/compras-associacoes.cjs",
+      "sha256": "5009d72e165b375e6116c216cbe54e73d693d51aaa034286539c2851521c4053"
+    },
+    {
+      "path": "functions/compras-dominio.cjs",
+      "sha256": "1c122b2b1507934494c5fdab47b3d829845a7d65770325b2a4a364c280384a59"
+    },
+    {
+      "path": "functions/compras-estimativa-dominio.cjs",
+      "sha256": "d414c77ef9323f6e307e20b1207a9ad885866f26f7767531f7b05367cbf2c90f"
+    },
+    {
+      "path": "functions/compras-estimativa.cjs",
+      "sha256": "ecb3fc454f2a6e3fe381897b686786e712c42b342a96155860eb074d1fe20218"
+    },
+    {
+      "path": "functions/compras-icone-validacao.cjs",
+      "sha256": "5944dc811686f52bec8cbda9d1c15367be468415be625dd348c5faa87d9a6f8d"
+    },
+    {
+      "path": "functions/compras-icones.json",
+      "sha256": "f42d97a84c3599ff7062da7882d6932015eacaf3822df7c91214fb66fe16b74f"
+    },
+    {
+      "path": "functions/compras-tipo.cjs",
+      "sha256": "b885dedab36bab1c2a83a167ebeabb36e4aefd89c12b17ff9fbc6b653e346970"
+    },
+    {
+      "path": "functions/compras.cjs",
+      "sha256": "3d0ea3e28450e3dfeac2a50f335b2baa24d4fcd32da26d1ad256db3fda9b7a25"
+    },
+    {
+      "path": "functions/conta-exclusao.cjs",
+      "sha256": "cd08244440ec1eec5197106c395e1b21ec7a5fb28aff07cd378729dc91fb9934"
+    },
+    {
+      "path": "functions/conta.cjs",
+      "sha256": "6c561591176f7c359c2c766894da7d14ed88eab576da3de4c7accea286735b91"
+    },
+    {
+      "path": "functions/cupom-consulta.cjs",
+      "sha256": "23f8e4ff4a8d140ed01fd0c6d22bc366eb7b1cf997845e3843359ef5bf177be8"
+    },
+    {
+      "path": "functions/cupom-dominio.cjs",
+      "sha256": "a7466adb4d887f6082f7e290682ecafed10cf0029abdcc0ee50aacc40f4d2201"
+    },
+    {
+      "path": "functions/cupom-operacoes.cjs",
+      "sha256": "cff7ce89b1a5682754aa62e4d5e824deb90167e423dcab60f0d2f98690566292"
+    },
+    {
+      "path": "functions/folha-calculos.mjs",
+      "sha256": "7d2564903ecca6d3947df5f7f695321ad824d72a6535b09211f6c15054db3876"
+    },
+    {
+      "path": "functions/folha-pagamento.cjs",
+      "sha256": "75866d2ca8837ff96a42a93238935267ca1cabca24536315726ddcb213cd74f4"
+    },
+    {
+      "path": "functions/grupos-contexto.cjs",
+      "sha256": "40e7f79c5031fd565a75e5372fd833c597216cc99d7b1fe3cb14b676fe7d16ca"
+    },
+    {
+      "path": "functions/grupos-migracao.cjs",
+      "sha256": "835ea97a708de2c9516c7232d81ab9ed74b46a5e1b3fbf8b0337d664a087a628"
+    },
+    {
+      "path": "functions/grupos.cjs",
+      "sha256": "66c29a9e84f0ac7d46594fe256124b96d7eef20e4827f84c0e19c47e6fcf9f2e"
+    },
+    {
+      "path": "functions/index.js",
+      "sha256": "c80caf245390ca7c0715c2fa88ab1cba9fc2d0e8a72db2eb743fa6c1e8d2728c"
+    },
+    {
+      "path": "functions/lembretes-cuidados.cjs",
+      "sha256": "4b3ccc7e6dd1cdef87e3ed2d1a23e62c8dc325a35dc99cb1accfbf22ba69f108"
+    },
+    {
+      "path": "functions/lembretes-dominio.cjs",
+      "sha256": "63e0440cf992627ee4569e40907c4b08618aa7106d4d766f6eee2ff93ed29f40"
+    },
+    {
+      "path": "functions/lembretes-link.cjs",
+      "sha256": "9841b181ed849ff5bf4b05c8ea4796a3d51ee59f716712264acf5763233ef9c0"
+    },
+    {
+      "path": "functions/lembretes.cjs",
+      "sha256": "673a77a23daf0e5009c45077d21e0c230f48b2ab597e5318a787260e4030cb4f"
+    },
+    {
+      "path": "functions/no-bolso-bridge.cjs",
+      "sha256": "c5d500f770445136fdbf3b0ce3d8dbab10bc28f08074e0ceb8d147ee572deb0d"
+    },
+    {
+      "path": "functions/no-bolso-consulta.cjs",
+      "sha256": "01ce995239bfbe3c206d8127be69fef4ad3d7a5f08303e464847016f17623531"
+    },
+    {
+      "path": "functions/no-bolso-functions.cjs",
+      "sha256": "ea36bacb5001263fe3154387c41b1390508242f411cff070b227bece93f5a8f6"
+    },
+    {
+      "path": "functions/no-bolso-product-catalog.cjs",
+      "sha256": "7d63e71a04e8148289db6ff32227635494509c72f3e727eda6f8b49c241bc256"
+    },
+    {
+      "path": "functions/package-lock.json",
+      "sha256": "48212738395a6efae1465e555e77b83b7fd7ef3761a14e252127d7ad4913abf6"
+    },
+    {
+      "path": "functions/package.json",
+      "sha256": "b91ded3d1468f493712b46f05a59ed3e875fc672927ec2a02680ed3c3951816b"
+    },
+    {
+      "path": "functions/pagamentos-especiais.cjs",
+      "sha256": "e23d771a1ae857b76ff9b12feb3d87667ef72b1fef804710c149d81f5ba5b8db"
+    },
+    {
+      "path": "functions/ponto-operacoes.cjs",
+      "sha256": "6228c73f1e0b5d97049086f7168fd74461c8f5e0b6f045a9c5a0ebc0f002b645"
+    },
+    {
+      "path": "functions/ponto-revisao.cjs",
+      "sha256": "6ae68e51dee5e34b323b80aebae27feb7a1f0618b26e38f98c2893dc180a9702"
+    },
+    {
+      "path": "functions/ponto-validacao.cjs",
+      "sha256": "b05e26f9e9efc61626c42f6d304fbf840f9ee075e4f8e3f0e6c092021519b153"
+    },
+    {
+      "path": "functions/pratos-dia.cjs",
+      "sha256": "a59f9b359e81d12aa20d3dd7e8c41abc2b039075fefaccdd9ca8e9e1acde2835"
+    },
+    {
+      "path": "functions/produtos-identidade.mjs",
+      "sha256": "fefed0aa65f7831da060cc41b802c4b92097491ca5175a160c1b7f0d534ec6d9"
+    },
+    {
+      "path": "functions/push-acoes.cjs",
+      "sha256": "ab4cab9535294e1a9afc0595163bd5553cd96d2e3ac851184b8bea09dc80d8f0"
+    },
+    {
+      "path": "functions/push-contrato.cjs",
+      "sha256": "0510f96b336eb2eb10aafa3e2f650dfb154531f38491e323731559cca1f3d5e1"
+    },
+    {
+      "path": "functions/push-dispositivos.cjs",
+      "sha256": "a94808a94823265bd9b6d32df3ba7da95f2c335dfd95603a313c4d32864b8d46"
+    },
+    {
+      "path": "functions/push.cjs",
+      "sha256": "d060fd3cf776f876ade65b5333d02db1d7766fc920f80ebbc5d445de36a7ebf3"
+    },
+    {
+      "path": "functions/receita-imagem.cjs",
+      "sha256": "8ac0dc9bd71a337da3a52f20ce31277adc6a9196b671d18fcd1dceb51dd07f93"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "c4685f58237a9e94e672550ca22b8f899ae2556e721c90d603a8d644901d6250"
+    },
+    {
+      "path": "package.json",
+      "sha256": "5618962a3637613e6d6ee515ef98f56a7540db44a27aaa7054fe5c1665afc215"
+    },
+    {
+      "path": "public/apple-touch-icon.png",
+      "sha256": "f18665ea9b33fe920eebc564b04b6fb1f53783c6842e647bb2cfbf7a16e87ab6"
+    },
+    {
+      "path": "public/favicon.png",
+      "sha256": "57a53f8c8d4891087b9149460d1f6aa37f48eccc6258a846005f2912d5d9b7fa"
+    },
+    {
+      "path": "public/firebase-messaging-sw.js",
+      "sha256": "94f96bc33df03126accc923833b42aedc8a9ba636463954ff8fd8c4edb1d0c99"
+    },
+    {
+      "path": "public/icon-192.png",
+      "sha256": "027fce7dbe57a07fc8d19eb3b17e78d8f286aede6c17ab6c7cde8634a6a06c65"
+    },
+    {
+      "path": "public/icon-512.png",
+      "sha256": "78fbee5c95d9f2db7c706971d85b628cf9fb5812c78389db060d5411ffac9692"
+    },
+    {
+      "path": "public/icon-maskable-192.png",
+      "sha256": "f63ccbd0b12b0419ba97fa68b54470b9767b510284b06468593bd8356c542b62"
+    },
+    {
+      "path": "public/icon-maskable-512.png",
+      "sha256": "f0de1a537f1fcf7dbf369422c510fadb62f886926bcb991fd451c3559838fc41"
+    },
+    {
+      "path": "public/manifest.json",
+      "sha256": "e97e01f6482f40388ef115313c76bfe1d1626fcc5d9d476156b0232ef714e534"
+    },
+    {
+      "path": "public/vite.svg",
+      "sha256": "4a748afd443918bb16591c834c401dae33e87861ab5dbad0811c3a3b4a9214fb"
+    },
+    {
+      "path": "scripts/android-release-validacao.mjs",
+      "sha256": "5bfec0393e03257aaedd7af2d5f69498cf466c280ecd6bc126aeb25ba9cdea6e"
+    },
+    {
+      "path": "scripts/auditar-push.mjs",
+      "sha256": "fdd217c3ee5454268755cc83e5b012a3b3ed363c8b6da9a2a31ca73fef26693e"
+    },
+    {
+      "path": "scripts/auditar-regras.mjs",
+      "sha256": "c224e0070887325424a5d07429245b6eb3b9f3b688cbf5828060b7f47807c3e8"
+    },
+    {
+      "path": "scripts/gerar-icones-ap1303.mjs",
+      "sha256": "45f3ee93c1272079810b3e773956f983e479f9e9cc76aa62b63e71cc09b1dcda"
+    },
+    {
+      "path": "scripts/manifesto-candidato-android.mjs",
+      "sha256": "6eb24a7bf88ca826149ce59f8e2e6396895e8f17ac48ece1a06201b12ce59ae6"
+    },
+    {
+      "path": "scripts/migrar-grupo.cjs",
+      "sha256": "73e0fa4c927a81ff797a1e2bace9dfae5a3bb19d8029f3ccf53cf598ed574769"
+    },
+    {
+      "path": "scripts/mobile.mjs",
+      "sha256": "352cd91654fb61449a7d68365fcf70904416acdfe07dd3e09bb323e3d8677e98"
+    },
+    {
+      "path": "scripts/retomar-exclusao-emulador.cjs",
+      "sha256": "b28a0575120bc8161a7f6cc7ed043d935ed36a3ad56a47cae3db6db760b253c5"
+    },
+    {
+      "path": "scripts/revisar-pdf-compras.mjs",
+      "sha256": "a9fb4acb4db6ac092ef7b8eaa0d4876cca43c0ab51f58145b4a2a501961810ff"
+    },
+    {
+      "path": "scripts/seed-compras-demo.cjs",
+      "sha256": "f2d2d32fb7259b944ca256894c66b8548ed60b90ad7362f58a9da4a2d08812f5"
+    },
+    {
+      "path": "scripts/test.mjs",
+      "sha256": "5b7dc58b45ea30390254412f420f2cf2d3145cdc8c9157d40ee0368407433a19"
+    },
+    {
+      "path": "src/App.jsx",
+      "sha256": "3f7751aebe79492a9b3f4f7909dd370e386e1129b871c7a96c4a69292e131590"
+    },
+    {
+      "path": "src/assets/ap1303.jpeg",
+      "sha256": "22c6d7ed490a3807f07aeb29ba25c0e7ef78bfac0b3ae12c83150ab33731de46"
+    },
+    {
+      "path": "src/assets/ponto1303.jpeg",
+      "sha256": "22c6d7ed490a3807f07aeb29ba25c0e7ef78bfac0b3ae12c83150ab33731de46"
+    },
+    {
+      "path": "src/assets/react.svg",
+      "sha256": "35ef61ed53b323ae94a16a8ec659b3d0af3880698791133f23b084085ab1c2e5"
+    },
+    {
+      "path": "src/components/AgendaTarefas.jsx",
+      "sha256": "b01578276730a191981fed4c7a1c442576973a5c7383bd8bd9af8e19c173db6e"
+    },
+    {
+      "path": "src/components/AssociacoesProdutos.jsx",
+      "sha256": "518988c7afce016bd3e48a3c9d8f00025519e94ca40f67004a7594150fec0f32"
+    },
+    {
+      "path": "src/components/BottomNav.jsx",
+      "sha256": "5d68bd670a5f2b7ee5806b85da8d168c6fbc580dfdf7f4cb570d6e0d9cefaab0"
+    },
+    {
+      "path": "src/components/CalculoPagamentoEspecial.jsx",
+      "sha256": "43f001539e1175e6a78d17b7697d536641ab4986ca6d6d25c9aff2d379dd5dfc"
+    },
+    {
+      "path": "src/components/CarregandoGatinho.jsx",
+      "sha256": "5335f13e0032ffc49d0dec2dd93954f68a81e7366a8eeddce639dbbf11c64659"
+    },
+    {
+      "path": "src/components/ComprasGraficos.jsx",
+      "sha256": "90c78510c4c88f2b27fae59661a57278bf7d51b5e1471c55afc5504338de7503"
+    },
+    {
+      "path": "src/components/ComprasModulo.jsx",
+      "sha256": "11ab14f1f290d5fc0b748eb9d3c4a48d13498962f5de681c402a28cc34c89811"
+    },
+    {
+      "path": "src/components/ComprovanteLink.jsx",
+      "sha256": "5c8d7f342cd0c217889e92e89307fd9374e0645ffea47f2d8a38649047cc8d0a"
+    },
+    {
+      "path": "src/components/ConsultaPreco.jsx",
+      "sha256": "c08848f1385be197be3ccb450cd43f619853f9bc86e4dbccbcf4fcf258e736d4"
+    },
+    {
+      "path": "src/components/GastosCompras.jsx",
+      "sha256": "832be3f819b416d8d3e9bc6c8e631f92e9b657abc49a59f265eaeb763e1ab75c"
+    },
+    {
+      "path": "src/components/HeaderUser.jsx",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "src/components/ImportarCupom.jsx",
+      "sha256": "1622f825b6271c730affd251fb53e6b2f7029d137e99216c4897ad9d0f04c3ca"
+    },
+    {
+      "path": "src/components/LembreteNotificacao.jsx",
+      "sha256": "ee7b324a20ff4c1dda5e3ac701ff415afc1ba63b12515fa04b6f375012fa2d1c"
+    },
+    {
+      "path": "src/components/NotificacoesAndroid.jsx",
+      "sha256": "c8251fe2ff16a5471db182cc6e8fb2ee28474bfdb4037593ecb87c4ccc495def"
+    },
+    {
+      "path": "src/components/NotificacoesPush.jsx",
+      "sha256": "0d0deb50f8a18a14020d2ba32899515f222cec1d2e06416422fdd50908d36dc1"
+    },
+    {
+      "path": "src/components/PdfAcoes.jsx",
+      "sha256": "7f74b73f67a707cf57570cc2e19f3d90c52400f8327dbd441b1ad5ab2ca09e13"
+    },
+    {
+      "path": "src/components/PontoOperacoes.jsx",
+      "sha256": "7ecf110e7b529abfbc029210f39c16ce9126c924e407be1d3330edf54306b3ac"
+    },
+    {
+      "path": "src/components/PontoResumo.jsx",
+      "sha256": "bf7a272ed74dc320dc07a761dc06f5dce9d707acccc5633260f7c63f57594e39"
+    },
+    {
+      "path": "src/components/PontoRevisao.jsx",
+      "sha256": "99d6cefa148bc3c0bf93eb9caec91bc7e0a692a487d1f1b566ec9df102650d0f"
+    },
+    {
+      "path": "src/components/PratosDia.jsx",
+      "sha256": "2e6a3810ace1425b61c2e91f43af0e19fc83db6196ffba310342609d1e713d32"
+    },
+    {
+      "path": "src/components/ProdutoAutocomplete.jsx",
+      "sha256": "73bf4cfca6123a4c46118c6c4dadf1eb2e97ee308add645dad6f55022b3547eb"
+    },
+    {
+      "path": "src/components/PunchButton.jsx",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "src/components/RelogioPonto.jsx",
+      "sha256": "47c90de271767ac21d57723dabc1c5ac527a3e1e0a5260d72d35b54d05fa9b01"
+    },
+    {
+      "path": "src/components/ResumoTarefas.jsx",
+      "sha256": "44083936fea0c17977f65e2a7fe7dfeb0a201372b0350a8c4b1d2a69b5214134"
+    },
+    {
+      "path": "src/components/ui/index.jsx",
+      "sha256": "8a9fb09c8e69d80ce3e1991fa7df16ccdf4d91b65987eccc088ce886f8c8cae5"
+    },
+    {
+      "path": "src/components/usePontoOperacoes.js",
+      "sha256": "edf41f7534e58627c0815c40839f8f308e5a454da259d8698aa6b089ab241627"
+    },
+    {
+      "path": "src/main.jsx",
+      "sha256": "28d47fa21d405d4f00554db9d72999d00acae07c6307b3281fc46f2bf58db58c"
+    },
+    {
+      "path": "src/pages/Admin.jsx",
+      "sha256": "b0b09207da8e7a3d88820a32fa1e0e3743bde175ccbd4ad86ba23395b648103c"
+    },
+    {
+      "path": "src/pages/AdminDashboard.jsx",
+      "sha256": "ea7bacaf56ef9d98aeba0599fd4cc2233513c7fb936d5ef7f7a70ef2c796023a"
+    },
+    {
+      "path": "src/pages/CadastroGrupo.jsx",
+      "sha256": "a4878a066716f119ccf6e4da79484d0601b7171cd638f0f58f873063870d147d"
+    },
+    {
+      "path": "src/pages/Conta.jsx",
+      "sha256": "1fc742501633adef56c2d0f07e40716a33711c4736d01a99bddb8cf529fd952e"
+    },
+    {
+      "path": "src/pages/Financeiro.jsx",
+      "sha256": "d78be72afe51748fe981e513b3037e0074d69e4fcfe363fb8586c2c6d232831c"
+    },
+    {
+      "path": "src/pages/Lembretes.jsx",
+      "sha256": "0c4546e01d294378f2b2cbf0e397ac2ab83306a7bbf624092cdb57fd9029babe"
+    },
+    {
+      "path": "src/pages/ListaCompras.jsx",
+      "sha256": "178caa669b875f939be1d202abb106055a04f4075fd1fead69fc949a812e99e4"
+    },
+    {
+      "path": "src/pages/Login.jsx",
+      "sha256": "3bc8e08a90337ee31c1a0a9970638d0698f239322825637ea5f1080f9969b662"
+    },
+    {
+      "path": "src/pages/MeusComprovantes.jsx",
+      "sha256": "5fb4ba764e7dfc052ce922c78dd8a0910f1b531a78b695c54efcdfe7fbedea3c"
+    },
+    {
+      "path": "src/pages/NoBolsoConnection.jsx",
+      "sha256": "a2b8469d05304a0088e2875f7ffad3df4c5d0f3dc8dcb475f23b168695ba739a"
+    },
+    {
+      "path": "src/pages/NoBolsoConsulta.jsx",
+      "sha256": "b2a4531f728d6db32728527e72b8fb8c388886f8ddd7b24312865d95d771558a"
+    },
+    {
+      "path": "src/pages/Ponto.jsx",
+      "sha256": "ced8a9929511634a87a49bac9104f66331ce8b124539b8ce55b8fed21418a13e"
+    },
+    {
+      "path": "src/pages/RecuperarSenha.jsx",
+      "sha256": "aa09b687b499fc955bfe805f55238b0f2c4114a81284fffd29c8eec9a9e288d3"
+    },
+    {
+      "path": "src/pages/Tarefas.jsx",
+      "sha256": "702f3bf74507d17bd2d00e712d7910d4421253c9925ad4606538f747e21aaeae"
+    },
+    {
+      "path": "src/services/appShell.js",
+      "sha256": "34bfff500c86f307b4530b89d3855c6f82b118aad898897d421c63e57ebfaf61"
+    },
+    {
+      "path": "src/services/auth.js",
+      "sha256": "f6e8005c492150c817208c739625913c19dfe9f107a5f803b4732fb02ed63024"
+    },
+    {
+      "path": "src/services/cadastroTitular.js",
+      "sha256": "5123934d65dd4686017c1c60f936115e807e5ee70558a1e7587cc75a6bc7b2bc"
+    },
+    {
+      "path": "src/services/cicloMobile.js",
+      "sha256": "e71ba0733ab774fc15cab1cf8170b34052087f7a82300375de6b4d5648c14ed9"
+    },
+    {
+      "path": "src/services/compras.js",
+      "sha256": "076798e38e4f60ae779c05d8760300e146930cb79da8b367f0387aacfa60d696"
+    },
+    {
+      "path": "src/services/comprovanteExterno.js",
+      "sha256": "29f1c69dabbcd8e7f6982a552012c1773dfa26c41e1839786411a1d72003a98c"
+    },
+    {
+      "path": "src/services/conta.js",
+      "sha256": "e3f4e24a2d4ba9c648997cde1c9de421d2b91dfb64082113b69c7e4934d7eb5f"
+    },
+    {
+      "path": "src/services/dadosGrupo.js",
+      "sha256": "e243e915e8eb4271dee339588a1adea3db92a9ffca6378a8bd1078208f717dc2"
+    },
+    {
+      "path": "src/services/financeiro.js",
+      "sha256": "efb036f9c118ed169fcbf68c3aa130533e5673708bc8312598ffc6811a7abf66"
+    },
+    {
+      "path": "src/services/firebase.js",
+      "sha256": "731e3437264e68385b499f18c4250c3b7275b447814898ecbe7496e596d480ba"
+    },
+    {
+      "path": "src/services/folhaPagamento.js",
+      "sha256": "5908e956e888243cd119ae2b4002c7920b6bf86f13e5c719bd26a90ef0f8165c"
+    },
+    {
+      "path": "src/services/lembretes.js",
+      "sha256": "965e1af929e39d3dc1a78be4cd87e239d2dfb90d5097e7eac38cb7c8e0fee148"
+    },
+    {
+      "path": "src/services/pdfArquivos.js",
+      "sha256": "1d674998a5f0329f5bc0107d2c27d6523b858be5f2014e520924579f7803e10e"
+    },
+    {
+      "path": "src/services/plataforma.js",
+      "sha256": "4d99a6c6e6c65256393f7ac0728c7f36fcc9cfd719f783419091c942e0c409c6"
+    },
+    {
+      "path": "src/services/ponto.js",
+      "sha256": "f33655692d695983926bf6f15520d50c62fe40dd19dfbb5a313f96cbb6f567ef"
+    },
+    {
+      "path": "src/services/pontoFila.js",
+      "sha256": "b9196f8d25d11904ca4bed5e0523e8544eda6b9bc749145341e0cab094bf48f5"
+    },
+    {
+      "path": "src/services/pontoRevisao.js",
+      "sha256": "d56bb9afa57d69dcc06933a63fc85fc4cb4fefc9318c7c9c0343763940bff12d"
+    },
+    {
+      "path": "src/services/pontoSincronizacao.js",
+      "sha256": "03412fe3449512e790c0b50f8fa72117522fd855285a0766890aafacacbf3475"
+    },
+    {
+      "path": "src/services/push.js",
+      "sha256": "46f9c5b7a21b77f499d999ada2920e9ee67491d628059a6291f0f59f38227701"
+    },
+    {
+      "path": "src/services/pushNativo.js",
+      "sha256": "48048ba582912330240f57c342f7b7d6be4fbf1ebcd1f5ee5d3799dd5fa7f1dd"
+    },
+    {
+      "path": "src/services/scannerQr.js",
+      "sha256": "4e71f92853434b289e9943b963a96e57fc39eec79e174a9a873860a045ddce93"
+    },
+    {
+      "path": "src/styles/App.css",
+      "sha256": "7fb196150f13bf950b3bb54375bf4edaca657b0b329c6e9c809712b50937b4cb"
+    },
+    {
+      "path": "src/styles/admin.css",
+      "sha256": "21297d9a21f82e32303441c714d493aad8934a79e6379834c2d5a029ace0cde4"
+    },
+    {
+      "path": "src/styles/carregando.css",
+      "sha256": "472b11917fec19ff6fc70e22566a36d8981b4bb1ad087f5b71874651a1f7af28"
+    },
+    {
+      "path": "src/styles/compras.css",
+      "sha256": "57fd47b3a57cde03ec31a23bbc3468b1184c57f38fc1148e69edce95dc175a5c"
+    },
+    {
+      "path": "src/styles/funcionaria.css",
+      "sha256": "499542efea89ed3e2475782e83b4386a8d8d3058f084fa2f8289cbc374c588bf"
+    },
+    {
+      "path": "src/styles/index.css",
+      "sha256": "86fc8f0919dc2021c5c1a3b8b08f46abdea60f73612157a9ba4f56869835c9be"
+    },
+    {
+      "path": "src/styles/lembretes.css",
+      "sha256": "5b06e1b7bf1ef2ded7e1f24a54c594470563b2a99a519be8885ed8ca63aecbb0"
+    },
+    {
+      "path": "src/styles/login.css",
+      "sha256": "13989d7a09658b2ec5d7a15b3d18fa615310dcb20802326dec258e7af6bf3529"
+    },
+    {
+      "path": "src/styles/nav.css",
+      "sha256": "7515e7ba1aaa59742096699b134e4f76a82b24fcc38ce26df22160c6334355ce"
+    },
+    {
+      "path": "src/styles/redesign.css",
+      "sha256": "29ad178bddb88086cc38ac774a1211a7d43914db3b2dd3beef42f8ff48c407ca"
+    },
+    {
+      "path": "src/styles/tarefas.css",
+      "sha256": "80ffdddf616204597304793bdb6195de34c6e6417aea51e80be0781460f51225"
+    },
+    {
+      "path": "src/utils/ambiente.js",
+      "sha256": "5f7390bca151d93a7f0404c377598e3e78b40bdb8756931471c81a7f91bda593"
+    },
+    {
+      "path": "src/utils/cicloConta.js",
+      "sha256": "599c0b523d2f21209cb21e7c31e6da9b05426817e2a87d6709be83d7e728591e"
+    },
+    {
+      "path": "src/utils/compras.js",
+      "sha256": "d18a2b4d71c8abb9fad91e2f08488de8f613101af364e73f041d81436a6d83c4"
+    },
+    {
+      "path": "src/utils/comprasAnalise.js",
+      "sha256": "3a1a61a806023ac2716b1e55573bda0763cfb54e2f98e10b41534c2ab8260051"
+    },
+    {
+      "path": "src/utils/comprasColaboracao.js",
+      "sha256": "3a574732dbec0459f7d86b7ea37459683dfee0bee92f02279d074243e8604deb"
+    },
+    {
+      "path": "src/utils/comprasConsulta.js",
+      "sha256": "ed82d0b115afb46b12f3b59445cfce1b690d9afc731ff3a9a29e2c6b17e4393b"
+    },
+    {
+      "path": "src/utils/comprasEstimativa.js",
+      "sha256": "11a77aa811cfa2a78b601baffc27e2883f3351d5a2e15f368673a70af90954de"
+    },
+    {
+      "path": "src/utils/comprasTipo.js",
+      "sha256": "d00a846e21885c73cffc658a26864081c92db19ff67d4b57dd4f2a06964c6265"
+    },
+    {
+      "path": "src/utils/comprovantes.js",
+      "sha256": "6d2a13c343c70643b6116314e99f06aa2be2c851eb419dfcb1791e111bd9ee72"
+    },
+    {
+      "path": "src/utils/cupomComparacao.js",
+      "sha256": "393fbe124318951b3b7455fef15d84dc625ae751d3d0be79031fe80bb25eb361"
+    },
+    {
+      "path": "src/utils/cupomImagem.js",
+      "sha256": "aa96e060a51922f20149aa286a6fdd8a20c071e3ce3123d5ef5b784a51a693ea"
+    },
+    {
+      "path": "src/utils/cupomQr.js",
+      "sha256": "3f7dd56d03b135ade50bea73f77146356d71a3c26a12f41906c71682c1ac3796"
+    },
+    {
+      "path": "src/utils/dataPonto.js",
+      "sha256": "6d318bff5c41066daab56bf2578aeaa749cda618e14b7bcf0e9aeafcbe75d1b2"
+    },
+    {
+      "path": "src/utils/exportarPdfGastosCompras.js",
+      "sha256": "68d28a96a558bb13da5da01efd1b5f049672124f926599002d7943ed1c4400e0"
+    },
+    {
+      "path": "src/utils/exportarPdfLembretes.js",
+      "sha256": "fef0375a0b58a9504fba453750348751e0aa25e6a2579f374fc42656170e81f9"
+    },
+    {
+      "path": "src/utils/exportarPdfListaCompras.js",
+      "sha256": "9cf6637d37d9f8e7f51062c2b0e784f418525c478b16e65407622883eda61f1f"
+    },
+    {
+      "path": "src/utils/exportarPdfPonto.js",
+      "sha256": "5276671a0cd91f1edf993634dc84d5eb7a1b21b46ef78225f43df141eeb2b5d6"
+    },
+    {
+      "path": "src/utils/exportarPdfTarefas.js",
+      "sha256": "e9f06edd219bffe0a1cc66a48f7722429ab4bd15f3844dd2b8989ba071877c89"
+    },
+    {
+      "path": "src/utils/exportarReciboFinanceiro.js",
+      "sha256": "e93933afcfdd6aafd94b3d3d2517af4d9a0af39ccf484acb68dbf6106344565d"
+    },
+    {
+      "path": "src/utils/feriados.js",
+      "sha256": "cb506682139edb10cb4c7558fcf1ec6060ec937c4c851ae10d4c45d318f08b35"
+    },
+    {
+      "path": "src/utils/fotoPrato.js",
+      "sha256": "1d03b85d16b619f6e8ed5ca39097ebf21c70fb37f55809b10fc2b309076d8ea9"
+    },
+    {
+      "path": "src/utils/lembretesSequencia.js",
+      "sha256": "0b881ecf37301d8c2f2053fce529dd2fd6902a0fc2a629ae5814becb94e780f3"
+    },
+    {
+      "path": "src/utils/localizacao.js",
+      "sha256": "765259eac5caa96d17d7c29aad603b17e8dfa677bfeccf4b5849997117567146"
+    },
+    {
+      "path": "src/utils/localizacaoNativa.js",
+      "sha256": "eecec7fe47b773fb7f76976165df5b6d0a53440d6ad5201287dc204c4872b917"
+    },
+    {
+      "path": "src/utils/pagamentoEspecial.js",
+      "sha256": "1db7705a1d08441dbc675e0b37e68260e75e05a61d2af769f077bfae67333e24"
+    },
+    {
+      "path": "src/utils/pontoOperacao.js",
+      "sha256": "567aebec3f9dff45c041956ad5d48a3e6ec4b31ddebae8320ce000a55bc58e89"
+    },
+    {
+      "path": "src/utils/pushAndroid.js",
+      "sha256": "109b850f1fa820c4043d06a49cfb4acd0babaa0a7135423dc62d85afe7f74084"
+    },
+    {
+      "path": "src/utils/roles.js",
+      "sha256": "b02db97e5a1f6fc5b1e3b5b581cf45eaf3ac8c5897a67527963f396811eb4488"
+    },
+    {
+      "path": "src/utils/rotas.js",
+      "sha256": "2e7a13c1c47174b258dc11f054ec496dbfe0ba6b21e66eacbfd211e10d01a8c0"
+    },
+    {
+      "path": "src/utils/scannerQr.js",
+      "sha256": "9e7eb87472736ff09460f8d2a96b5ff74defa1aa9f49eac485ddba46fa7713f4"
+    },
+    {
+      "path": "src/utils/time.js",
+      "sha256": "b24f02a7e1c53185b1061a9c8d3505a8aea021e8ed3fb43d850b29513cafaa73"
+    },
+    {
+      "path": "src/utils/useDialogFocus.js",
+      "sha256": "1b3d4001631c8d2044522f039c4449661408f94e12e79e5586ca4b52377fe2a8"
+    },
+    {
+      "path": "tests/admin-consulta.test.js",
+      "sha256": "d244988af394347ec14e51664c1032ea53549c05c19bff5875e22d460da9658e"
+    },
+    {
+      "path": "tests/android-release-validacao.test.js",
+      "sha256": "bfc37b83b2898d55724f9691fc8f2ffce55ecc45b9e2fcaa1159eda194254062"
+    },
+    {
+      "path": "tests/auth-perfil-carregando.test.js",
+      "sha256": "c2649e1f8f46062f546bc741d73a07bae808eb1b317548a7db233a1914abe953"
+    },
+    {
+      "path": "tests/cadastro-callable-emulador.test.js",
+      "sha256": "e20593e2e030c438618b6213d5627caaec70f773e41dfa703dd75a30bbbc70bb"
+    },
+    {
+      "path": "tests/cadastro-titular.test.js",
+      "sha256": "ade202810bc913307c5c1830e91f0b9625f35b039daf5ef7f890f233f936a1ba"
+    },
+    {
+      "path": "tests/ciclo-conta.test.js",
+      "sha256": "df7ea04b61a0e245a30ea2dd96d18c358ebc3055e97732c00b03d0bfbb83f822"
+    },
+    {
+      "path": "tests/compras-api.test.js",
+      "sha256": "f4cc3a1b040a64d13d14a06f0024fad269ccfe09d7d257e8a2bb193b2ef8935a"
+    },
+    {
+      "path": "tests/compras-associacoes-emulador.test.cjs",
+      "sha256": "d8a00fdfe5d264425286d6b19d0032f67755d1eedf3b8d9091e59cac503441db"
+    },
+    {
+      "path": "tests/compras-colaboracao.test.js",
+      "sha256": "7d965e7c4a22ddf61b785d8ee64887cde4653d6fc0440b565cda56cccbd639d7"
+    },
+    {
+      "path": "tests/compras-consulta.test.js",
+      "sha256": "119c3523b0e74c9e25c35c3a264c688e9ddb9205ce93bb2444f6a2e6de319218"
+    },
+    {
+      "path": "tests/compras-dominio.test.js",
+      "sha256": "76899f67a5ba7d85abd849e034d7af8a7e16087ac77c1355fe5829ff2592ae2c"
+    },
+    {
+      "path": "tests/compras-emulador.test.cjs",
+      "sha256": "57ea462763abbd3b2a338b39eb5897161444e2a5867f37adf9360a746dec26d2"
+    },
+    {
+      "path": "tests/compras-estimativa-emulador.test.cjs",
+      "sha256": "4c81875a935b65d8b94db07236db23b600d8e8e1f7d1edc737d94d1971138c97"
+    },
+    {
+      "path": "tests/compras-estimativa.test.js",
+      "sha256": "5cb0321572d1c5aa06d49b0e08f82a5c09a12b433d0a44b3bb4fb84ce902bb3f"
+    },
+    {
+      "path": "tests/compras-farmacia-emulador.test.cjs",
+      "sha256": "7b19a9f64919bc17aa0b09ca3bb45f4b357fce6bfd2a13a4acc2e4656dd4de66"
+    },
+    {
+      "path": "tests/compras-farmacia.test.js",
+      "sha256": "d1fad8e8a7eea625dd1f668a6c2467c4c0a0dc14a04920179ee7ae5e2d90ba7f"
+    },
+    {
+      "path": "tests/compras-icone.test.cjs",
+      "sha256": "2c18d505472e46e0dc643c09895dc484126a46bc32437e320bc2b5b3cdacbe88"
+    },
+    {
+      "path": "tests/compras.test.js",
+      "sha256": "fd787e2320298a16c762307a77d1a3e3f86b9b32599d75a86dbfa998069df2c4"
+    },
+    {
+      "path": "tests/comprovantes.test.js",
+      "sha256": "21897c4f0822fb2c91e4ad9ec8a85a92f71799bfa808202b00d61cee457a21ea"
+    },
+    {
+      "path": "tests/conta-callable.test.js",
+      "sha256": "fc65783af2b2a2512d37d3d2254c3a7d7004b5f45c7a1c540bd6225018af669e"
+    },
+    {
+      "path": "tests/conta-client.test.cjs",
+      "sha256": "dfc6630092b80d1b8b9a466d06a79ff26019384feef7ef864ef5388b12dfd630"
+    },
+    {
+      "path": "tests/conta-emulador.test.cjs",
+      "sha256": "dc257f7811719eb4fabb915fc1bbc57e089d3c8051198806fdda9a2b78e89bbc"
+    },
+    {
+      "path": "tests/conta-exclusao-emulador.test.cjs",
+      "sha256": "f5f27185756f7b4c332044926b167842e3a607dc9fb40d4c6d914f3e4b458648"
+    },
+    {
+      "path": "tests/conta-exclusao-http.test.js",
+      "sha256": "3e975cf84db143fdf164d977f7fac389bfa375e43a6c081a29f5b672d1737ee2"
+    },
+    {
+      "path": "tests/conta-exclusao-local.test.js",
+      "sha256": "61efa094cc3df21f0aa7cef53dc613db5803269919a515db1519c4446ea9d951"
+    },
+    {
+      "path": "tests/cupom-consulta.test.cjs",
+      "sha256": "eaf1314ddd25f59fcf5dd263ed28f38e597ef7bf4bc02ace4ce20045bb97f944"
+    },
+    {
+      "path": "tests/cupom-imagem.test.js",
+      "sha256": "7119f7407732fe06c63a114dd9cef290ae95d5b5fa2708f85e1e601d73a59fb2"
+    },
+    {
+      "path": "tests/cupom.test.js",
+      "sha256": "35c278d7754cf253537a0a63bdaf1be5e3168d19bcb7c5da1cc0171817bf773a"
+    },
+    {
+      "path": "tests/feriados.test.js",
+      "sha256": "b6830bd4d0b1eadc64997cca02b3038dc6b2c93aae4b5f51808547243123d307"
+    },
+    {
+      "path": "tests/fixtures/cupom-pa.cjs",
+      "sha256": "cfcda2a4f43aa7ec0a1ae9e4f6173016abc37c293db1717fc06ae0f9296d7514"
+    },
+    {
+      "path": "tests/folha-calculos.test.js",
+      "sha256": "306fb5c2cd4153e50b07dc3909d79c7412c3a3c1a4900a677e809192bf7fe6d6"
+    },
+    {
+      "path": "tests/folha-emulador.test.cjs",
+      "sha256": "9324fee26bf3acb6efe14f229918a8c18ef6d1f9c0be4f308413f5bbdeed8426"
+    },
+    {
+      "path": "tests/grupos-emulador.test.cjs",
+      "sha256": "cfe146992bc1571a40f29affcd2f24336a54780cb05777e92a1483fe05206108"
+    },
+    {
+      "path": "tests/grupos-migracao-emulador.test.cjs",
+      "sha256": "2ed0adcf5c10456d60f5a6e0d911dc6e5ecbad089b3277ab92fd79994935665e"
+    },
+    {
+      "path": "tests/lembretes-cuidados-emulador.test.cjs",
+      "sha256": "6779c47603a9e28807361d348b4c1fc264a365da7ef896d5ae41f21cb2fdee1f"
+    },
+    {
+      "path": "tests/lembretes-emulador.test.cjs",
+      "sha256": "c1fe3796f3502da437dcfd3597942841ade44ad32798433ce43a4cf4a9d7cb29"
+    },
+    {
+      "path": "tests/lembretes-escala.test.js",
+      "sha256": "ae6a864b803fe8d3f728e33746384ff58d5e63720c45f2ab24fd3e537b1883dd"
+    },
+    {
+      "path": "tests/lembretes-link.test.cjs",
+      "sha256": "aaa424dda8211a8369653ced0817b49230c239ed4a6e6d0fb218c7ed3ef6755d"
+    },
+    {
+      "path": "tests/lembretes-sequencia.test.js",
+      "sha256": "cbe9c5527c27492bf0c2843160495457fcc7a3eb31fe43cc94741e69cdb07149"
+    },
+    {
+      "path": "tests/lembretes.test.cjs",
+      "sha256": "18c647a0334bcc8e49e6a316a4dab3f3d0197f81dbe04b298fdce845b5ac0364"
+    },
+    {
+      "path": "tests/localizacao-nativa.test.js",
+      "sha256": "065c86457509bafbc4c29f6d4d1a2b3123de8a2f9602be672b073911a6bbb062"
+    },
+    {
+      "path": "tests/localizacao.test.js",
+      "sha256": "ae5e51afcfdfba71f3debe940a0c79c177ecbd9eb8e3c11e24724115e5a08ee1"
+    },
+    {
+      "path": "tests/mobile-base.test.js",
+      "sha256": "85f4a7296d91d599cdc85988af49ece941df8192c401dfcbd563d07abed144f8"
+    },
+    {
+      "path": "tests/mobile-webguards.test.cjs",
+      "sha256": "c941dd6467e708a81d8b2fe3b0291e8280df54f01838fe89e8b1f8d61af26224"
+    },
+    {
+      "path": "tests/no-bolso-bridge.test.cjs",
+      "sha256": "0ab49bd92a6894865391f712f4f0f3f60da6d75d65edac484dd5149723cce6f4"
+    },
+    {
+      "path": "tests/no-bolso-consulta-callable.test.js",
+      "sha256": "a23b8ff9afde626e53e1408eb5847cdf96b13f1aa9e95e3bd1e2143757784df1"
+    },
+    {
+      "path": "tests/no-bolso-consulta.test.cjs",
+      "sha256": "d96ee9fcad05d4576fcc99511f9a9c745b7d0bef25ee52a3bf3997b199765c8d"
+    },
+    {
+      "path": "tests/notificacao-lembrete.test.cjs",
+      "sha256": "b56633e34fe21c9ce642e372263b8420ab2a97fc14d95f4c143daaa9212e5b69"
+    },
+    {
+      "path": "tests/pdf-arquivos.test.js",
+      "sha256": "87a0d03bbbff471ddb469af774e6587fb015a55e87ca516bef8cb475b678f3cc"
+    },
+    {
+      "path": "tests/ponto-fila.test.js",
+      "sha256": "ecb7a4f3819ae8035c3ebe3f46d8ac265803a9cf2675c8956d01857420503de0"
+    },
+    {
+      "path": "tests/ponto-operacoes-emulador.test.cjs",
+      "sha256": "3ce38b3a0561a300532aa08960a571c985012c4e110785564ea0af60f1ced9b4"
+    },
+    {
+      "path": "tests/ponto-revisao-client.test.cjs",
+      "sha256": "6f32af530deb3122a0719e24c42289ec2d3fbac1d0505951d42f6586f73245c3"
+    },
+    {
+      "path": "tests/ponto-revisao-emulador.test.cjs",
+      "sha256": "183bd8ae324fca3f9b4a4b638001cd53427df32ea29032f6185a61cb9ff3ad0a"
+    },
+    {
+      "path": "tests/ponto-revisao-http.test.js",
+      "sha256": "934adb17b5f6eace466e29535ede808676922fdf3127589a2c4b3bd7759178ea"
+    },
+    {
+      "path": "tests/ponto-revisao-local.test.js",
+      "sha256": "983ad92eb8e4c61582b11b8c1a8c4fe3bc640e245423734076eb66f5cd86c022"
+    },
+    {
+      "path": "tests/ponto-shell.test.cjs",
+      "sha256": "c7ec54c24c86526a87d6be1de6c5d1af0fce709b4d67478d87376e7d4a366139"
+    },
+    {
+      "path": "tests/ponto.test.js",
+      "sha256": "b41ead234c9fd976c74fc9a17efdd3400417a39c4959420119deef93b43b04fb"
+    },
+    {
+      "path": "tests/pratos-emulador.test.cjs",
+      "sha256": "74a1615dd2e45603c63f94027bf80e825a385ac03d9256d54061fd0ecb80edfe"
+    },
+    {
+      "path": "tests/pratos.test.cjs",
+      "sha256": "0145db8c66fff46c219e22e532912d73bde063472d7e50a90c45eff60afde0a7"
+    },
+    {
+      "path": "tests/produtos-identidade.test.js",
+      "sha256": "abe9b9c189a7457a42d55d75e5291845951aa127ec053df309753cbec36b973d"
+    },
+    {
+      "path": "tests/push-android-callable.test.js",
+      "sha256": "59175b21916a8a4baaa8ae4101f3eaacafee8ecd616645b8133188ce612be01f"
+    },
+    {
+      "path": "tests/push-android-emulador.test.cjs",
+      "sha256": "8852c4daaeea44bd3dde6af22035c23d4ef65af3f807be52260ff710caa8c0eb"
+    },
+    {
+      "path": "tests/push-android.test.js",
+      "sha256": "2086fb96be02f104429aea98cb221565523042331a107810de8881b287d2b1c7"
+    },
+    {
+      "path": "tests/push-contrato.test.cjs",
+      "sha256": "f3f041a480829d8d97277fed368d61f4b2e475c6e21300d509d073e6710281a2"
+    },
+    {
+      "path": "tests/push-lifecycle.test.js",
+      "sha256": "c5acd479ce05e057d299f1e30f713952791981068d67c2d70444f193c84b3450"
+    },
+    {
+      "path": "tests/push-worker.test.js",
+      "sha256": "276ded6319b9f5869200e55473c3d8fa1a26038792f0a11f18a521984f360366"
+    },
+    {
+      "path": "tests/receita-imagem.test.cjs",
+      "sha256": "b2ef9f95b30b7fc8f2d274ef4ff9078deb3dc3b6ff7d681424e98ee88a83bf23"
+    },
+    {
+      "path": "tests/roles.test.js",
+      "sha256": "eb431cd20cc77e8ee8a352290bde1d2e74d1e94c6c172f5be646be7297928c4a"
+    },
+    {
+      "path": "tests/scanner-qr.test.js",
+      "sha256": "f093a3014c4cb8df832384d96f81208fa3eea65c82adbc220bd2d10ca4b27e55"
+    },
+    {
+      "path": "tests/tres-frentes-emulador.test.cjs",
+      "sha256": "5a98f12e09bcad890c29ff1368905e6145fda4f01a5616d92305257f1533ac61"
+    },
+    {
+      "path": "vite.config.js",
+      "sha256": "e2e09e9467d1cb7ba7078ef28ebca9ca26c21d9fe47a3337b4351940e0a43961"
+    }
+  ]
+}

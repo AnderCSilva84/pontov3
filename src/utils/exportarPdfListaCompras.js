@@ -14,7 +14,7 @@ export async function carregarLogo() {
   return logoPromise;
 }
 
-export async function gerarPdfListaCompras(lista, { titulo = 'Lista de compras', logoData, data = new Date(), estimativa, baseEstimativa = 'ultimo', estimativaIndisponivel = false } = {}) {
+export async function gerarPdfListaCompras(lista, { titulo = 'Lista de compras', tipoCompra = 'supermercado', logoData, data = new Date(), estimativa, baseEstimativa = 'ultimo', estimativaIndisponivel = false } = {}) {
   const itens = itensPendentesParaCompartilhar(lista);
   const logo = logoData || await carregarLogo();
   const pdf = new jsPDF();
@@ -22,7 +22,7 @@ export async function gerarPdfListaCompras(lista, { titulo = 'Lista de compras',
     pdf.setFillColor(...AZUL); pdf.rect(0, 0, 210, 46, 'F');
     pdf.addImage(logo, 'PNG', 12, 7, 30, 30, 'ap1303', 'FAST');
     pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(19);
-    pdf.text('Lista de compras', 49, 18);
+    pdf.text(tipoCompra==='farmacia'?'Compras de farmácia':'Compras de supermercado', 49, 18);
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10);
     pdf.text(pdf.splitTextToSize(String(titulo).trim(), 145).slice(0, 2), 49, 26);
     pdf.setFontSize(8); pdf.text(`Itens pendentes - ${data.toLocaleString('pt-BR')}`, 49, 40);

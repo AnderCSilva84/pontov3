@@ -1,6 +1,8 @@
+const {nomeProduto}=require('./compras-produto.cjs');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { createHash } = require('node:crypto');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
+const {tipoCompra,validarTipoCompra}=require('./compras-tipo.cjs');
 const { lerTextoNota, chaveAlias, normalizar } = require('./cupom-dominio.cjs');
 const erro = (codigo, mensagem) => { throw new HttpsError(codigo, mensagem); };
 const idValido = valor => typeof valor === 'string' && /^[\w-]{1,128}$/.test(valor);
@@ -17,11 +19,12 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
     try { notaConsultada = await consultar(dados.link); }
     catch { erro('unavailable', 'A consulta automática da SEFA não retornou uma nota completa. Tente novamente ou use o texto da nota. Nenhuma compra foi criada.'); }
   }
+  const identidade=await import('./produtos-identidade.mjs');
   return db.runTransaction(async tx => {
     const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
     if (perfil?.ativo === false || perfil?.role !== 'admin') erro('permission-denied', 'Somente o administrador pode importar uma compra.');
     if (dados.operacao === 'cupomPreparar') {
-      let destino = null, planejados = [];
+      let destino = null, planejados = [],tipo=validarTipoCompra(dados.tipoCompra);
       if (dados.listaDestinoId !== undefined) {
         if (!idValido(dados.listaDestinoId)) erro('invalid-argument', 'Lista de destino inválida.');
         const lista = (await tx.get(db.doc(`comprasListas/${dados.listaDestinoId}`))).data();
@@ -30,6 +33,7 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
         if (snap.size > 200) erro('failed-precondition', 'A lista ultrapassa o limite de 200 itens.');
         planejados = snap.docs.map(d => ({ ...d.data(), id: d.id }));
         destino = { id: dados.listaDestinoId, titulo: lista.titulo, versao: lista.versao };
+        tipo=validarTipoCompra(tipoCompra(lista));
       }
       let nota;
       try { nota = notaConsultada || lerTextoNota(dados.link, dados.texto); } catch (e) { erro('invalid-argument', e.message); }
@@ -42,19 +46,17 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
           ? { ...item, unidadeConferir: false, unidadeReconhecida: true }
           : item;
       });
-      const ids = [...new Set([...aliases.map(a => a.data()?.produtoId), ...planejados.map(i => i.produtoId)].filter(idValido))];
+      const mapa=(await tx.get(db.doc('comprasAssociacoes/estado'))).data()||{vinculos:{}};
+      const ids = [...new Set([...aliases.map(a => mapa.vinculos?.[a.data()?.produtoId]||a.data()?.produtoId), ...planejados.map(i => i.produtoId)].filter(idValido))];
       const produtos = ids.length ? await tx.getAll(...ids.map(id => db.doc(`catalogoCompras/${id}`))) : [];
       const sugestoes = nota.itens.map((i, index) => {
-        let produto = produtos.find(p => p.id === aliases[index].data()?.produtoId && p.exists && p.data().ativo !== false && p.data().unidadeCompra === i.unidadeCompra);
-        if (!produto) {
-          const exatos = planejados.filter(p => normalizar(p.nomeSnapshot) === normalizar(i.nomeOriginal) && p.unidadeCompra === i.unidadeCompra);
-          if (exatos.length === 1) produto = produtos.find(p => p.id === exatos[0].produtoId && p.exists && p.data().ativo !== false && p.data().unidadeCompra === i.unidadeCompra);
-        }
+        let produto = produtos.find(p => p.id === (mapa.vinculos?.[aliases[index].data()?.produtoId]||aliases[index].data()?.produtoId) && p.exists && p.data().ativo !== false && p.data().unidadeCompra === i.unidadeCompra);
+        if(produto&&identidade.conflitosProdutos(i,produto.data()).length)produto=null;
         const correspondencias = produto ? planejados.filter(p => p.produtoId === produto.id && p.unidadeCompra === i.unidadeCompra) : [];
-        return { ...i, marca: correspondencias.length === 1 ? correspondencias[0].marca || '' : '', itemPlanejadoId: correspondencias.length === 1 ? correspondencias[0].id : '', ...(produto ? { produtoId: produto.id, nome: produto.data().nome, categoriaId: produto.data().categoriaId, apresentacao: produto.data().apresentacao, reconhecido: true, origemReconhecimento: aliases[index].data()?.produtoId === produto.id ? 'importacao' : 'lista' } : { nome: i.nomeOriginal.slice(0, 120), categoriaId: '', apresentacao: '', reconhecido: false }) };
+        return { ...i, marca: correspondencias.length === 1 ? correspondencias[0].marca || '' : '', itemPlanejadoId: correspondencias.length === 1 ? correspondencias[0].id : '', ...(produto ? { produtoId: produto.id, nome: produto.data().nome, categoriaId: produto.data().categoriaId, apresentacao: produto.data().apresentacao, reconhecido: true, origemReconhecimento: 'importacao' } : { nome: i.nomeOriginal.slice(0, 120), categoriaId: '', apresentacao: '', reconhecido: false }) };
       });
       const ref = db.collection('comprasCuponsRascunhos').doc();
-      tx.create(ref, { uid, nota, ...(destino ? { listaDestinoId: destino.id, listaDestinoVersao: destino.versao } : {}), expiraEm: Timestamp.fromMillis(Date.now() + 86400000), criadaEm: FieldValue.serverTimestamp() });
+      tx.create(ref, { uid, nota, tipoCompra:tipo, ...(destino ? { listaDestinoId: destino.id, listaDestinoVersao: destino.versao } : {}), expiraEm: Timestamp.fromMillis(Date.now() + 86400000), criadaEm: FieldValue.serverTimestamp() });
       return { rascunhoId: ref.id, nota: { ...nota, itens: sugestoes }, origemDados: notaConsultada ? 'consulta_sefa' : 'texto_conferido', ...(destino ? { destino: { ...destino, itens: planejados.map(i => ({ id: i.id, produtoId: i.produtoId, nome: i.nomeSnapshot, marca: i.marca || '', unidadeCompra: i.unidadeCompra, quantidadePlanejada: i.quantidadePlanejada, estado: i.estado })) } } : {}) };
     }
     if (dados.operacao !== 'cupomConfirmar' || !idValido(dados.rascunhoId)) erro('invalid-argument', 'Importação inválida.');
@@ -85,17 +87,14 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
       if (!item || ['comprado', 'comprado_sem_preco'].includes(item.estado) || aceitos.some(i => i.itemPlanejadoId === id)) erro('failed-precondition', 'Só é possível retirar itens desta lista que não foram comprados nem associados à nota.');
     }
     const titulo = dados.titulo === undefined ? (listaAnterior?.titulo || `Cupom · ${nota.emitente}`.slice(0, 120)) : campo(dados.titulo, 120, 'Informe um nome para a lista, com até 120 caracteres.');
-    let nomeAutoria = listaAnterior?.criadaPorNome;
-    if (!nomeAutoria) {
-      const criador = listaAnterior?.criadaPor && listaAnterior.criadaPor !== uid ? (idValido(listaAnterior.criadaPor) ? (await tx.get(db.doc(`users/${listaAnterior.criadaPor}`))).data() : null) : perfil;
-      nomeAutoria = String(criador?.nome || criador?.name || 'Nome não disponível').slice(0, 120);
-    }
+    const nomeAutoria = listaAnterior ? (listaAnterior.criadaPorNome||'') : String(perfil.nome||perfil.name||'').slice(0,120);
     if (!idValido(dados.supermercadoId)) erro('invalid-argument', 'Escolha o supermercado do cupom.');
     const mercado = (await tx.get(db.doc(`supermercados/${dados.supermercadoId}`))).data();
     if (!mercado || mercado.ativo === false) erro('invalid-argument', 'Supermercado indisponível.');
     const catalogo = new Map(), categorias = new Map(), planos = [], aliasesConfirmados = new Map();
     // Todas as leituras antecedem as escritas, incluindo produtos/categorias repetidos.
     for (const escolha of aceitos) {
+      if(dados.versaoIdentidade===1&&!escolha.produtoId&&!escolha.itemPlanejadoId&&escolha.novoConfirmado!==true)erro('invalid-argument','Escolha associar ou cadastrar como novo para cada produto.');
       const original = nota.itens[escolha.linha - 1], alias = chaveAlias(nota.cnpj, original);
       if (original.unidadeConferir && escolha.unidadeConfirmada !== true) erro('invalid-argument', `Confirme a unidade comercial ${original.unidadeOriginal} da linha ${original.linha} antes de importar.`);
       const planejado = escolha.itemPlanejadoId ? planejados.find(p => p.id === escolha.itemPlanejadoId) : null;
@@ -107,7 +106,8 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
       const atual = catalogo.get(produtoId);
       if ((escolha.produtoId || planejado) && !atual) erro('invalid-argument', 'Produto do catálogo não encontrado.');
       if (atual && (atual.ativo === false || atual.unidadeCompra !== original.unidadeCompra)) erro('invalid-argument', 'A unidade do produto selecionado não corresponde à nota.');
-      const produto = atual || { nome: campo(escolha.nome), apresentacao: campo(escolha.apresentacao), categoriaId: escolha.categoriaId, unidadeCompra: original.unidadeCompra, ativo: true };
+      if(atual&&identidade.conflitosProdutos(original,atual).length)erro('invalid-argument','Produto com peso, dose, embalagem ou unidade incompatível com a descrição fiscal.');
+      const produto = atual || { nome: nomeProduto(campo(escolha.nome)), apresentacao: campo(escolha.apresentacao), categoriaId: escolha.categoriaId, unidadeCompra: original.unidadeCompra, ativo: true };
       if (!idValido(produto.categoriaId)) erro('invalid-argument', 'Escolha a categoria de cada produto.');
       if (!categorias.has(produto.categoriaId)) categorias.set(produto.categoriaId, (await tx.get(db.doc(`categoriasCompras/${produto.categoriaId}`))).data());
       if (!categorias.get(produto.categoriaId) || categorias.get(produto.categoriaId).ativo === false) erro('invalid-argument', 'Categoria indisponível.');
@@ -117,8 +117,6 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
       const marca = escolha.marca === undefined ? (planejado?.marca || '') : (typeof escolha.marca === 'string' && escolha.marca.trim().length <= 80 ? escolha.marca.trim() : erro('invalid-argument', 'Informe uma marca com até 80 caracteres.'));
       planos.push({ escolha, original, alias, produtoId, produto, marca, novo: !atual, planejado });
     }
-    const autores = new Map();
-    for (const p of planos) { const autorId = p.planejado?.solicitadaPor; if (autorId && autorId !== uid && idValido(autorId) && !autores.has(autorId)) autores.set(autorId, (await tx.get(db.doc('users/' + autorId))).data()); }
     const associados = new Set(planos.map(p => p.planejado?.id).filter(Boolean));
     const naoEncontrados = planejados.filter(p => !associados.has(p.id) && !retirar.has(p.id));
     if (naoEncontrados.some(p => ['comprado', 'comprado_sem_preco'].includes(p.estado))) erro('failed-precondition', 'Há produtos já comprados fora desta nota. Associe-os corretamente ou importe o cupom em uma nova lista.');
@@ -127,7 +125,7 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
     const quando = Timestamp.fromDate(new Date(nota.emitidaEm)), agora = FieldValue.serverTimestamp();
     const supermercadoNome = `${mercado.nome} · ${mercado.filial} (${mercado.cidade})`;
     const totalImportado = planos.reduce((s, p) => s + p.original.totalCentavos, 0);
-    const cabecalho = { ...(listaAnterior || {}), titulo, origem: 'cupom', status: 'finalizada', criadaPor: listaAnterior?.criadaPor || uid, criadaPorNome: nomeAutoria, criadaEm: listaAnterior?.criadaEm || agora, atualizadaEm: agora, finalizadaPor: uid, finalizadaEm: quando, importadaEm: agora, quantidadeItens: planos.length + naoEncontrados.length, quantidadeComprados: planos.length, quantidadeItensCupom: nota.itens.length, quantidadeDescartados: nota.itens.length - planos.length, totalOriginalCentavos: nota.totalOriginalCentavos, descontoCentavos: nota.descontoCentavos, totalCentavos: nota.totalPagoCentavos, totalProdutosImportadosCentavos: totalImportado, totalProdutosDescartadosCentavos: nota.totalOriginalCentavos - totalImportado, cupomChave: nota.chave, emitenteCnpj: nota.cnpj, versao: (listaAnterior?.versao || 0) + 1, schemaVersion: 1, ...(rascunho.listaDestinoId ? { quantidadePlanejados: planejados.length, quantidadePlanejadosEncontrados: associados.size } : {}) };
+    const cabecalho = { ...(listaAnterior || {}), titulo, tipoCompra:validarTipoCompra(listaAnterior?tipoCompra(listaAnterior):tipoCompra(rascunho)), origem: 'cupom', status: 'finalizada', criadaPor: listaAnterior ? (listaAnterior.criadaPor || null) : uid, criadaPorNome: nomeAutoria, criadaEm: listaAnterior?.criadaEm || agora, atualizadaEm: agora, finalizadaPor: uid, finalizadaEm: quando, importadaEm: agora, quantidadeItens: planos.length + naoEncontrados.length, quantidadeComprados: planos.length, quantidadeItensCupom: nota.itens.length, quantidadeDescartados: nota.itens.length - planos.length, totalOriginalCentavos: nota.totalOriginalCentavos, descontoCentavos: nota.descontoCentavos, totalCentavos: nota.totalPagoCentavos, totalProdutosImportadosCentavos: totalImportado, totalProdutosDescartadosCentavos: nota.totalOriginalCentavos - totalImportado, cupomChave: nota.chave, emitenteCnpj: nota.cnpj, versao: (listaAnterior?.versao || 0) + 1, schemaVersion: 1, ...(rascunho.listaDestinoId ? { quantidadePlanejados: planejados.length, quantidadePlanejadosEncontrados: associados.size } : {}) };
     const criados = new Set(), usados = new Set();
     // Calcula todos os IDs antes de gravar para não sobrescrever uma pendência.
     for (const p of planos) {
@@ -139,9 +137,9 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
     for (const p of planos) {
       if (p.novo && !criados.has(p.produtoId)) { tx.create(db.doc(`catalogoCompras/${p.produtoId}`), { ...p.produto, categoria: categorias.get(p.produto.categoriaId).nome }); criados.add(p.produtoId); }
       const itemId = p.itemId, anterior = planejados.find(i => i.id === itemId);
-      const item = { produtoId: p.produtoId, nomeSnapshot: p.produto.nome, nomeOriginalFiscal: p.original.nomeOriginal, codigoFiscal: p.original.codigo, unidadeOriginalFiscal: p.original.unidadeOriginal, apresentacao: p.produto.apresentacao, categoriaId: p.produto.categoriaId, unidadeCompra: p.original.unidadeCompra, quantidadePlanejada: anterior?.quantidadePlanejada || p.original.quantidade, quantidadeComprada: p.original.quantidade, precoUnitarioCentavos: p.original.precoUnitarioCentavos, totalCentavos: p.original.totalCentavos, marca: p.marca, supermercadoId: dados.supermercadoId, supermercadoNome, compradoEm: quando, estado: 'comprado', solicitadaPor: anterior?.solicitadaPor || uid, solicitadaPorNome: anterior?.solicitadaPorNome || String((anterior?.solicitadaPor && anterior.solicitadaPor !== uid ? autores.get(anterior.solicitadaPor)?.nome : perfil.nome) || 'Autoria anterior não registrada'), adicionadaEm: anterior ? anterior.adicionadaEm || null : agora, versao: (anterior?.versao || 0) + 1, ...(p.planejado ? { itemPlanejadoId: p.planejado.id } : {}) };
+      const item = { aliasFiscal:p.alias, cupomChave:nota.chave, produtoId: p.produtoId, nomeSnapshot: nomeProduto(p.produto.nome), nomeOriginalFiscal: p.original.nomeOriginal, codigoFiscal: p.original.codigo, unidadeOriginalFiscal: p.original.unidadeOriginal, apresentacao: p.produto.apresentacao, categoriaId: p.produto.categoriaId, unidadeCompra: p.original.unidadeCompra, quantidadePlanejada: anterior?.quantidadePlanejada || p.original.quantidade, quantidadeComprada: p.original.quantidade, precoUnitarioCentavos: p.original.precoUnitarioCentavos, totalCentavos: p.original.totalCentavos, marca: p.marca, supermercadoId: dados.supermercadoId, supermercadoNome, compradoEm: quando, estado: 'comprado', solicitadaPor: anterior?.solicitadaPor || uid, solicitadaPorNome: anterior?.solicitadaPorNome || String((anterior?.solicitadaPor && anterior.solicitadaPor !== uid ? null : perfil.nome) || 'Autoria anterior não registrada'), adicionadaEm: anterior ? anterior.adicionadaEm || null : agora, versao: (anterior?.versao || 0) + 1, ...(p.planejado ? { itemPlanejadoId: p.planejado.id } : {}) };
       if (anterior) tx.set(listaRef.collection('itens').doc(itemId), item); else tx.create(listaRef.collection('itens').doc(itemId), item);
-      tx.create(db.doc(`comprasPrecos/${listaRef.id}_${itemId}`), { ...item, listaId: listaRef.id, itemId, finalizadaEm: agora, valido: true, origem: 'cupom', basePreco: 'original_nota' });
+      tx.create(db.doc(`comprasPrecos/${listaRef.id}_${itemId}`), { ...item, tipoCompra:cabecalho.tipoCompra, listaId: listaRef.id, itemId, finalizadaEm: agora, valido: true, origem: 'cupom', basePreco: 'original_nota' });
     }
     for (const item of naoEncontrados) tx.update(listaRef.collection('itens').doc(item.id), { estado: 'nao_comprado', versao: item.versao + 1 });
     for (const id of retirar) tx.delete(listaRef.collection('itens').doc(id));

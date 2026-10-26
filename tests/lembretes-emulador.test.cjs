@@ -11,8 +11,8 @@ test('lembretes: permissões, dose, agendamento e envio por destinatária', { sk
   const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
   const { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, terminate } = await import('firebase/firestore');
   const app = initializeApp({ projectId: process.env.GCLOUD_PROJECT, apiKey: 'demo-key' }, 'lembretes-teste');
-  const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
-  const client = getFirestore(app); connectFirestoreEmulator(client, '127.0.0.1', 8877);
+  const auth = getAuth(app); connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
+  const client = getFirestore(app); connectFirestoreEmulator(client, process.env.FIRESTORE_EMULATOR_HOST.split(':')[0], Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]));
   const uid = (await createUserWithEmailAndPassword(auth, 'cuidadora-lembretes@example.test', 'senha-teste-123')).user.uid;
   t.after(async () => { await signOut(auth); await terminate(client); await deleteApp(app); await admin.app().delete(); });
   await db.doc('users/lem-admin').set({ role: 'admin', ativo: true });

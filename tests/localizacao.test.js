@@ -4,12 +4,12 @@ import { obterPosicaoAtual } from "../src/utils/localizacao.js";
 
 test("GPS sem resposta termina e tenta localização por rede", async () => {
   const opcoes = [];
-  const coords = { latitude: -1.4, longitude: -48.4 };
+  const coords = { latitude: -1.4, longitude: -48.4, accuracy: 12 };
   const gps = { getCurrentPosition(ok, _erro, config) {
     opcoes.push(config);
-    if (!config.enableHighAccuracy) ok({ coords });
+    if (!config.enableHighAccuracy) ok({ coords, timestamp: 12345 });
   } };
-  assert.deepEqual(await obterPosicaoAtual(gps, 5), coords);
+  assert.deepEqual(await obterPosicaoAtual(gps, 5), {...coords, instanteMs: 12345});
   assert.deepEqual(opcoes.map(o => o.enableHighAccuracy), [true, false]);
   assert.ok(opcoes.every(o => o.maximumAge === 0));
 });

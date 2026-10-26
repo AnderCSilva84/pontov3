@@ -9,6 +9,9 @@ const falha = (code, message) => { throw new HttpsError(code, message); };
 async function operarLembretes(db, request, agora = Date.now()) {
   if (!request.auth?.uid) falha('unauthenticated', 'Entre no app.');
   const uid = request.auth.uid, d = request.data || {};
+  const auditoriaAcao = d.declaradaEmMs === undefined ? {} : { acaoDeclaradaEmMs: d.declaradaEmMs, acaoConfirmadaEm: FieldValue.serverTimestamp() };
+  if(d.declaradaEmMs !== undefined && (!Number.isSafeInteger(d.declaradaEmMs)||d.declaradaEmMs>agora+60000||d.declaradaEmMs<agora-86400000))falha('invalid-argument','Horário da ação inválido.');
+  if(d.operacao==='buscarImagemReceita')return require('./receita-imagem.cjs').operarImagem(db,request);
   if(['listarPratos','salvarPrato','arquivarPrato','obterPrato'].includes(d.operacao))return require('./pratos-dia.cjs').operarPratos(db,request);
   if (['listarCuidados', 'salvarCuidado'].includes(d.operacao)) return operarCuidados(db, request);
   return db.runTransaction(async tx => {
@@ -73,7 +76,7 @@ async function operarLembretes(db, request, agora = Date.now()) {
       const ultima = lembrete.ultimaOcorrencia;
       const devidoMs = lembrete.proximoDisparoEm?.toMillis();
       if (lembrete.ativo && Number.isFinite(devidoMs) && devidoMs <= agora && dataLocal(devidoMs) === dataLocal(agora) && d.ocorrenciaId === `${lembrete.versao}_${devidoMs}`) {
-        const registro = { id: d.ocorrenciaId, horarioMs: devidoMs, status: 'concluido', concluidaPor: uid, concluidaEmMs: agora };
+        const registro = { id: d.ocorrenciaId, horarioMs: devidoMs, status: 'concluido', concluidaPor: uid, concluidaEmMs: agora, ...auditoriaAcao };
         const proximoMs = proximoDisparo(lembrete, devidoMs);
         tx.set(db.doc(`lembretes/${d.id}/ocorrencias/${d.ocorrenciaId}`), { ...registro, usuarioId: lembrete.usuarioId, titulo: lembrete.titulo, tipo: lembrete.tipo, destinatarioCuidado: lembrete.destinatarioCuidado || '', nomeCuidado: lembrete.nomeCuidado || '', medicamento: lembrete.medicamento || '', posologia: lembrete.posologia || '' }, { merge: true });
         tx.update(ref, { ultimaOcorrencia: registro, proximoDisparoEm: proximoMs ? Timestamp.fromMillis(proximoMs) : null });
@@ -85,7 +88,7 @@ async function operarLembretes(db, request, agora = Date.now()) {
       if (!registro || registro.horarioMs > agora || ['cancelado', 'sem_acesso'].includes(registro.status)) falha('failed-precondition', 'Atualize a tela antes de registrar a realização.');
       if (registro.status === 'concluido') return { ok: true };
       if (ultima?.id === d.ocorrenciaId) tx.update(ref, { ultimaOcorrencia: { ...ultima, status: 'concluido', concluidaPor: uid, concluidaEmMs: agora } });
-      tx.set(registroRef, { status: 'concluido', concluidaPor: uid, concluidaEmMs: agora }, { merge: true });
+      tx.set(registroRef, { status: 'concluido', concluidaPor: uid, concluidaEmMs: agora, ...auditoriaAcao }, { merge: true });
       return { ok: true };
     }
     if (!admin) falha('permission-denied', 'Somente o administrador altera lembretes.');
@@ -191,6 +194,7 @@ function criarLembretes({ admin, enviar }) {
         if (cursor) consulta = consulta.startAfter(cursor);
         const grupos = await consulta.get();
         for (const grupo of grupos.docs) {
+          if (grupo.id === 'demo_play_ap1303_v1') continue; // Sem disparos no grupo de revisão.
           const db = bancoDoGrupo(raiz, grupo.id);
           const enviarGrupo = require('./push.cjs').criarPush({ admin, db, somenteEnvio: true });
           await processarLembretes(db, enviarGrupo, Date.now(), Date.now);

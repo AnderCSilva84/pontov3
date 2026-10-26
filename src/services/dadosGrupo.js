@@ -4,7 +4,10 @@ import { db } from './firebase';
 let grupoAtual = null;
 export function definirGrupoAtual(id) {
   if (id !== null && (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id))) throw new Error('Grupo inválido.');
-  grupoAtual = id;
+  if (grupoAtual !== id) {
+    grupoAtual = id;
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('ap1303-contexto-alterado'));
+  }
 }
 export function obterGrupoAtual() { return grupoAtual; }
 function argumentos(base, caminho) {

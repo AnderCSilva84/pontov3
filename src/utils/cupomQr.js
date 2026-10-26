@@ -1,6 +1,7 @@
 // URLs antigas são somente identificadores: nunca abrimos ou consultamos o HTTP legado.
 // A navegação e a importação usam sempre o endereço HTTPS atual da SEFA-PA.
 export function normalizarQrCupom(valor) {
+  if (typeof valor !== 'string' || valor.length > 1000) return null;
   try {
     const u = new URL(valor), oficiais = ['app.sefa.pa.gov.br', 'www.sefa.pa.gov.br', 'sefa.pa.gov.br', 'appnfc.sefa.pa.gov.br'];
     if (!['https:', 'http:'].includes(u.protocol) || !oficiais.includes(u.hostname) || u.port || u.username || u.password) return null;

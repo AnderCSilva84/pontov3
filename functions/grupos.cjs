@@ -12,7 +12,8 @@ async function criarGrupo(raiz, request) {
   const nome = texto(request.data?.nome, 120), nomeGrupo = texto(request.data?.nomeGrupo, 80);
   const grupoId = `g_${uid}`, grupoRef = raiz.doc(`grupos/${grupoId}`), vinculo = raiz.doc(`vinculosUsuarios/${uid}`);
   return raiz.runTransaction(async tx => {
-    const [v, antigo, grupo] = await tx.getAll(vinculo, raiz.doc(`users/${uid}`), grupoRef);
+    const [v, antigo, grupo, exclusao] = await tx.getAll(vinculo, raiz.doc(`users/${uid}`), grupoRef,raiz.doc('contaSolicitacoes/'+uid));
+    if(exclusao.data()?.etapa)falha('permission-denied','Conta em exclusão ou excluída.');
     if (v.exists) {
       if (v.data().grupoId === grupoId && grupo.data()?.titularUid === uid && grupo.data().ativo === true) return { grupoId, jaCriado: true };
       falha('failed-precondition', 'Esta conta já pertence a um grupo.');
@@ -36,6 +37,7 @@ async function criarMembro(raiz, auth, request) {
   const d = request.data || {}, nome = texto(d.nome, 120), email = texto(d.email, 254).toLowerCase();
   if (!['admin', 'funcionario', 'consulta'].includes(d.role) || typeof d.senha !== 'string' || d.senha.length < 8 || d.senha.length > 128 || !/^[a-f0-9-]{36}$/.test(d.chaveOperacao || '')) falha('invalid-argument', 'Confira o perfil e use uma senha com pelo menos 8 caracteres.');
   const uid = 'm_' + createHash('sha256').update(`${banco.grupoId}:${d.chaveOperacao}`).digest('hex').slice(0, 48);
+  if((await raiz.doc('contaSolicitacoes/'+uid).get()).data()?.etapa)falha('failed-precondition','Esta operação pertence a uma conta excluída. Inicie um novo cadastro.');
   const ref = banco.doc(`users/${uid}`), vinculo = raiz.doc(`vinculosUsuarios/${uid}`);
   const existente = (await ref.get()).data();
   if (existente) {
@@ -53,7 +55,8 @@ async function criarMembro(raiz, auth, request) {
   }
   try {
     await raiz.runTransaction(async tx => {
-      const [atual, grupo, ocupado] = await tx.getAll(banco.doc(`users/${ator}`), raiz.doc(`grupos/${banco.grupoId}`), vinculo);
+      const [atual, grupo, ocupado, exclusao] = await tx.getAll(banco.doc(`users/${ator}`), raiz.doc(`grupos/${banco.grupoId}`), vinculo,raiz.doc('contaSolicitacoes/'+uid));
+      if(exclusao.data()?.etapa)falha('permission-denied','Conta em exclusão ou excluída.');
       if (atual.data()?.role !== 'admin' || atual.data().ativo === false || grupo.data()?.ativo !== true || ocupado.exists) falha('permission-denied', 'Cadastro não autorizado neste grupo.');
       const agora = FieldValue.serverTimestamp(), funcionarioId = d.role === 'funcionario' ? uid : null;
       tx.create(vinculo, { grupoId: banco.grupoId, ativo: true, criadoEm: agora });

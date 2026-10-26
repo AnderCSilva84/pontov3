@@ -20,7 +20,12 @@ const bridge = () =>
   })
 exports.handleNoBolsoGrant = async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Entre no AP1303.')
-  const currentUser = await getAuth().getUser(request.auth.uid)
+  let currentUser
+  try { currentUser = await getAuth().getUser(request.auth.uid) }
+  catch (error) {
+    if (error.code === 'auth/user-not-found') throw new HttpsError('permission-denied', 'Entre novamente no AP1303 antes de vincular.')
+    throw new HttpsError('unavailable', 'Não foi possível conferir a conta.')
+  }
   if (
     currentUser.disabled ||
     !Number.isFinite(request.auth.token?.auth_time) ||

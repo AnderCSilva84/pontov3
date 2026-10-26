@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import "./styles/index.css";
 import App from './App.jsx'
 import './styles/redesign.css'
+import './styles/forms.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

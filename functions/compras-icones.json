@@ -1,41 +1,198 @@
 [
-  {"icone":"🥬","nome":"Hortifrúti"},
-  {"icone":"🥖","nome":"Padaria"},
-  {"icone":"🥩","nome":"Carnes"},
-  {"icone":"🧀","nome":"Frios"},
-  {"icone":"🌾","nome":"Grãos"},
-  {"icone":"🥤","nome":"Bebidas"},
-  {"icone":"🧹","nome":"Limpeza"},
-  {"icone":"🧴","nome":"Higiene"},
-  {"icone":"💊","nome":"Farmácia"},
-  {"icone":"🔨","nome":"Construção"},
-  {"icone":"📦","nome":"Caixa"},
-  {"icone":"🐾","nome":"Pet"},
-  {"icone":"❄️","nome":"Geladeira"},
-  {"icone":"🥫","nome":"Despensa"},
-  {"icone":"🌱","nome":"Jardinagem"},
-  {"icone":"🐈","nome":"Gato"},
-  {"icone":"🐕","nome":"Cachorro"},
-  {"icone":"🍎","nome":"Frutas"},
-  {"icone":"🥕","nome":"Legumes"},
-  {"icone":"🥚","nome":"Ovos"},
-  {"icone":"🥛","nome":"Leite"},
-  {"icone":"☕","nome":"Café"},
-  {"icone":"🍽️","nome":"Cozinha"},
-  {"icone":"🏠","nome":"Casa"},
-  {"icone":"🛁","nome":"Banheiro"},
-  {"icone":"🧺","nome":"Lavanderia"},
-  {"icone":"🌷","nome":"Flores"},
-  {"icone":"💡","nome":"Elétrica"},
-  {"icone":"🛠️","nome":"Ferramentas"},
-  {"icone":"🧸","nome":"Brinquedos"},
-  {"icone":"👕","nome":"Roupas"},
-  {"icone":"🛒","nome":"Compras"},
-  {"icone":"🔧","nome":"Oficina"},
-  {"icone":"🚗","nome":"Carro"},
-  {"icone":"🏍️","nome":"Moto"},
-  {"icone":"⛽","nome":"Combustível"},
-  {"icone":"🛞","nome":"Pneus"},
-  {"icone":"🔋","nome":"Bateria"},
-  {"icone":"🚲","nome":"Bicicleta"}
+  {
+    "icone": "🥬",
+    "nome": "Hortifrúti"
+  },
+  {
+    "icone": "🥖",
+    "nome": "Padaria"
+  },
+  {
+    "icone": "🥩",
+    "nome": "Carnes"
+  },
+  {
+    "icone": "🧀",
+    "nome": "Frios"
+  },
+  {
+    "icone": "🌾",
+    "nome": "Grãos"
+  },
+  {
+    "icone": "🥤",
+    "nome": "Bebidas"
+  },
+  {
+    "icone": "🧹",
+    "nome": "Limpeza"
+  },
+  {
+    "icone": "🧴",
+    "nome": "Higiene"
+  },
+  {
+    "icone": "💊",
+    "nome": "Farmácia"
+  },
+  {
+    "icone": "🔨",
+    "nome": "Construção"
+  },
+  {
+    "icone": "📦",
+    "nome": "Caixa"
+  },
+  {
+    "icone": "🐾",
+    "nome": "Pet"
+  },
+  {
+    "icone": "❄️",
+    "nome": "Geladeira"
+  },
+  {
+    "icone": "🥫",
+    "nome": "Despensa"
+  },
+  {
+    "icone": "🌱",
+    "nome": "Jardinagem"
+  },
+  {
+    "icone": "🐈",
+    "nome": "Gato"
+  },
+  {
+    "icone": "🐕",
+    "nome": "Cachorro"
+  },
+  {
+    "icone": "🍎",
+    "nome": "Frutas"
+  },
+  {
+    "icone": "🥕",
+    "nome": "Legumes"
+  },
+  {
+    "icone": "🥚",
+    "nome": "Ovos"
+  },
+  {
+    "icone": "🥛",
+    "nome": "Leite"
+  },
+  {
+    "icone": "☕",
+    "nome": "Café"
+  },
+  {
+    "icone": "🍽️",
+    "nome": "Cozinha"
+  },
+  {
+    "icone": "🏠",
+    "nome": "Casa"
+  },
+  {
+    "icone": "🛁",
+    "nome": "Banheiro"
+  },
+  {
+    "icone": "🧺",
+    "nome": "Lavanderia"
+  },
+  {
+    "icone": "🌷",
+    "nome": "Flores"
+  },
+  {
+    "icone": "💡",
+    "nome": "Elétrica"
+  },
+  {
+    "icone": "🛠️",
+    "nome": "Ferramentas"
+  },
+  {
+    "icone": "🧸",
+    "nome": "Brinquedos"
+  },
+  {
+    "icone": "👕",
+    "nome": "Roupas"
+  },
+  {
+    "icone": "🛒",
+    "nome": "Compras"
+  },
+  {
+    "icone": "🔧",
+    "nome": "Oficina"
+  },
+  {
+    "icone": "🚗",
+    "nome": "Carro"
+  },
+  {
+    "icone": "🏍️",
+    "nome": "Moto"
+  },
+  {
+    "icone": "⛽",
+    "nome": "Combustível"
+  },
+  {
+    "icone": "🛞",
+    "nome": "Pneus"
+  },
+  {
+    "icone": "🔋",
+    "nome": "Bateria"
+  },
+  {
+    "icone": "🚲",
+    "nome": "Bicicleta"
+  },
+  {
+    "icone": "🐟",
+    "nome": "Peixaria"
+  },
+  {
+    "icone": "🦐",
+    "nome": "Frutos do mar"
+  },
+  {
+    "icone": "🥡",
+    "nome": "Descartáveis"
+  },
+  {
+    "icone": "🥢",
+    "nome": "Talheres descartáveis"
+  },
+  {
+    "icone": "🧻",
+    "nome": "Papel e guardanapos"
+  },
+  {
+    "icone": "🗑️",
+    "nome": "Sacos de lixo"
+  },
+  {
+    "icone": "🧊",
+    "nome": "Congelados"
+  },
+  {
+    "icone": "🍰",
+    "nome": "Confeitaria"
+  },
+  {
+    "icone": "🍼",
+    "nome": "Bebê"
+  },
+  {
+    "icone": "🩹",
+    "nome": "Primeiros socorros"
+  }
 ]

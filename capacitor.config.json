@@ -1,0 +1,13 @@
+{
+  "appId": "br.dev.acstech.ap1303.dev",
+  "appName": "AP1303",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "loggingBehavior": "none",
+    "appendUserAgent": "AP1303 (+https://ponto.acstech.dev.br)"
+  }
+}

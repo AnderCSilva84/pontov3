@@ -8,8 +8,8 @@ const bundle = await build({
   bundle: true, write: false, format: 'cjs', platform: 'browser',
   define: { 'import.meta.env.VITE_FIREBASE_VAPID_KEY': '"test-public-key"' },
   plugins: [{ name: 'fake-firebase', setup(builder) {
-    builder.onResolve({ filter: /^(firebase\/messaging|firebase\/functions|\.\/firebase)$/ }, (args) => ({ path: args.path, namespace: 'fake' }));
-    builder.onLoad({ filter: /.*/, namespace: 'fake' }, (args) => ({ contents: args.path === './firebase'
+    builder.onResolve({ filter: /^(firebase\/messaging|firebase\/functions|\.\/firebase|\.\/dadosGrupo)$/ }, (args) => ({ path: args.path, namespace: 'fake' }));
+    builder.onLoad({ filter: /.*/, namespace: 'fake' }, (args) => ({ contents: args.path === './dadosGrupo'?'export const obterGrupoAtual = () => null;':args.path === './firebase'
       ? 'export const app = {}, functions = {}, firebaseConfig = {}; export const auth = globalThis.__mocks.auth;'
       : args.path === 'firebase/functions'
         ? 'export const httpsCallable = (_, name) => data => globalThis.__mocks.backend(name, data);'
@@ -27,7 +27,7 @@ function carregar(permission = 'granted') {
   const module = { exports: {} };
   const context = { module, exports: module.exports, setTimeout, clearTimeout, console, Notification,
     window: { isSecureContext: true, Notification },
-    navigator: { serviceWorker: { register: async () => registro, ready: Promise.resolve(registro), getRegistration: async () => registro } },
+    navigator: { onLine:true, serviceWorker: { register: async () => registro, ready: Promise.resolve(registro), getRegistration: async () => registro } },
     localStorage: { getItem: (key) => armazenamento.get(key) ?? null, setItem: (key, value) => armazenamento.set(key, value), removeItem: (key) => armazenamento.delete(key) },
     __mocks: { auth: { currentUser: { uid: 'alice' } }, backend: async (name, data) => { chamadas.push({ name, data }); } },
   };
@@ -69,4 +69,7 @@ test('login pede a permissão inicial uma vez e falha ou recusa não rejeita o f
   const falha = carregar('default');
   falha.Notification.requestPermission = () => { throw new Error('Not supported'); };
   await assert.doesNotReject(() => falha.api.solicitarPermissaoPushNoLogin());
+});
+test('exclusão confirmada no PWA revoga inscrição local sem chamar backend novamente',async()=>{
+ const app=carregar();await app.api.registrarPush('alice',false);const antes=app.chamadas.length;await app.api.suspenderPushLocal({remoto:false});assert.equal(app.chamadas.length,antes);assert.deepEqual(app.revoked,['unsubscribe','unregister']);
 });

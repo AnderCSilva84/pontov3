@@ -1,4 +1,5 @@
 import { Icon } from './ui';
+import {cuidadosDisponiveis} from '../utils/edicaoBuild';
 import { normalizeRole, ROLE_ADMIN, ROLE_FUNCIONARIO, canConsultSystem } from "../utils/roles";
 
 export default function BottomNav({ activePath, onNavigate, user }) {
@@ -58,7 +59,7 @@ export default function BottomNav({ activePath, onNavigate, user }) {
 
   const role = normalizeRole(user?.role);
   if (role === ROLE_FUNCIONARIO && user?.grupoId) tabs.push({ path: '/meus-comprovantes', label: 'Comprovantes' });
-  if (role === ROLE_ADMIN || role === ROLE_FUNCIONARIO) {
+  if (cuidadosDisponiveis && (role === ROLE_ADMIN || role === ROLE_FUNCIONARIO)) {
     tabs.splice(3, 0, { path: '/lembretes', label: 'Lembretes', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8" /><path d="M10 21h4" /></svg> });
   }
   const tabsVisiveis = role === ROLE_FUNCIONARIO

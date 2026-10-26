@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomBytes,randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
+import process from 'node:process';
+import {initializeApp,deleteApp} from 'firebase/app';
+import {getAuth,connectAuthEmulator,signInWithEmailAndPassword,signOut} from 'firebase/auth';
+import {getFunctions,connectFunctionsEmulator,httpsCallable} from 'firebase/functions';
+import {getFirestore,connectFirestoreEmulator,doc,getDoc,setDoc,terminate} from 'firebase/firestore';
+const require=createRequire(import.meta.url);
+test('provisionador nao acessa producao sem autorizacao explicita',async()=>{
+ const {prepararDemo}=require('../scripts/preparar-demo-play.cjs');
+ await assert.rejects(prepararDemo({options:{projectId:'ponto-app-1c55a'},firestore(){throw Error('Nao pode acessar dados');}},{}),/nao autorizado/);
+ await assert.rejects(prepararDemo({options:{projectId:'outro-projeto'},firestore(){throw Error('Nao pode acessar dados');}},{},{permitirProducao:true}),/nao autorizado/);
+});
+test('demo HTTP: isolamento, replay, perfis e ausência de registros reais',{skip:process.env.AP1303_TEST_DEMO!=='1'},async()=>{
+ assert.equal(process.env.GCLOUD_PROJECT,'demo-ap1303-review');
+ const admin=require('../functions/node_modules/firebase-admin');const server=admin.initializeApp({projectId:process.env.GCLOUD_PROJECT}),db=server.firestore();
+ const {prepararDemo}=require('../scripts/preparar-demo-play.cjs');const {GRUPO_DEMO}=require('../functions/demonstracao.cjs');
+ const segredos=Object.fromEntries(['admin','funcionario'].map(role=>[role,{email:`ap1303-review-${role}@example.test`,senha:randomBytes(24).toString('base64url')}]));
+ const seed=await prepararDemo(server,segredos);await prepararDemo(server,segredos);
+ const app=initializeApp({projectId:process.env.GCLOUD_PROJECT,apiKey:'demo-key'},'review'),auth=getAuth(app),f=getFunctions(app),client=getFirestore(app);
+ connectAuthEmulator(auth,'http://127.0.0.1:9104',{disableWarnings:true});connectFunctionsEmulator(f,'127.0.0.1',5014);connectFirestoreEmulator(client,'127.0.0.1',8894);
+ const call=httpsCallable(f,'demonstracaoOperacao');
+ try{
+  await assert.rejects(call({acao:'consultar'}),e=>e.code==='functions/unauthenticated');
+  await signInWithEmailAndPassword(auth,segredos.funcionario.email,segredos.funcionario.senha);
+  const operacaoId=randomUUID(),primeira=(await call({acao:'avancar',operacaoId})).data;assert.equal(primeira.registros.length,1);
+  assert.deepEqual((await call({acao:'avancar',operacaoId})).data,primeira);
+  for(let i=0;i<3;i++)await call({acao:'avancar',operacaoId:randomUUID()});
+  await assert.rejects(call({acao:'avancar',operacaoId:randomUUID()}),e=>e.code==='functions/failed-precondition');
+  assert.equal((await getDoc(doc(client,`grupos/${GRUPO_DEMO}/tarefas/revisao`))).exists(),true);
+  assert.equal((await getDoc(doc(client,`grupos/${GRUPO_DEMO}/comprasListas/demo_aberta`))).data().status,'rascunho');
+  assert.equal((await getDoc(doc(client,`grupos/${GRUPO_DEMO}/catalogoCompras/demo_arroz`))).exists(),true);
+  await assert.rejects(setDoc(doc(client,`grupos/${GRUPO_DEMO}/demonstracaoPonto/${seed.contas.funcionario}`),{registros:[]}),e=>e.code==='permission-denied');
+  await signOut(auth);await signInWithEmailAndPassword(auth,segredos.admin.email,segredos.admin.senha);
+  assert.equal((await call({acao:'consultar'})).data.registros.length,4);
+  await prepararDemo(server,segredos);
+  assert.equal((await call({acao:'consultar'})).data.registros.length,4);
+  await assert.rejects(call({acao:'avancar',operacaoId:randomUUID()}),e=>e.code==='functions/permission-denied');
+  const lembretes=httpsCallable(f,'lembretesOperacao');assert.equal((await lembretes({operacao:'listar',visao:'cuidados'})).data.lembretes.length,1);
+  const enviar=require('../functions/push.cjs').criarPush({admin,db:{grupoId:GRUPO_DEMO,collection(){throw Error('Não deve consultar destinatários');}},somenteEnvio:true});assert.equal(await enviar('DEMO','teste','/',randomUUID()),0);
+  const estranho=await server.auth().createUser({email:'outro-review@example.test',password:randomBytes(24).toString('base64url')});
+  await assert.rejects(require('../functions/demonstracao.cjs').operarDemonstracao(db,{auth:{uid:estranho.uid,token:{}},data:{acao:'consultar'}}),{code:'permission-denied'});
+  await assert.rejects(require('../functions/demonstracao.cjs').operarDemonstracao(db,{auth:{uid:estranho.uid,token:{ap1303DemoGrupo:GRUPO_DEMO}},data:{acao:'consultar'}}),{code:'permission-denied'});
+  await db.doc('grupos/outro_ficticio').set({ativo:true});await db.doc('grupos/outro_ficticio/tarefas/privada').set({titulo:'Restrita'});
+  await assert.rejects(getDoc(doc(client,'grupos/outro_ficticio/tarefas/privada')),e=>e.code==='permission-denied');
+  for(const c of ['registros','dias','folhas','pontoOperacoes','pushDispositivos'])assert.equal((await db.collection(`grupos/${GRUPO_DEMO}/${c}`).get()).size,0);
+  assert.equal((await db.collection(`grupos/${GRUPO_DEMO}/demonstracaoPonto`).get()).size,1);
+ }finally{await signOut(auth);await terminate(client);await deleteApp(app);await server.delete();}
+});

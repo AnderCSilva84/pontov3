@@ -1,0 +1,26 @@
+{
+  "dataReferenciaUsuario": "2026-10-24",
+  "estado": "APK demo para teste interno local; submissão bloqueada",
+  "head": "aabad8a5d08a634d0d4a3f82c997cbeb314bf952",
+  "branch": "feat/ponto-operacoes-offline",
+  "fonteFingerprint": "ddf9e8c6a1bf982e7a6ea291818a30053e71b71c6ceeca3c23fbb71b2d7eb98c",
+  "apk": {
+    "path": "android/app/build/outputs/apk/debug/app-debug.apk",
+    "bytes": 10324249,
+    "sha256": "2371ce888de72e647246e809164c40c45c3a96e9d2d393c5b910c6b191cf27ad",
+    "package": "br.dev.acstech.ap1303.dev",
+    "versionCode": 1,
+    "versionName": "0.1.0-dev",
+    "assinatura": "Android Debug, conferida separadamente por apksigner",
+    "ambiente": {
+      "versao": 1,
+      "destino": "teste",
+      "projectId": "ap1303-android-push-teste",
+      "host": "127.0.0.1",
+      "emuladores": true
+    }
+  },
+  "aabGerado": false,
+  "chaveDefinitivaGerada": false,
+  "publicado": false
+}

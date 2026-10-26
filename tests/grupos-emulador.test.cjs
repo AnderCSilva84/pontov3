@@ -8,7 +8,7 @@ test('grupos: identidades independentes, dados isolados e permissões no cliente
  const {getAuth,connectAuthEmulator,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut}=await import('firebase/auth');
  const {getFirestore,connectFirestoreEmulator,doc,collection,getDoc,getDocs,setDoc,updateDoc,query,where,terminate}=await import('firebase/firestore');
  const app=initializeApp({projectId:process.env.GCLOUD_PROJECT,apiKey:'demo-key'},'grupos-cliente'),auth=getAuth(app),client=getFirestore(app);
- connectAuthEmulator(auth,'http://127.0.0.1:9098',{disableWarnings:true});connectFirestoreEmulator(client,'127.0.0.1',8877);
+ connectAuthEmulator(auth,`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`,{disableWarnings:true});connectFirestoreEmulator(client,process.env.FIRESTORE_EMULATOR_HOST.split(':')[0],Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]));
  t.after(async()=>{await signOut(auth);await terminate(client);await deleteApp(app);await admin.app().delete();});
  const senha='Ficticia-123456';
  const a=(await createUserWithEmailAndPassword(auth,'titular-a@example.test',senha)).user.uid;

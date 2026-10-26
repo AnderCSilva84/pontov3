@@ -11,10 +11,11 @@ export function recortesQr(largura, altura) {
 }
 
 export async function lerImagemQr(imagem) {
+  if (!Number.isFinite(imagem?.width) || !Number.isFinite(imagem?.height) || imagem.width < 1 || imagem.height < 1 || imagem.width * imagem.height > 40000000) throw new Error('Imagem inválida ou grande demais para ler localmente.');
   const [{ default: jsQR }, { BrowserQRCodeReader }] = await Promise.all([import('jsqr'), import('@zxing/browser')]);
   const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
   const leitor = new BrowserQRCodeReader();
-  for (const r of recortesQr(imagem.width, imagem.height)) {
+  try { for (const r of recortesQr(imagem.width, imagem.height)) {
     const escala = Math.min(1, 2400 / Math.max(r.largura, r.altura));
     canvas.width = Math.max(1, Math.round(r.largura * escala));
     canvas.height = Math.max(1, Math.round(r.altura * escala));
@@ -26,4 +27,5 @@ export async function lerImagemQr(imagem) {
     await new Promise(resolve => setTimeout(resolve, 0));
   }
   return null;
+  } finally { canvas.width = 0; canvas.height = 0; }
 }

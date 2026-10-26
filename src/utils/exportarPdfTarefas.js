@@ -1,3 +1,4 @@
+import { entregarPdf, pdfAndroid, registrarPdf, validarPdf } from '../services/pdfArquivos';
 import { collection } from '../services/dadosGrupo';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -72,6 +73,7 @@ async function buscarTarefas() {
 }
 
 export async function exportarPdfTarefas(tarefas) {
+  const sessaoPdf = registrarPdf({});
   const lista = Array.isArray(tarefas) ? tarefas : await buscarTarefas();
   const ordenadas = ordenarTarefas(lista);
 
@@ -104,6 +106,8 @@ export async function exportarPdfTarefas(tarefas) {
     ]),
   });
 
-  pdf.save("Tarefas.pdf");
+  validarPdf(sessaoPdf);
+  if (pdfAndroid()) await entregarPdf(registrarPdf(new File([pdf.output('blob')], 'Tarefas.pdf', { type: 'application/pdf' })), 'escolher');
+  else pdf.save("Tarefas.pdf");
 }
 

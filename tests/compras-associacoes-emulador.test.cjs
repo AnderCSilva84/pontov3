@@ -1,0 +1,35 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+test('associações: quatro preços, reversão, correção isolada, concorrência e grupos',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);process.env.GCLOUD_PROJECT+='-associacoes';process.env.FIREBASE_CONFIG=JSON.stringify({projectId:process.env.GCLOUD_PROJECT});
+ const admin=require('../functions/node_modules/firebase-admin'),api=require('../functions/index.js'),db=admin.firestore();t.after(()=>admin.app().delete());
+ for(const[u,g,role]of [['adm','a','admin'],['func','a','funcionario'],['outro','b','admin']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+u).set({grupoId:g,ativo:true});await db.doc(`grupos/${g}/users/${u}`).set({role,ativo:true,nome:u});}
+ const base='grupos/a/',cat=db.collection(base+'catalogoCompras'),precos=db.collection(base+'comprasPrecos');
+ const nomes=['Leite integral fictício 1 L','LEITE INTEG FICTICIO 1000ML','Leite integral ficticio 1 litro','Leite integral fictício 1000 ml'];
+ for(let i=1;i<=5;i++)await cat.doc('p'+i).set({nome:nomes[i-1]||'Leite fictício alternativa',marca:'Marca Demo',apresentacao:i%2?'Garrafa de 1 L':'Garrafa de 1000 ml',unidadeCompra:'un',categoriaId:'mercearia',ativo:true});
+ for(let i=1;i<=4;i++)await precos.doc('r'+i).set({produtoId:'p'+i,nomeSnapshot:nomes[i-1],nomeOriginalFiscal:nomes[i-1],apresentacao:i%2?'Garrafa de 1 L':'Garrafa de 1000 ml',marca:'Marca Demo',unidadeCompra:'un',supermercadoId:'loja',supermercadoNome:'Loja Demo',listaId:'lista'+i,itemId:'item'+i,quantidadeComprada:1,precoUnitarioCentavos:500+i,compradoEm:admin.firestore.Timestamp.fromMillis(Date.now()-i*1000),valido:true});
+ const originais=await precos.get(),op=(operacao,dados={},uid='adm')=>api.comprasOperacao.run({auth:{uid},data:{operacao,...dados}}),consulta=()=>api.comprasRelatorio.run({auth:{uid:'adm'},data:{inicioMs:Date.now()-86400000,fimMs:Date.now()+10000}});
+ await assert.rejects(op('mesclaPrevia',{produtoIds:['p1','p2'],principalId:'p1'},'func'),{code:'permission-denied'});
+ await assert.rejects(op('mesclaPrevia',{produtoIds:['p1','p2'],principalId:'p1'},'outro'),{code:'not-found'});
+ const previa=await op('mesclaPrevia',{produtoIds:['p1','p2','p3','p4'],principalId:'p1'});assert.equal(previa.amostra.length,4);assert.equal(previa.conflitos.length,0);
+ const pedido={operacaoId:randomUUID(),produtoIds:previa.produtoIds,principalId:'p1',versao:previa.versao,confirmado:true};await op('mesclarProdutos',pedido);await op('mesclarProdutos',pedido);
+ let rel=await consulta();assert.equal(rel.registros.length,4);assert.equal(new Set(rel.registros.map(r=>r.produtoId)).size,1);assert.equal(new Set(rel.registros.map(r=>r.id)).size,4);
+ const {chaveProdutoPreco}=await import('../src/utils/comprasAnalise.js');assert.equal(new Set(rel.registros.map(chaveProdutoPreco)).size,1);
+ for(const d of originais.docs)assert.deepEqual((await d.ref.get()).data(),d.data());
+ const undo={operacaoId:randomUUID(),mesclaId:pedido.operacaoId,versao:1,confirmado:true};await op('desfazerMescla',undo);await op('desfazerMescla',undo);rel=await consulta();assert.equal(new Set(rel.registros.map(r=>r.produtoId)).size,4);
+ await op('corrigirItemProduto',{operacaoId:randomUUID(),versao:2,precoId:'r1',produtoId:'p5',confirmado:true,justificativa:'Correção fictícia somente desta observação'});
+ rel=await consulta();assert.equal(rel.registros.find(r=>r.id==='r1').produtoId,'p5');assert.equal(rel.registros.find(r=>r.id==='r2').produtoId,'p2');assert.equal((await precos.doc('r1').get()).data().produtoId,'p1');
+ const v=rel.associacoesVersao,concorrentes=await Promise.allSettled(['p1','p2'].map(principalId=>op('mesclarProdutos',{...pedido,principalId,operacaoId:randomUUID(),versao:v})));assert.equal(concorrentes.filter(r=>r.status==='fulfilled').length,1);assert.equal(concorrentes.find(r=>r.status==='rejected').reason.code,'aborted');
+ await cat.doc('incompativel').set({nome:'Leite 500 ml',marca:'Marca diferente',apresentacao:'Garrafa de 500 ml',unidadeCompra:'un',ativo:true});
+ const map=(await db.doc(base+'comprasAssociacoes/estado').get()).data();await assert.rejects(op('mesclarProdutos',{operacaoId:randomUUID(),produtoIds:['p5','incompativel'],principalId:'p5',versao:map.versao,confirmado:true}),{code:'failed-precondition'});
+ await assert.rejects(op('mesclarProdutos',{operacaoId:randomUUID(),produtoIds:['p5'],principalId:'p5',versao:map.versao,confirmado:true}),{code:'invalid-argument'});
+ await op('aliasCatalogo',{operacaoId:randomUUID(),produtoId:'p5',descricao:'LEIT DEMO ALTERNATIVA',unidadeCompra:'un',confirmado:true});assert.ok((await cat.doc('p5').get()).data().aliasesNomes.includes('LEIT DEMO ALTERNATIVA'));
+ const fiscal=require('./fixtures/cupom-pa.cjs')('000000081');fiscal.texto=fiscal.texto.replaceAll('PRODUTO A 500ML','LEITE INTEGRAL FICTICIO 1L');
+ const {lerTextoNota,chaveAlias}=require('../functions/cupom-dominio.cjs');const nota=lerTextoNota(fiscal.link,fiscal.texto),alias=chaveAlias(nota.cnpj,nota.itens[0]);
+ await precos.doc('r2').update({aliasFiscal:alias,origem:'cupom',nomeOriginalFiscal:nota.itens[0].nomeOriginal});
+ await db.doc(base+'comprasListas/lista2').set({emitenteCnpj:nota.cnpj});
+ const versaoAlias=(await db.doc(base+'comprasAssociacoes/estado').get()).data().versao;
+ await op('corrigirAliasProduto',{operacaoId:randomUUID(),versao:versaoAlias,precoId:'r2',produtoId:'p5',confirmado:true,justificativa:'Corrigir somente futuras entradas fictícias'});
+ const nova=await op('cupomPreparar',{link:fiscal.link,texto:fiscal.texto});assert.equal(nova.nota.itens[0].produtoId,'p5');assert.equal(nova.nota.itens[0].reconhecido,true);
+ assert.equal((await precos.doc('r2').get()).data().produtoId,'p2');
+ const audit=await op('mesclasListar');assert.ok(audit.itens.some(r=>r.desfeitaPor==='adm'));assert.equal((await precos.get()).size,4);
+});

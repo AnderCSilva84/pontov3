@@ -1,0 +1,17 @@
+{
+  "nomePublico": "AP1303",
+  "applicationId": "br.dev.acstech.ap1303",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "versionCodeDisponivel": false,
+  "firebaseProjectId": "",
+  "suporteUrl": "",
+  "privacidadeUrl": "",
+  "exclusaoUrl": "",
+  "recuperacaoUrl": "",
+  "identidadeAprovada": true,
+  "privacidadeAprovada": false,
+  "assinaturaAprovada": false,
+  "backendAndroidValidado": false,
+  "acessoRevisaoValidado": false
+}

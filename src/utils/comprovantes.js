@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 const mesValido = (valor) => typeof valor === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(valor);
 
 function mesDoCadastro(item) {
@@ -45,6 +46,7 @@ export function destinosCompartilhamento(titulo, url) {
 }
 
 export async function compartilharPdfNativo(arquivo, navegador = navigator) {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') { const { entregarPdf } = await import('../services/pdfArquivos'); return entregarPdf(arquivo, 'compartilhar'); }
   if (!arquivo || !navegador.share || !navegador.canShare?.({ files: [arquivo] })) return false;
   await navegador.share({ files: [arquivo], title: arquivo.name });
   return true;

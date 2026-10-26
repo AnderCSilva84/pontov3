@@ -1,23 +1,27 @@
+import useResumoPonto from '../components/useResumoPonto';
+import PontoAjuste from '../components/PontoAjuste';
 import RelogioPonto from '../components/RelogioPonto';
+import usePontoOperacoes from '../components/usePontoOperacoes';
+import PontoOperacoes from '../components/PontoOperacoes';
+import PontoRevisao from '../components/PontoRevisao';
+import {criarOperacaoPonto} from '../utils/pontoOperacao';
+import {EM_ABERTO} from '../services/pontoFila';
+import {dataOperacional, agoraNoFusoPonto} from '../utils/dataPonto';
 import PratosDia from '../components/PratosDia';
 import { collection, doc } from '../services/dadosGrupo';
-import { BrandMark, Badge, Icon, ConnectionStatus } from '../components/ui';
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { BrandMark, AccountButton, SessionIdentity, Badge, Icon, ConnectionStatus } from '../components/ui';
+import { useState, useEffect, useMemo, useRef } from "react";
 import { login, logout } from "../services/auth";
 import {
-  carregarDiaAtual,
   carregarDiaPorData,
-  registrarAcao,
   getProximaAcao,
-  calcularBancoHorasMes,
-  buscarDiasPorPeriodo,
 } from "../services/ponto";
 import { getDoc, onSnapshot, query, where, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import PontoResumo from "../components/PontoResumo";
 import ResumoTarefas from "../components/ResumoTarefas";
-import logoAp1303 from "../assets/ap1303.jpeg";
+
 import { canAccessPonto, normalizeRole } from "../utils/roles";
 import { obterPosicaoAtual } from "../utils/localizacao";
 import { nomeFeriado } from "../utils/feriados";
@@ -43,10 +47,7 @@ function dataAgendadaEhFolga(dataIso) {
   return data.getDay() === 0 || Boolean(nomeFeriado(data));
 }
 
-function mesAtualISO() {
-  const hoje = new Date();
-  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
-}
+
 
 function dataKeyDeDate(data) {
   const ano = data.getFullYear();
@@ -62,34 +63,8 @@ function formatarDataBr(dataIso) {
   return `${dia}/${mes}/${ano}`;
 }
 
-function getDataKeysSemanaAtual() {
-  const hoje = new Date();
-  const diaSemana = hoje.getDay();
 
-  if (diaSemana === 0) return [];
 
-  const segunda = new Date(hoje);
-  segunda.setHours(0, 0, 0, 0);
-  segunda.setDate(hoje.getDate() - (diaSemana - 1));
-
-  const datas = [];
-  for (let i = 0; i < 6; i += 1) {
-    const data = new Date(segunda);
-    data.setDate(segunda.getDate() + i);
-    datas.push(dataKeyDeDate(data));
-  }
-
-  return datas;
-}
-function calcularPeriodo(mes) {
-  const [ano, mesNumero] = mes.split("-");
-  const ultimoDia = new Date(ano, mesNumero, 0).getDate();
-
-  return {
-    dataInicio: `${mes}-01`,
-    dataFim: `${mes}-${String(ultimoDia).padStart(2, "0")}`,
-  };
-}
 
 function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
   if (!mes) return 0;
@@ -116,7 +91,7 @@ function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
 }
 
 function getDiaSemanaAtualKey() {
-  return DIAS_ORDEM[new Date().getDay()];
+  return DIAS_ORDEM[agoraNoFusoPonto().getDay()];
 }
 
 function formatarHoraJornada(hora) {
@@ -181,7 +156,7 @@ function horaParaMinutosSeguro(hora) {
 }
 
 function minutosDesdeMeiaNoiteAgora() {
-  const agora = new Date();
+  const agora = agoraNoFusoPonto();
   return agora.getHours() * 60 + agora.getMinutes();
 }
 
@@ -191,7 +166,7 @@ function calcularHorasDiaParcial(dia, desconsiderarIntervalo = false, intervaloP
   const entrada = horaParaMinutosSeguro(dia.entrada);
   if (entrada === null) return 0;
 
-  const hojeEhSabado = new Date().getDay() === 6;
+  const hojeEhSabado = agoraNoFusoPonto().getDay() === 6;
   const saida = horaParaMinutosSeguro(dia?.saida);
   const saidaIntervalo = horaParaMinutosSeguro(dia?.saidaIntervalo);
   const entradaIntervalo = horaParaMinutosSeguro(dia?.entradaIntervalo);
@@ -227,56 +202,7 @@ function calcularHorasDiaParcial(dia, desconsiderarIntervalo = false, intervaloP
   return Math.max(0, minutosDesdeMeiaNoiteAgora() - entrada);
 }
 
-function toNumeroMinutos(valor) {
-  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
-  if (typeof valor === "string") {
-    const limpo = valor.trim().replace(",", ".");
-    const direto = Number(limpo);
-    if (!Number.isNaN(direto)) return direto;
 
-    const hhmm = limpo.match(/^(-?\d{1,3}):(\d{2})$/);
-    if (hhmm) {
-      const sinal = hhmm[1].startsWith("-") ? -1 : 1;
-      const horas = Math.abs(Number(hhmm[1]));
-      const minutos = Number(hhmm[2]);
-      return sinal * (horas * 60 + minutos);
-    }
-
-    const match = limpo.match(/(-?\d+)h\s*(\d{1,2})min/i);
-    if (match) {
-      const sinal = match[1].startsWith("-") ? -1 : 1;
-      const horas = Math.abs(Number(match[1]));
-      const minutos = Number(match[2]);
-      return sinal * (horas * 60 + minutos);
-    }
-
-    const minutosTexto = limpo.match(/(-?\d+)\s*min(?:utos?)?/i);
-    if (minutosTexto) return Number(minutosTexto[1]);
-  }
-
-  if (valor && typeof valor === "object") {
-    const campos = [
-      "saldoMin",
-      "saldo_min",
-      "saldo",
-      "bancoHoras",
-      "totalSaldo",
-      "saldoBanco",
-      "saldoBancoMin",
-      "minutos",
-      "valor",
-    ];
-
-    for (const campo of campos) {
-      if (Object.prototype.hasOwnProperty.call(valor, campo)) {
-        const v = valor[campo];
-        if (v !== undefined && v !== null && v !== "") return toNumeroMinutos(v);
-      }
-    }
-  }
-
-  return 0;
-}
 
 function formatMinutos(min) {
   const valorSeguro = Number.isFinite(min) ? min : 0;
@@ -318,19 +244,18 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [erroLogin, setErroLogin] = useState("");
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [dia, setDia] = useState(null);
+  const [jornadaConhecida,setJornadaConhecida]=useState('');
+  const filaPonto=usePontoOperacoes(user);
   const [mensagem, setMensagem] = useState("");
+  const [ajusteLocalizacao,setAjusteLocalizacao]=useState(null);
   const [loading, setLoading] = useState(false);
   const [escala, setEscala] = useState(null);
-  const [bancoHoras, setBancoHoras] = useState(0);
-  const [horasPendentesAnterior, setHorasPendentesAnterior] = useState(0);
-  const [resumoMes, setResumoMes] = useState({ metaMin: 0, trabalhadoMin: 0 });
   const [diaSelecionadoSemana, setDiaSelecionadoSemana] = useState(null);
   const [logDiaSelecionado, setLogDiaSelecionado] = useState(null);
   const [loadingLogDia, setLoadingLogDia] = useState(false);
   const [carregandoDia, setCarregandoDia] = useState(true), [erroDia,setErroDia] = useState('');
   const [tickTempoReal, setTickTempoReal] = useState(0);
   const [validandoLocalizacao, setValidandoLocalizacao] = useState(false);
-  const [diasSemana, setDiasSemana] = useState([]);
   const [cargaSegSexMin, setCargaSegSexMin] = useState(480);
   const [cargaSabadoMin, setCargaSabadoMin] = useState(0);
   const [bancoHorasInicio, setBancoHorasInicio] = useState("");
@@ -363,66 +288,22 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
       setFuncionarioConsulta(atual => porId.has(atual) ? atual : opcoes[0]?.id || '');
     }, () => setMensagem('Não foi possível consultar as funcionárias.'));
   }, [administrador, podeAcessarPonto]);
-  const dataHojeExibicao = new Date().toLocaleDateString("pt-BR", {
+  const dataHojeExibicao = agoraNoFusoPonto().toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "2-digit",
     month: "long",
   });
-  const dataHojeKey = dataKeyDeDate(new Date());
+  const dataHojeKey = dataOperacional();
 
-  const carregarBancoHorasAtual = useCallback(async () => {
-    if (!funcionarioId) return;
-
-    try {
-      const mesAtual = mesAtualISO();
-      const total = await calcularBancoHorasMes(funcionarioId, mesAtual, bancoHorasInicio);
-      setBancoHoras(toNumeroMinutos(total));
-      const [ano, mes] = mesAtual.split("-").map(Number);
-      const anterior = new Date(ano, mes - 2, 1);
-      const mesAnterior = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, "0")}`;
-      const saldoAnterior = await calcularBancoHorasMes(funcionarioId, mesAnterior, bancoHorasInicio);
-      setHorasPendentesAnterior(Math.max(0, -toNumeroMinutos(saldoAnterior)));
-    } catch (error) {
-      console.error("[PONTO][ERRO] Falha ao carregar banco de horas mensal:", error);
-      setBancoHoras(0);
-      setHorasPendentesAnterior(0);
-    }
-  }, [funcionarioId, bancoHorasInicio]);
-
-  
-  useEffect(() => {
-    async function carregarResumoMes() {
-      if (!funcionarioId) return;
-
-      const mes = mesAtualISO();
-      const { dataInicio, dataFim } = calcularPeriodo(mes);
-      const cargaSegSexBase = Number.isFinite(cargaSegSexMin) ? cargaSegSexMin : 480;
-      const cargaSabadoBase = Number.isFinite(cargaSabadoMin) ? cargaSabadoMin : 0;
-      const metaMin = calcularCargaMensalPrevista(mes, cargaSegSexBase, cargaSabadoBase);
-      const limiteDataKey = dataKeyDeDate(new Date());
-
-      try {
-        const registros = await buscarDiasPorPeriodo(funcionarioId, dataInicio, dataFim);
-        const trabalhadoMin = registros.reduce((acc, dia) => {
-          if (!dia?.dataKey) return acc;
-          if (dia.dataKey > limiteDataKey) return acc;
-          const total = Number(dia.totalMin);
-          return acc + (Number.isFinite(total) ? total : 0);
-        }, 0);
-        setResumoMes({ metaMin, trabalhadoMin });
-      } catch (error) {
-        console.error("[PONTO][ERRO] Falha ao carregar resumo mensal:", error);
-        setResumoMes({ metaMin, trabalhadoMin: 0 });
-      }
-    }
-
-    carregarResumoMes();
-  }, [funcionarioId, cargaSegSexMin, cargaSabadoMin, dia?.dataKey]);
+  const cadastroResumo=useMemo(()=>({escala,cargaSegSexMin,cargaSabadoMin,desconsiderarIntervalo,intervaloPrevistoMin}),[escala,cargaSegSexMin,cargaSabadoMin,desconsiderarIntervalo,intervaloPrevistoMin]);
+  const {bancoHoras,horasPendentesAnterior,diasSemana,trabalhadoMin,erro:erroResumo}=useResumoPonto({funcionarioId,hoje:dataHojeKey,dia,jornadaCarregada:!carregandoDia&&!erroDia,funcionario:cadastroResumo,inicioContagem:bancoHorasInicio});
+  const resumoMes={metaMin:calcularCargaMensalPrevista(dataHojeKey.slice(0,7),cargaSegSexMin,cargaSabadoMin),trabalhadoMin};
 
   useEffect(() => {
-    setCarregandoDia(Boolean(funcionarioId)); setErroDia(''); setDia(null);
+    setCarregandoDia(Boolean(funcionarioId)); setErroDia(''); setDia(null); setJornadaConhecida('');
     if (!funcionarioId) return;
-    return onSnapshot(query(collection(db, 'dias'), where('funcionarioId', '==', funcionarioId), where('dataKey', '==', dataHojeKey)), snapshot => {
+    return onSnapshot(query(collection(db, 'dias'), where('funcionarioId', '==', funcionarioId), where('dataKey', '==', dataHojeKey)), {includeMetadataChanges:true}, snapshot => {
+      if(!snapshot.metadata.fromCache)setJornadaConhecida(dataHojeKey);
       setDia(snapshot.docs[0]?.data() || null); setCarregandoDia(false);
     }, () => { setErroDia('Não foi possível carregar a jornada. Atualize a página.'); setCarregandoDia(false); });
   }, [funcionarioId, dataHojeKey]);
@@ -456,9 +337,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     return () => { ativo = false; };
   }, [funcionarioId]);
 
-  useEffect(() => {
-    carregarBancoHorasAtual();
-  }, [carregarBancoHorasAtual, dia?.dataKey]);
+
 
   useEffect(() => {
     if (!funcionarioId) {
@@ -472,13 +351,13 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         const pendentes = [], concluidas = [];
         const diaAtual = getDiaSemanaAtualKey();
         const indiceHoje = getIndiceDiaSemana(diaAtual);
-        const hojeEhFeriado = Boolean(nomeFeriado(new Date()));
+        const hojeEhFeriado = Boolean(nomeFeriado(agoraNoFusoPonto()));
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() || {};
           const dataAgendada = data.dataAgendada || "";
           if (dataAgendadaEhFolga(dataAgendada)) return;
           if (!dataAgendada && hojeEhFeriado) return;
-          const hojeDataKey = dataKeyDeDate(new Date());
+          const hojeDataKey = dataKeyDeDate(agoraNoFusoPonto());
           if (dataAgendada && dataAgendada > hojeDataKey) return;
           const diaTarefa = normalizarDiaSemana(data.diaSemana);
           const indiceTarefa = getIndiceDiaSemana(diaTarefa);
@@ -523,7 +402,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
   useEffect(() => {
     if (!funcionarioId) return undefined;
-    const diaHoje = new Date().getDay();
+    const diaHoje = agoraNoFusoPonto().getDay();
     return onSnapshot(collection(db, "tarefasSemanais"), (snapshot) => {
       const fixas = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
@@ -535,7 +414,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
   useEffect(() => {
     if (!funcionarioId) return undefined;
-    const hojeDataKey = dataKeyDeDate(new Date());
+    const hojeDataKey = dataKeyDeDate(agoraNoFusoPonto());
     return onSnapshot(
       collection(db, "funcionarios", funcionarioId, "conclusoesRotina"),
       (snapshot) => {
@@ -572,30 +451,6 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   }
 
   useEffect(() => {
-    async function carregarSemana() {
-      if (!funcionarioId) return;
-      const dataKeys = getDataKeysSemanaAtual();
-
-      if (dataKeys.length === 0) {
-        setDiasSemana([]);
-        return;
-      }
-
-      try {
-        const registros = await Promise.all(
-          dataKeys.map((dataKey) => carregarDiaPorData(funcionarioId, dataKey))
-        );
-        setDiasSemana(registros.filter(Boolean));
-      } catch (error) {
-        console.error("[PONTO][ERRO] Falha ao carregar horas da semana:", error);
-        setDiasSemana([]);
-      }
-    }
-
-    carregarSemana();
-  }, [funcionarioId, dia?.dataKey]);
-
-  useEffect(() => {
     const intervalId = setInterval(() => {
       setTickTempoReal((valor) => valor + 1);
     }, 30000);
@@ -605,31 +460,32 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
   const registroEmAndamento = useRef(false);
   const proximaAcao = getProximaAcao(dia, desconsiderarIntervalo);
-  const diaAtualSemana = DIAS_ORDEM[new Date().getDay()];
+  const diaAtualSemana = DIAS_ORDEM[agoraNoFusoPonto().getDay()];
 
-  async function handleClick() {
-    if (!podeRegistrar) return;
+  const tentativaBloqueando=filaPonto.operacoes.some(o=>o.payload.funcionarioId===funcionarioId&&o.payload.jornadaData===dataHojeKey&&(EM_ABERTO.includes(o.status)||o.status==='confirmado'&&o.payload.tipo===proximaAcao));
+  async function handleClick(modalidade = 'online') {
+    if (!podeRegistrar || tentativaBloqueando || !filaPonto.pronta) return;
     if (carregandoDia || erroDia || proximaAcao === "ENCERRADO" || !funcionarioId || registroEmAndamento.current) return;
 
+    if(modalidade==='offline_pendente' && (jornadaConhecida!==dataHojeKey || !window.confirm('Salvar captura offline pendente? Não é ponto confirmado e não altera sua jornada até a análise administrativa.')))return;
+    const capturadoEmMs=Date.now();
     registroEmAndamento.current = true;
     setLoading(true);
     setValidandoLocalizacao(true);
     setMensagem("");
+    setAjusteLocalizacao(null);
 
     try {
       setMensagem("Validando localização...");
 
-      const { latitude, longitude } = await obterPosicaoAtual();
+      const amostra = await obterPosicaoAtual();
       setValidandoLocalizacao(false);
-      setMensagem("Registrando ponto...");
-      await registrarAcao(funcionarioId, proximaAcao, latitude, longitude);
-
-      const atualizado = await carregarDiaAtual(funcionarioId);
-      setDia(atualizado || null);
-      await carregarBancoHorasAtual();
-
-      setMensagem("Registro realizado com sucesso!");
+      if(dataOperacional()!==dataHojeKey)throw Error('O dia mudou durante a captura. Recarregue a jornada; turno atravessando meia-noite não é suportado.');
+      const payload=criarOperacaoPonto({user,contexto:user.grupoId?{tipo:'grupo',id:user.grupoId}:{tipo:'legado'},funcionarioId,tipo:proximaAcao,jornadaData:dataHojeKey,modalidade,amostra,agora:capturadoEmMs});
+      await filaPonto.salvar(payload);
+      setMensagem('Tentativa salva. Confira o resultado em Tentativas e pendências.');
     } catch (error) {
+      setAjusteLocalizacao(error?.ajusteLocalizacao||null);
       if (error?.message === "Permissão de localização negada.") {
         setMensagem("Permissão de localização negada. Ative o GPS para registrar o ponto.");
       } else {
@@ -700,7 +556,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     }, 0);
   }, [diasSemana, dia?.dataKey, horasTrabalhadasMin]);
 
-  const diaHoje = new Date().getDay();
+  const diaHoje = agoraNoFusoPonto().getDay();
   const escalaHoje = escala?.[DIAS_ORDEM[diaHoje]];
   const cargaIndividualHoje = Number(escalaHoje?.cargaMin);
   const metaMin = Number.isFinite(cargaIndividualHoje)
@@ -725,7 +581,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
     try {
       const indiceDia = DIAS_ORDEM.indexOf(diaSemana);
-      const dataKey = dataKeyDeDate(new Date(new Date().setDate(new Date().getDate() - new Date().getDay() + indiceDia)));
+      const dataKey = dataKeyDeDate(new Date(agoraNoFusoPonto().setDate(agoraNoFusoPonto().getDate() - agoraNoFusoPonto().getDay() + indiceDia)));
       const diaLog = await carregarDiaPorData(funcionarioId, dataKey);
 
       setLogDiaSelecionado({
@@ -762,7 +618,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   async function handleConcluirTarefaFixa(tarefaId) {
     if (!funcionarioId || tarefasFixasConcluidas.has(tarefaId) || tarefaFixaSalvando) return;
 
-    const hojeDataKey = dataKeyDeDate(new Date());
+    const hojeDataKey = dataKeyDeDate(agoraNoFusoPonto());
     setTarefaFixaSalvando(tarefaId);
     setErroTarefas("");
     try {
@@ -788,7 +644,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     try {
       await login(email.trim(), senha);
     } catch (error) {
-      console.error("[PONTO][ERRO] Falha no login:", error);
+      console.error("[PONTO][ERRO] Falha no login:", error.code);
       setErroLogin("Email ou senha invalidos.");
     } finally {
       setLoadingLogin(false);
@@ -801,13 +657,14 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         <main className="page-shell">
           <header className="ponto-header page-header">
             <div className="page-title-row">
-              <img className="ponto-logo" src={logoAp1303} alt="AP1303" />
+              <BrandMark />
             </div>
             <p className="page-subtitle">Registro de ponto</p>
           </header>
 
           <section className="card status-card">
             <h2>Entrar no ponto</h2>
+            <p className="text-muted">Para reconciliar tentativas salvas, conecte-se e entre na mesma conta e grupo. Sem recuperar o contexto da jornada nesta abertura, não é possível capturar outro ponto offline.</p>
             <p className="text-muted">
               Entre com seu email e senha para acessar suas marcacoes, banco de horas e horarios.
             </p>
@@ -839,7 +696,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
               {erroLogin && <p className="mensagem erro">{erroLogin}</p>}
               <p className="text-muted">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
-              <button type="button" className="compras-link" onClick={() => onNavigate('/cadastro')}>Criar minha conta e grupo</button>
+              <div className="login-acoes"><button type="button" className="btn btn-secondary" onClick={() => onNavigate('/cadastro')}>Criar minha conta e grupo</button>
+              <button type="button" className="btn btn-secondary" onClick={() => onNavigate('/recuperar-senha')}>Esqueci minha senha</button></div>
 
               <button type="submit" className="btn btn-primary" disabled={loadingLogin}>
                 {loadingLogin ? "Entrando..." : "Entrar"}
@@ -859,7 +717,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         <main className="page-shell">
           <header className="ponto-header page-header">
             <div className="page-title-row">
-              <img className="ponto-logo" src={logoAp1303} alt="AP1303" />
+              <BrandMark />
             </div>
             <p className="page-subtitle">Registro de ponto</p>
           </header>
@@ -888,7 +746,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   return (
     <div className="page-bg page-ponto">
       <main className="page-shell">
-        <header className="ui-header ponto-cabecalho"><div className="ui-header-top"><BrandMark /><div className="ui-header-actions">
+        <header className="ui-header ponto-cabecalho"><div className="ui-header-top"><BrandMark /><AccountButton /><div className="ui-header-actions">
           <div className="notificacoes-wrap" ref={notificacoesWrapRef}>
             <button type="button" className="notificacoes-balao" aria-label={`${quantidadeNovasTarefas} notificações não lidas`} aria-expanded={notificacoesAbertas} onClick={() => setNotificacoesAbertas((aberta) => !aberta)}>
               <Icon name="bell" />
@@ -899,16 +757,18 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
               {notificacoes.length ? notificacoes.map((item) => <article key={item.id}><span aria-hidden="true">📌</span><div><strong>{item.titulo}</strong><p>{item.mensagem}</p></div></article>) : <p className="text-muted">Nenhuma notificação nova.</p>}
             </section>}
           </div>
-        </div></div><section className="ponto-identidade" aria-label="Identificação da funcionária"><span className="ponto-avatar" aria-hidden="true">{nomeExibicao.trim().split(/\s+/).filter(Boolean).filter((_,i,partes)=>i===0 || i===partes.length-1).map(parte=>parte[0]).join('').toLocaleUpperCase('pt-BR')}</span><div className="ponto-identidade-nome"><span className="ponto-identidade-rotulo">Registro de ponto</span><h1>{nomeExibicao}</h1></div><div className="ponto-identidade-data"><Icon name="clock" /><span>{dataHojeExibicao}</span></div></section></header>
+        </div></div><SessionIdentity /><section className="ponto-identidade" aria-label="Identificação da funcionária"><span className="ponto-avatar" aria-hidden="true">{nomeExibicao.trim().split(/\s+/).filter(Boolean).filter((_,i,partes)=>i===0 || i===partes.length-1).map(parte=>parte[0]).join('').toLocaleUpperCase('pt-BR')}</span><div className="ponto-identidade-nome"><span className="ponto-identidade-rotulo">Registro de ponto</span><h1>{nomeExibicao}</h1></div><div className="ponto-identidade-data"><Icon name="clock" /><span>{dataHojeExibicao}</span></div></section></header>
 
-        {administrador && <section className="card"><p>Somente leitura. As marcações são feitas pela funcionária na própria conta.</p><label className="field"><span>Funcionária</span><select value={funcionarioConsulta} onChange={e => setFuncionarioConsulta(e.target.value)}><option value="">Selecione</option>{funcionariosPonto.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label></section>}
+        {administrador && <section className="card"><p>As batidas são feitas pela funcionária. Para revisar horários, use “Corrigir e justificar ponto” abaixo.</p><label className="field"><span>Funcionária</span><select value={funcionarioConsulta} onChange={e => setFuncionarioConsulta(e.target.value)}><option value="">Selecione</option>{funcionariosPonto.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label></section>}
+        {administrador&&funcionarioId&&<PontoAjuste key={funcionarioId} funcionarioId={funcionarioId} nome={nomeExibicao}/>}
+        {erroResumo&&<p role="alert">{erroResumo}</p>}
         <div className="ponto-painel">
         <section className="card ponto-hero">
           <Badge tone={proximaAcao === 'ENTRADA' || proximaAcao === 'ENCERRADO' ? 'neutral' : 'success'}>{carregandoDia ? 'Carregando jornada…' : erroDia ? 'Jornada indisponível' : proximaAcao === 'ENTRADA' ? 'Fora do expediente' : proximaAcao === 'ENCERRADO' ? 'Expediente encerrado' : proximaAcao === 'ENTRADA_INTERVALO' ? 'Em intervalo' : 'Em expediente'}</Badge>
           <RelogioPonto />
         {podeRegistrar && <button
-          onClick={handleClick}
-          disabled={carregandoDia || Boolean(erroDia) || loading || validandoLocalizacao || proximaAcao === "ENCERRADO" || usuarioSemLogin}
+          onClick={() => handleClick('online')}
+          disabled={!filaPonto.pronta || tentativaBloqueando || carregandoDia || Boolean(erroDia) || loading || validandoLocalizacao || proximaAcao === "ENCERRADO" || usuarioSemLogin}
           className={`ponto-action ${getButtonClass()}`}
         >
           {carregandoDia ? "Carregando jornada…" : validandoLocalizacao
@@ -917,10 +777,13 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
             ? "Processando..."
             : getLabel()}
         </button>}
+        {podeRegistrar && <button type="button" className="btn btn-secondary" disabled={!filaPonto.pronta || tentativaBloqueando || loading || carregandoDia || jornadaConhecida!==dataHojeKey || proximaAcao==='ENCERRADO'} onClick={()=>handleClick('offline_pendente')}>Salvar captura offline pendente</button>}
         <div className="ponto-registros"><h2>Registros de hoje</h2><ol className="ponto-timeline">{[['Entrada',dia?.entrada],['Saída para intervalo',dia?.saidaIntervalo],['Volta do intervalo',dia?.entradaIntervalo],['Saída',dia?.saida]].map(([titulo,hora]) => <li key={titulo}><span>{titulo}</span><b>{formatHora(hora)}</b></li>)}</ol></div>
         </section>
         <PontoResumo bancoHoras={bancoHoras} horasPendentesAnterior={horasPendentesAnterior} formatMinutos={formatMinutos} formatMinutosCompact={formatMinutosCompact} formatMinutosRelogio={formatMinutosRelogio} horasTrabalhadasMin={horasTrabalhadasMin} metaMin={metaMin} progressoPct={progressoPct} horarioDia={horarioDia} />
         </div>
+        {podeRegistrar && <PontoOperacoes fila={filaPonto} />}
+        {podeRegistrar && <PontoRevisao key={`${user.uid}:${user.grupoId||''}`} user={user} />}
         {['admin','funcionario'].includes(user.role) && <PratosDia user={user} apenasHoje />}
         <ResumoTarefas titulo="Tarefas fixas" concluidas={tarefasFixasHoje.filter(t => tarefasFixasConcluidas.has(t.id)).length} total={tarefasFixasHoje.length}>
           <p className="text-muted">{dataHojeExibicao}</p>
@@ -1034,6 +897,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
         </details><ConnectionStatus />{erroDia && <p className="mensagem erro" role="alert">{erroDia}</p>}
         {mensagem && <p role="status" className="mensagem">{mensagem}</p>}
+        {ajusteLocalizacao && <details className="card"><summary>Como ajustar a localização</summary><p>Abra Configurações do Android → Aplicativos → AP1303 → Permissões → Localização. Selecione “Permitir durante o uso” e “Usar localização precisa”. Confira também se Localização está ligada no painel do Android. Depois volte ao app e toque novamente em registrar.</p></details>}
 
         {!usuarioSemLogin && (
           <button onClick={logout} className="btn btn-muted">

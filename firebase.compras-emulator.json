@@ -2,9 +2,9 @@
   "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
   "functions": { "source": "functions" },
   "emulators": {
-    "firestore": { "port": 8877 },
-    "auth": { "port": 9098 },
-    "functions": { "port": 5007 },
+    "firestore": { "host": "127.0.0.1", "port": 8877 },
+    "auth": { "host": "127.0.0.1", "port": 9098 },
+    "functions": { "host": "127.0.0.1", "port": 5007 },
     "ui": { "enabled": false },
     "singleProjectMode": true
   }

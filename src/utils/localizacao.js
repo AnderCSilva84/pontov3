@@ -1,3 +1,7 @@
+import {nativo} from '../services/plataforma.js';
+import {criarLocalizacaoNativa} from './localizacaoNativa.js';
+let localizacaoNativa;
+
 function solicitarPosicao(geolocation, altaPrecisao, prazo) {
   return new Promise((resolve, reject) => {
     let concluido = false;
@@ -11,7 +15,7 @@ function solicitarPosicao(geolocation, altaPrecisao, prazo) {
     const timer = setTimeout(() => finalizar(reject, { code: 3 }), prazo);
     try {
       geolocation.getCurrentPosition(
-        (posicao) => finalizar(resolve, posicao.coords),
+        (posicao) => finalizar(resolve, { latitude: posicao.coords.latitude, longitude: posicao.coords.longitude, accuracy: posicao.coords.accuracy, instanteMs: Number.isFinite(posicao.timestamp) ? posicao.timestamp : null }),
         (erro) => finalizar(reject, erro),
         { enableHighAccuracy: altaPrecisao, maximumAge: 0, timeout: prazo }
       );
@@ -21,7 +25,12 @@ function solicitarPosicao(geolocation, altaPrecisao, prazo) {
   });
 }
 
-export async function obterPosicaoAtual(geolocation = navigator.geolocation, prazo = 10000) {
+export async function obterPosicaoAtual(geolocation, prazo = 10000) {
+  if(geolocation===undefined&&nativo()) {
+    if(!localizacaoNativa)localizacaoNativa=import('@capacitor/geolocation').then(({Geolocation})=>criarLocalizacaoNativa(Geolocation));
+    return (await localizacaoNativa).obter(prazo);
+  }
+  geolocation=geolocation||globalThis.navigator?.geolocation;
   if (!geolocation) throw new Error("Este navegador não oferece localização. Abra o app no Safari ou Chrome.");
   try {
     try {

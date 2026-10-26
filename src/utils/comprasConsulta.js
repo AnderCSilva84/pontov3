@@ -29,5 +29,5 @@ export function gastosUltimosTresMeses(listas, agora=Date.now()) {
 export function filtrarProdutosConsulta(opcoes,busca) {
   const normalizar=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
   const termos=normalizar(busca).trim().split(/\s+/).filter(Boolean);
-  return opcoes.filter(([,r])=>termos.every(t=>normalizar(`${r.nomeSnapshot} ${r.marca||''} ${r.apresentacao||''} ${r.categoriaNome||''}`).includes(t)));
+  return opcoes.filter(([,r])=>termos.every(t=>normalizar(`${r.nomeSnapshot} ${r.nomesAlternativos||''} ${r.marca||''} ${r.apresentacao||''} ${r.categoriaNome||''}`).includes(t)));
 }

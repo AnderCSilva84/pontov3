@@ -3,9 +3,11 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const { CATEGORIAS, categoriaLegada, podeMontar, podeComprar, quantidade, totalItem, prepararFechamento, calcularRelatorios } = require('./compras-dominio.cjs');
+const {tipoCompra,validarTipoCompra}=require('./compras-tipo.cjs');
 const falha = (codigo, mensagem) => { throw new HttpsError(codigo, mensagem); };
 function id(valor) { if (typeof valor !== 'string' || !/^[\w-]{1,128}$/.test(valor)) falha('invalid-argument', 'Identificador inválido.'); return valor; }
 function texto(valor, max = 120) { if (typeof valor !== 'string' || !valor.trim() || valor.trim().length > max) falha('invalid-argument', 'Preencha os campos de texto corretamente.'); return valor.trim(); }
+const {nomeProduto,excluirProduto}=require('./compras-produto.cjs');
 const timestamp = () => FieldValue.serverTimestamp();
 const { iconeCategoriaValido } = require('./compras-icone-validacao.cjs');
 const chaveNome = nome => nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -16,6 +18,8 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
   if (['cupomPreparar', 'cupomConfirmar'].includes(request.data?.operacao)) return require('./cupom-operacoes.cjs').operarCupom(await bancoDoUsuario(admin.firestore(), request.auth.uid), request);
   if (["noBolsoGerarCodigo", "noBolsoRevogar"].includes(request.data?.operacao)) return require("./no-bolso-functions.cjs").handleNoBolsoGrant(request);
   const db = await bancoDoUsuario(admin.firestore(), request.auth.uid), uid = request.auth.uid, dados = request.data || {};
+  if(['mesclaPrevia','mesclarProdutos','desfazerMescla','mesclasListar','corrigirItemProduto','corrigirAliasProduto','aliasCatalogo'].includes(dados.operacao))return require('./compras-associacoes.cjs').operarAssociacoes(db,request);
+  const identidade=await import('./produtos-identidade.mjs');
   try {
     return await db.runTransaction(async tx => {
       const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
@@ -72,6 +76,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         }
         return { listaId: ref.id, migrados: pendentes.length };
       }
+      if (dados.operacao === 'produtoExcluir') return excluirProduto(tx,db,uid,perfil,dados,timestamp());
       if (dados.operacao === 'produto') {
         exigirAdmin();
         const ref = dados.produtoId ? db.doc(`catalogoCompras/${id(dados.produtoId)}`) : db.collection('catalogoCompras').doc();
@@ -79,12 +84,14 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         const categoria = (await tx.get(db.doc(`categoriasCompras/${categoriaId}`))).data();
         if (!categoria || categoria.ativo === false || !['un', 'kg', 'l', 'm'].includes(unidadeCompra)) falha('invalid-argument', 'Categoria ou unidade inválida.');
         const apresentacao = texto(dados.apresentacao);
+        const identidadeProduto={};for(const campo of ['marca','principioAtivo','dosagem','gtin'])if(dados[campo]!==undefined){if(typeof dados[campo]!=='string'||dados[campo].length>120)falha('invalid-argument','Identidade do produto inválida.');identidadeProduto[campo]=dados[campo].trim();}if(identidadeProduto.gtin&&!identidade.gtinValido(identidadeProduto.gtin))falha('invalid-argument','GTIN/EAN inválido. Código da loja não é GTIN.');
         const atual = (await tx.get(ref)).data();
-        if (atual && ((atual.apresentacao || '') !== apresentacao || (atual.unidadeCompra || 'un') !== unidadeCompra)) {
+        if (atual && ((atual.apresentacao || '') !== apresentacao || (atual.unidadeCompra || 'un') !== unidadeCompra || Object.entries(identidadeProduto).some(([k,v])=>(atual[k]||'')!==v))) {
+          if(atual.principalId||atual.membrosIds?.length)falha('failed-precondition','Desfaça a mesclagem antes de alterar a identidade ou apresentação.');
           const historico = await tx.get(db.collection('comprasPrecos').where('produtoId', '==', ref.id).limit(1));
           if (!historico.empty) falha('failed-precondition', 'Este produto já tem histórico. Cadastre outra embalagem como um novo produto.');
         }
-        tx.set(ref, { nome: texto(dados.nome), apresentacao, categoriaId, categoria: categoria.nome, unidadeCompra, ativo: true }, { merge: true });
+        tx.set(ref, { ...identidadeProduto, nome: nomeProduto(texto(dados.nome)), apresentacao, categoriaId, categoria: categoria.nome, unidadeCompra, ativo: true }, { merge: true });
         return { produtoId: ref.id };
       }
       if (dados.operacao === 'supermercado') {
@@ -104,10 +111,9 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         const existente = await tx.get(ref);
         if (existente.exists) {
           if (existente.data().criadaPor !== uid) falha('already-exists', 'Esta lista já existe.');
-          if (!existente.data().criadaPorNome) tx.update(ref, { criadaPorNome: nomeCriador(perfil) });
           return { listaId: ref.id };
         }
-        tx.create(ref, { titulo: texto(dados.titulo), status: 'rascunho', criadaPor: uid, criadaPorNome: nomeCriador(perfil), criadaEm: timestamp(), atualizadaEm: timestamp(), versao: 1, quantidadeItens: 0, schemaVersion: 1 });
+        tx.create(ref, { titulo: texto(dados.titulo), tipoCompra:validarTipoCompra(dados.tipoCompra), status: 'rascunho', criadaPor: uid, criadaPorNome: nomeCriador(perfil), criadaEm: timestamp(), atualizadaEm: timestamp(), versao: 1, quantidadeItens: 0, schemaVersion: 1 });
         return { listaId: ref.id };
       }
 
@@ -153,6 +159,16 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
       }
       if (!['rascunho', 'em_compra'].includes(lista.status)) falha('failed-precondition', 'Esta lista está fechada e não pode ser alterada.');
       const atualizarLista = campos => tx.update(listaRef, { ...campos, versao: lista.versao + 1, atualizadaEm: timestamp() });
+      if(dados.operacao==='tipoCompra'){
+        exigirAdmin();
+        const novo=validarTipoCompra(dados.tipoCompra);
+        if(dados.versao!==lista.versao)falha('aborted','A lista mudou. Reabra antes de classificar.');
+        if(novo!==tipoCompra(lista)){
+          tx.create(listaRef.collection('alteracoes').doc(),{tipo:'classificacao',de:tipoCompra(lista),para:novo,por:uid,em:timestamp()});
+          atualizarLista({tipoCompra:novo});
+        }
+        return {ok:true};
+      }
       if (dados.operacao === 'iniciar') {
         exigirComprador();
         atualizarLista({ status: 'em_compra' });
@@ -167,7 +183,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         const { comprados, totalCentavos } = prepararFechamento(itens, dados.aceitarPendentes === true);
         for (const item of comprados) {
           const { id: itemId, produtoId, nomeSnapshot, apresentacao, unidadeCompra, categoriaId, supermercadoId, supermercadoNome, quantidadeComprada, precoUnitarioCentavos, compradoEm } = item;
-          tx.create(db.doc(`comprasPrecos/${listaRef.id}_${itemId}`), { listaId: listaRef.id, itemId, produtoId, nomeSnapshot, apresentacao, marca: item.marca || '', unidadeCompra, categoriaId, supermercadoId, supermercadoNome, quantidadeComprada, precoUnitarioCentavos, totalCentavos: totalItem(precoUnitarioCentavos, quantidadeComprada), compradoEm, finalizadaEm: timestamp(), valido: true });
+          tx.create(db.doc(`comprasPrecos/${listaRef.id}_${itemId}`), { tipoCompra:tipoCompra(lista), listaId: listaRef.id, itemId, produtoId, nomeSnapshot, apresentacao, marca: item.marca || '', unidadeCompra, categoriaId, supermercadoId, supermercadoNome, quantidadeComprada, precoUnitarioCentavos, totalCentavos: totalItem(precoUnitarioCentavos, quantidadeComprada), compradoEm, finalizadaEm: timestamp(), valido: true });
         }
         snap.docs.filter(d => d.data().estado === 'pendente').forEach(d => tx.update(d.ref, { estado: 'nao_comprado', versao: d.data().versao + 1 }));
         atualizarLista({ status: 'finalizada', finalizadaPor: uid, finalizadaEm: timestamp(), totalCentavos, quantidadeComprados: comprados.length });
@@ -182,7 +198,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         if (!produto || produto.ativo === false) falha('not-found', 'Produto não encontrado.');
         if (lista.quantidadeItens >= 200) falha('failed-precondition', 'Limite de 200 itens por lista.');
         const qtd = quantidade(dados.quantidadePlanejada);
-        tx.create(ref, { produtoId, nomeSnapshot: produto.nome, categoriaId: produto.categoriaId || categoriaLegada(produto.categoria), apresentacao: produto.apresentacao || '', unidadeCompra: produto.unidadeCompra || 'un', quantidadePlanejada: qtd, estado: 'pendente', solicitadaPor: uid, solicitadaPorNome: nomeCriador(perfil), adicionadaEm: timestamp(), versao: 1 });
+        tx.create(ref, { produtoId, nomeSnapshot: nomeProduto(produto.nome), categoriaId: produto.categoriaId || categoriaLegada(produto.categoria), apresentacao: produto.apresentacao || '', unidadeCompra: produto.unidadeCompra || 'un', quantidadePlanejada: qtd, estado: 'pendente', solicitadaPor: uid, solicitadaPorNome: nomeCriador(perfil), adicionadaEm: timestamp(), versao: 1 });
         atualizarLista({ quantidadeItens: lista.quantidadeItens + 1 });
         return { ok: true };
       }
@@ -231,12 +247,15 @@ exports.comprasRelatorio = onCall({ timeoutSeconds: 60 }, async request => {
   const db = await bancoDoUsuario(admin.firestore(), request.auth.uid), perfil = (await db.doc(`users/${request.auth.uid}`).get()).data();
   if (!perfil || perfil.ativo === false) falha('permission-denied', 'Acesso não autorizado.');
   const inicio = Number(request.data?.inicioMs), fim = Number(request.data?.fimMs);
+  const tipo=validarTipoCompra(request.data?.tipoCompra);
   if (!Number.isFinite(inicio) || !Number.isFinite(fim) || inicio < 0 || fim < inicio || fim - inicio > 366 * 86400000) falha('invalid-argument', 'Escolha um período de até um ano.');
   const snap = await db.collection('comprasPrecos').where('compradoEm', '>=', new Date(inicio)).where('compradoEm', '<=', new Date(fim)).orderBy('compradoEm').limit(5001).get();
   if (snap.size > 5000) falha('resource-exhausted', 'Há muitos registros. Selecione um período menor.');
-  const registros = snap.docs.filter(d => d.data().valido !== false).map(d => {
+  const registros = snap.docs.filter(d => d.data().valido !== false&&tipoCompra(d.data())===tipo).map(d => {
     const p = d.data();
-    return { id: d.id, listaId: p.listaId, produtoId: p.produtoId, nomeSnapshot: p.nomeSnapshot, marca: p.marca || '', apresentacao: p.apresentacao, unidadeCompra: p.unidadeCompra, supermercadoId: p.supermercadoId, supermercadoNome: p.supermercadoNome, quantidadeComprada: p.quantidadeComprada, precoUnitarioCentavos: p.precoUnitarioCentavos, compradoEmMs: p.compradoEm.toMillis() };
+    return { id: d.id, nomeOriginal:p.nomeOriginalFiscal||p.nomeOriginal||p.nomeSnapshot, itemId:p.itemId||'',cupomChave:p.cupomChave||'', listaId: p.listaId, produtoId: p.produtoId, nomeSnapshot: p.nomeSnapshot, marca: p.marca || '', apresentacao: p.apresentacao, unidadeCompra: p.unidadeCompra, supermercadoId: p.supermercadoId, supermercadoNome: p.supermercadoNome, quantidadeComprada: p.quantidadeComprada, precoUnitarioCentavos: p.precoUnitarioCentavos, compradoEmMs: p.compradoEm.toMillis() };
   });
-  return { registros, rankings: calcularRelatorios(registros) };
+  const associacoes=require('./compras-associacoes.cjs'),mapa=await associacoes.lerMapa(db);
+  const reunidos=associacoes.aplicarAssociacoes(registros,mapa);
+  return { registros:reunidos, associacoesVersao:mapa.versao, rankings: calcularRelatorios(reunidos.map(r=>({...r,nomeSnapshot:r.nomeCanonico}))) };
 });

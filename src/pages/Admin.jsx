@@ -1,5 +1,11 @@
+import {cuidadosDisponiveis} from '../utils/edicaoBuild';
+import {coordenadasValidas} from '../utils/mapaLocal';
+import PontoAjuste from '../components/PontoAjuste';
+import LocalMapa from '../components/LocalMapa';
+import {obterPosicaoAtual} from '../utils/localizacao';
 import { collection, doc } from '../services/dadosGrupo';
 import { PageHeader } from '../components/ui';
+import PontoRevisao from '../components/PontoRevisao';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { criarUsuario, excluirUsuario, login, logout } from "../services/auth";
 import { listarFuncionarios, buscarDiasPorPeriodo } from "../services/ponto";
@@ -8,6 +14,7 @@ import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import {
   canConsultSystem,
+  canListEmployees,
   canManageUsers,
   getDefaultPermissionsForRole,
   getUserPermissions,
@@ -319,6 +326,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [locaisPermitidosForm, setLocaisPermitidosForm] = useState([]);
   const [loadingLocais, setLoadingLocais] = useState(false);
   const [localNome, setLocalNome] = useState("");
+  const [localEndereco,setLocalEndereco]=useState("");
   const [localLatitude, setLocalLatitude] = useState("");
   const [localLongitude, setLocalLongitude] = useState("");
   const [localRaioMetros, setLocalRaioMetros] = useState("150");
@@ -328,7 +336,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [locaisSalvando, setLocaisSalvando] = useState(false);
   const [locaisErro, setLocaisErro] = useState("");
   const [locaisSucesso, setLocaisSucesso] = useState("");
-  const [mostrarUsuarios, setMostrarUsuarios] = useState(true);
+  const [mostrarUsuarios, setMostrarUsuarios] = useState(false);
   const [mostrarAdmPonto, setMostrarAdmPonto] = useState(false);
   const ajusteSectionRef = useRef(null);
   const funcionarioAtual = useMemo(
@@ -338,18 +346,22 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const nomeFuncionario = funcionarioAtual?.nome || "";
 
   useEffect(() => {
+    let ativo = true;
     async function carregarFuncionarios() {
-      if (!podeConsultarSistema) return;
-      const lista = await listarFuncionarios();
-      setFuncionarios(lista);
-
-      if (lista.length > 0) {
-        setFuncionarioSelecionado(lista[0].id);
+      if (!canListEmployees(user)) { setFuncionarios([]); setFuncionarioSelecionado(""); return; }
+      try {
+        const lista = await listarFuncionarios();
+        if (!ativo) return;
+        setFuncionarios(lista);
+        if (lista.length > 0) setFuncionarioSelecionado(lista[0].id);
+      } catch {
+        if (ativo) { setFuncionarios([]); setFuncionarioSelecionado(""); setAdminErro("Não foi possível carregar os funcionários. Confira a conexão e reabra a Gestão."); }
       }
     }
 
     carregarFuncionarios();
-  }, [podeConsultarSistema]);
+    return () => { ativo = false; };
+  }, [user]);
   useEffect(() => {
     const escalaAtual = funcionarioAtual?.escala || {};
     const proximaEscala = {};
@@ -511,6 +523,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }
   }, [podeGerenciarUsuarios]);
 
+  const usuariosCarregados = useRef(false);
   const carregarUsuarios = useCallback(async (pagina = 0) => {
     if (!podeGerenciarUsuarios) return;
 
@@ -530,6 +543,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         }))
         .sort((a, b) => (a.nome || a.email || "").localeCompare(b.nome || b.email || ""));
 
+      usuariosCarregados.current = true;
       setUsuarios(itens);
       setPaginaUsuarios(pagina);
       setTemProximaPaginaUsuarios(snapshot.docs.length > 20);
@@ -545,9 +559,9 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   }, [podeGerenciarUsuarios]);
 
   useEffect(() => {
-    if (!podeGerenciarUsuarios) return;
+    if (!podeGerenciarUsuarios || !mostrarUsuarios || usuariosCarregados.current) return;
     carregarUsuarios();
-  }, [carregarUsuarios, podeGerenciarUsuarios]);
+  }, [carregarUsuarios, podeGerenciarUsuarios, mostrarUsuarios]);
 
   useEffect(() => {
     if (!podeGerenciarUsuarios) return;
@@ -696,8 +710,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       await updateDoc(doc(db, "users", item.id), {
         role: proximoRole,
         permissions: usuarioEdicaoPermissoes,
-        babaCuidadora: proximoRole === ROLE_FUNCIONARIO && usuarioEdicaoCuidadora,
-        lembretesHabilitados: proximoRole === ROLE_ADMIN && usuarioEdicaoCuidadora,
+        ...(cuidadosDisponiveis ? {babaCuidadora: proximoRole === ROLE_FUNCIONARIO && usuarioEdicaoCuidadora, lembretesHabilitados: proximoRole === ROLE_ADMIN && usuarioEdicaoCuidadora} : {}),
         funcionarioId: proximoFuncionarioId,
         atualizadoEm: serverTimestamp(),
         atualizadoPor: user?.uid || null,
@@ -1255,7 +1268,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       return;
     }
 
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    if (!coordenadasValidas(localLatitude,localLongitude)) {
       setLocaisErro("Informe latitude e longitude validas.");
       return;
     }
@@ -1272,6 +1285,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     try {
       await addDoc(collection(db, "locais"), {
         nome,
+        endereco: localEndereco.trim().slice(0,500),
         ativo: Boolean(localAtivo),
         raioMetros,
         localizacao: {
@@ -1283,6 +1297,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       });
 
       setLocalNome("");
+      setLocalEndereco("");
       setLocalLatitude("");
       setLocalLongitude("");
       setLocalRaioMetros("150");
@@ -1297,43 +1312,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }
   }
 
-  function obterPosicaoAtualAdmin() {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocalizacao indisponivel neste dispositivo."));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          if (error.code === 1) {
-            reject(new Error("Permissao de localizacao negada."));
-            return;
-          }
-
-          reject(new Error("Nao foi possivel obter a localizacao atual."));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        }
-      );
-    });
-  }
-
   async function handleUsarLocalizacaoAtual() {
     setLocalizandoAtual(true);
     setLocaisErro("");
     setLocaisSucesso("");
 
     try {
-      const posicao = await obterPosicaoAtualAdmin();
+      const posicao = await obterPosicaoAtual();
       setLocalLatitude(String(posicao.latitude.toFixed(6)));
       setLocalLongitude(String(posicao.longitude.toFixed(6)));
       setLocaisSucesso("Localizacao atual preenchida com sucesso.");
@@ -1427,6 +1412,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                 />
               </label>
               {adminErro && <p role="alert" className="mensagem erro">{adminErro}</p>}
+              <button type="button" className="compras-link" onClick={() => onNavigate('/recuperar-senha')}>Esqueci minha senha</button>
               <p className="text-muted">Ao entrar, o celular poderá pedir permissão para os avisos do app.</p>
               <button type="submit" className="btn btn-primary" disabled={adminLoading}>
                 {adminLoading ? "Entrando..." : "Entrar"}
@@ -1466,15 +1452,17 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     <div className="page-bg admin-bg">
       <main className="page-shell admin-shell">
         <PageHeader title="Gestão" subtitle="Usuários, acessos e escritório contábil." />
+        {user.role==='admin'&&<PontoRevisao key={`${user.uid}:${user.grupoId||''}`} user={user} />}
 
         <p className="admin-ola">
           Olá, {user.nome} {normalizeRole(user.role) === ROLE_CONSULTA ? "(Consulta)" : ""}
         </p>
+        {adminErro && <p role="alert" className="mensagem erro">{adminErro}</p>}
 
         {normalizeRole(user.role) === ROLE_ADMIN && (
           <div className="admin-atalhos">
             <button type="button" className="btn btn-secondary admin-financeiro-link" onClick={() => onNavigate && onNavigate("/admin/financeiro")}>Abrir escritório contábil</button>
-            <button type="button" className={`btn ${mostrarAdmPonto ? "btn-primary" : "btn-secondary"}`} onClick={() => setMostrarAdmPonto((atual) => !atual)}>{mostrarAdmPonto ? "Fechar Adm Ponto" : "Adm Ponto"}</button>
+            <button type="button" className={`btn ${mostrarAdmPonto ? "btn-primary" : "btn-secondary"}`} onClick={() => setMostrarAdmPonto((atual) => !atual)}>{mostrarAdmPonto ? "Fechar ponto e configurações" : "Ponto, ajustes e locais"}</button>
           </div>
         )}
 
@@ -1536,8 +1524,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             {usuarioSucesso && <p className="mensagem">{usuarioSucesso}</p>}
 
             <div className="card tarefas-lista">
-              <div className="usuarios-expandir"><h2>Usuários cadastrados</h2><button type="button" className="btn btn-secondary" onClick={() => setMostrarUsuarios((atual) => !atual)}>{mostrarUsuarios ? "Recolher" : "Expandir"}</button></div>
-              {mostrarUsuarios && <><div className="ui-user-filtros"><label className="field"><span>Buscar usuários nesta página</span><input type="search" value={buscaUsuario} onChange={e => setBuscaUsuario(e.target.value)} /></label><label className="field"><span>Filtrar perfil</span><select value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}><option value="">Todos</option>{Object.entries(ROLE_LABELS).map(([id,nome]) => <option key={id} value={id}>{nome}</option>)}</select></label></div>
+              <div className="usuarios-expandir"><h2>Usuários cadastrados</h2><button type="button" className="btn btn-secondary" aria-expanded={mostrarUsuarios} aria-controls="usuarios-cadastrados-conteudo" onClick={() => setMostrarUsuarios((atual) => !atual)}>{mostrarUsuarios ? "▴ Recolher" : "▾ Expandir"}</button></div>
+              {mostrarUsuarios && <><div id="usuarios-cadastrados-conteudo" className="ui-user-filtros"><label className="field"><span>Buscar usuários nesta página</span><input type="search" value={buscaUsuario} onChange={e => setBuscaUsuario(e.target.value)} /></label><label className="field"><span>Filtrar perfil</span><select value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}><option value="">Todos</option>{Object.entries(ROLE_LABELS).map(([id,nome]) => <option key={id} value={id}>{nome}</option>)}</select></label></div>
               {loadingUsuarios && <p className="text-muted">Carregando usuários...</p>}
               {!loadingUsuarios && usuarios.length === 0 && (
                 <p className="text-muted">Nenhum usuário encontrado.</p>
@@ -1548,8 +1536,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                     <div key={item.id} className="tarefas-item">
                       <div>
                         <strong>{item.nome || item.email || item.id}</strong><span className="ui-badge neutral">{item.ativo === false ? "Inativo" : "Ativo"}</span>
-                        {item.babaCuidadora === true && <span className="tarefas-por">Babá/Cuidadora · Lembretes habilitados</span>}
-                        {item.role === ROLE_ADMIN && item.lembretesHabilitados === true && <span className="tarefas-por">Lembretes habilitados · 24 horas</span>}
+                        {cuidadosDisponiveis && item.babaCuidadora === true && <span className="tarefas-por">Babá/Cuidadora · Lembretes habilitados</span>}
+                        {cuidadosDisponiveis && item.role === ROLE_ADMIN && item.lembretesHabilitados === true && <span className="tarefas-por">Lembretes habilitados · 24 horas</span>}
                         <span className="tarefas-por">{item.email || "-"}</span>
                         <span className="tarefas-por">
                           Perfil: {ROLE_LABELS[normalizeRole(item.role)] || item.role || "-"}
@@ -1626,8 +1614,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                               <span>Criar tarefas</span>
                             </label>
 
-                            {normalizeRole(usuarioEdicaoRole) === ROLE_FUNCIONARIO && <label className="jornada-dia-header"><input type="checkbox" checked={usuarioEdicaoCuidadora} onChange={e => setUsuarioEdicaoCuidadora(e.target.checked)} /><span>Babá/Cuidadora — liberar aba Lembretes</span></label>}
-                            {normalizeRole(usuarioEdicaoRole) === ROLE_ADMIN && <label className="jornada-dia-header"><input type="checkbox" checked={usuarioEdicaoCuidadora} onChange={e => setUsuarioEdicaoCuidadora(e.target.checked)} /><span>Receber lembretes — disponível 24 horas</span></label>}
+                            {cuidadosDisponiveis && normalizeRole(usuarioEdicaoRole) === ROLE_FUNCIONARIO && <label className="jornada-dia-header"><input type="checkbox" checked={usuarioEdicaoCuidadora} onChange={e => setUsuarioEdicaoCuidadora(e.target.checked)} /><span>Babá/Cuidadora — liberar aba Lembretes</span></label>}
+                            {cuidadosDisponiveis && normalizeRole(usuarioEdicaoRole) === ROLE_ADMIN && <label className="jornada-dia-header"><input type="checkbox" checked={usuarioEdicaoCuidadora} onChange={e => setUsuarioEdicaoCuidadora(e.target.checked)} /><span>Receber lembretes — disponível 24 horas</span></label>}
                             <button
                               type="button"
                               className="btn btn-primary"
@@ -1664,6 +1652,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           </section>
         )}
 
+        {mostrarAdmPonto && user.role === 'admin' && funcionarioSelecionado && <PontoAjuste key={funcionarioSelecionado} funcionarioId={funcionarioSelecionado} nome={nomeFuncionario}/>}
         {mostrarAdmPonto && <section className="admin-section">
           <div className="section-header">
             <h2>Controle de Ponto</h2>
@@ -1864,12 +1853,14 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                       <input
                         type="time"
                         value={escalaForm?.[dia]?.inicio || ""}
+                        aria-label={`Início de ${labelDiaSemana(dia)}`}
                         onChange={(event) => handleEscalaChange(dia, "inicio", event.target.value)}
                         disabled={!escalaForm?.[dia]?.ativo}
                       />
                       <input
                         type="time"
                         value={escalaForm?.[dia]?.fim || ""}
+                        aria-label={`Fim de ${labelDiaSemana(dia)}`}
                         onChange={(event) => handleEscalaChange(dia, "fim", event.target.value)}
                         disabled={!escalaForm?.[dia]?.ativo}
                       />
@@ -1912,6 +1903,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             </div>
 
             <div className="card locais-card">
+              <LocalMapa latitude={localLatitude} longitude={localLongitude} raioMetros={localRaioMetros} endereco={localEndereco} onEndereco={setLocalEndereco} onSelecionar={p=>{setLocalLatitude(p.latitude.toFixed(6));setLocalLongitude(p.longitude.toFixed(6));}}/>
               <div className="locais-form-grid">
                 <label className="field">
                   <span>Nome do local</span>
@@ -1998,7 +1990,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                       <span className="item-nome">
                         {local.nome || local.id}
                         <span className="local-meta">
-                          {local?.localizacao?.latitude}, {local?.localizacao?.longitude} • raio{" "}
+                          {local.endereco&&<>{local.endereco} · </>}{local?.localizacao?.latitude}, {local?.localizacao?.longitude} • raio{" "}
                           {local?.raioMetros || 0}m • {local?.ativo ? "ativo" : "inativo"}
                         </span>
                       </span>

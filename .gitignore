@@ -25,6 +25,7 @@ dist-ssr
 *.env
 .env.*
 !.env.example
+!.env.mobile.example
 !functions/.env.example
 
 # Local Netlify folder
@@ -36,3 +37,30 @@ output/
 firebase.cupom-lista.json
 ponte-indexes-antes.json
 ponte-indexes-depois.json
+
+# Assets copiados, builds e configurações locais; fontes Android/iOS permanecem versionáveis.
+android/.gradle/
+android/**/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/debug/res/xml/ap1303_network_security.xml
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/Pods/
+ios/**/xcuserdata/
+*.keystore
+*.jks
+*.p12
+*.pfx
+# Configuração Firebase nativa local; nunca substituir por produção.
+android/app/google-services.json
+android/app/google-services.release.json
+android/release.local.json
+android/signing.local.json
+capacitor.release.local.json
+dist-android-release/
+android/app/src/release/assets/
+android/app/src/release/google-services.json
+firebase.review-emulator.local.json

@@ -1,3 +1,5 @@
+// Fixtures de comparação usam a mesma apresentação do cadastro; 500 mL não equivale a 1 kg.
+const fixtureArroz=numero=>{const f=require('./fixtures/cupom-pa.cjs')(numero);return {...f,texto:f.texto.replaceAll('PRODUTO A 500ML','ARROZ MARCA A 1KG')};};
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -39,11 +41,16 @@ test('compras: integração real com Firestore, autenticação e regras no emula
   const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
   const { getFirestore, connectFirestoreEmulator, getDoc, getDocs, doc, collection, setDoc, updateDoc, terminate } = await import('firebase/firestore');
   const app = initializeApp({ projectId: process.env.GCLOUD_PROJECT, apiKey: 'demo-key' }, 'compras-teste');
-  const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
-  const client = getFirestore(app); connectFirestoreEmulator(client, '127.0.0.1', 8877);
+  const auth = getAuth(app); connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9098'}`, { disableWarnings: true });
+  const [firestoreHost, firestorePort] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8877').split(':');
+  const client = getFirestore(app); connectFirestoreEmulator(client, firestoreHost, Number(firestorePort));
   t.after(async () => { await signOut(auth); await terminate(client); await deleteApp(app); await admin.app().delete(); });
-  const comprado = await createUserWithEmailAndPassword(auth, 'comprador@example.test', 'senha-teste-123');
+  const comprado = await createUserWithEmailAndPassword(auth, `comprador-${require('node:crypto').randomUUID()}@example.test`, 'senha-teste-123');
   const uid = comprado.user.uid;
+  // Auth Emulator com apiKey fictícia usa o projeto do CLI, não projectId do SDK.
+  // Não executar esta integração misturando o projeto de Auth com outro Admin/Firestore.
+  const tokenProjeto = (await comprado.user.getIdTokenResult()).claims.aud;
+  assert.equal(tokenProjeto, process.env.GCLOUD_PROJECT, 'Auth e Admin/Firestore devem usar o mesmo projeto demo do CLI.');
   await db.doc('users/administrador').set({ role: 'admin', nome: 'Administrador de teste' });
   await db.doc(`users/${uid}`).set({ role: 'funcionario', nome: 'Funcionária de teste', funcionarioId: 'func-teste', permissions: { realizarCompras: true } });
   await db.doc('users/consulta').set({ role: 'consulta' });
@@ -140,7 +147,9 @@ test('compras: integração real com Firestore, autenticação e regras no emula
   assert.equal((await db.doc('comprasListas/teste').get()).data().criadaPorNome, 'Funcionária de teste');
   await db.doc('comprasListas/teste').update({ criadaPorNome: admin.firestore.FieldValue.delete() });
   await op('criar', { listaId: 'teste', titulo: 'Compra teste', criadaPorNome: 'Nome forjado' }, uid);
-  assert.equal((await db.doc('comprasListas/teste').get()).data().criadaPorNome, 'Funcionária de teste');
+  // Script 11: replay não reconstitui identidade histórica pelo perfil atual.
+  assert.equal((await db.doc('comprasListas/teste').get()).data().criadaPorNome, undefined);
+  assert.equal((await db.doc('comprasListas/teste').get()).data().criadaPor, uid);
   await op('adicionar', { listaId: 'teste', produtoId: 'arroz', quantidadePlanejada: 2 }, uid);
   await assert.rejects(op('iniciar', { listaId: 'teste' }, uid), /administrador/);
   await op('iniciar', { listaId: 'teste' });
@@ -297,7 +306,7 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     await assert.rejects(op('cupomPreparar', { link: f.link, texto: f.texto }), /já foi importado/);
   });
   await t.test('cupom compara com lista existente, preserva criador e finaliza sem duplicar a compra', async () => {
-    const fixture = require('./fixtures/cupom-pa.cjs'), f = fixture('000000003');
+    const fixture = require('./fixtures/cupom-pa.cjs'), f = fixtureArroz('000000003');
     await op('criar', { listaId: 'planejada-cupom', titulo: 'Lista montada pela funcionária' }, uid);
     await op('adicionar', { listaId: 'planejada-cupom', produtoId: 'arroz', quantidadePlanejada: 2 }, uid);
     await op('adicionar', { listaId: 'planejada-cupom', produtoId: 'papel', quantidadePlanejada: 1 }, uid);
@@ -328,11 +337,11 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     assert.equal((await db.doc('comprasListas/planejada-cupom/itens/papel').get()).data().estado, 'nao_comprado');
     assert.equal((await db.collection('comprasPrecos').where('listaId', '==', a.listaId).get()).size, 3);
     await assert.rejects(criarRevisao(), /lista aberta/);
-    const outra = await op('cupomPreparar', { ...fixture('000000004') });
+    const outra = await op('cupomPreparar', { ...fixtureArroz('000000004') });
     assert.equal(outra.nota.itens[0].produtoId, 'arroz');
   });
   await t.test('comparação não apaga registro comprado fora da nota ou de outra filial', async () => {
-    const f = require('./fixtures/cupom-pa.cjs')('000000005');
+    const f = fixtureArroz('000000005');
     await op('criar', { listaId: 'planejada-com-registro', titulo: 'Compra em andamento' });
     await op('adicionar', { listaId: 'planejada-com-registro', produtoId: 'arroz', quantidadePlanejada: 1 });
     await op('iniciar', { listaId: 'planejada-com-registro' });
@@ -353,7 +362,7 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     for (const p of precos.docs.filter(p => p.data().itemPlanejadoId === 'arroz')) assert.equal(p.data().marca, 'Marca confirmada');
   });
   await t.test('associa cupom à lista existente, inclui extras e retira só pendências autorizadas atomicamente', async () => {
-    const f = require('./fixtures/cupom-pa.cjs')('000000007');
+    const f = fixtureArroz('000000007');
     await op('criar', { listaId: 'jantar-2010', titulo: 'Jantar 20/10' }, uid);
     await op('adicionar', { listaId: 'jantar-2010', produtoId: 'arroz', quantidadePlanejada: 2 }, uid);
     await op('adicionar', { listaId: 'jantar-2010', produtoId: 'papel', quantidadePlanejada: 1 }, uid);

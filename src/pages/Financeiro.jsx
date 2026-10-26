@@ -1,3 +1,6 @@
+import { ComprovanteLink } from '../components/ComprovanteLink';
+import { registrarPdf, validarPdf } from '../services/pdfArquivos';
+import { PdfAcoes } from '../components/PdfAcoes';
 import { collection, doc } from '../services/dadosGrupo';
 import { calcularFolha, transportesDaCompetencia, calcularEspecial } from '../../functions/folha-calculos.mjs';
 import CalculoPagamentoEspecial from '../components/CalculoPagamentoEspecial';
@@ -187,12 +190,14 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
     }, "Informe o funcionário, o mês, um título e um link válido.");
   }
   function abrirRecibo(item, compartilhar = false) {
+    const sessaoPdf = registrarPdf({});
     executar(async () => {
       const { gerarReciboFinanceiro } = await import("../utils/exportarReciboFinanceiro");
       const folhaRelacionada = item.tipo === "salario" ? folhas.find((folhaItem) => folhaItem.id === item.folhaId || (folhaItem.funcionarioId === item.funcionarioId && folhaItem.competencia === item.competenciaMes)) : null;
       const funcionarioRelacionado = funcionarios.find((funcionarioItem) => funcionarioItem.id === item.funcionarioId);
       const arquivo = await gerarReciboFinanceiro({ ...folhaRelacionada, ...item, cargo: item.cargo || funcionarioRelacionado?.cargo, cpf: item.cpf || funcionarioRelacionado?.cpf });
-      setRecibo({ ...arquivo, compartilhar, arquivo: typeof File !== "undefined" ? new File([arquivo.blob], arquivo.nomeArquivo, { type: "application/pdf" }) : null, url: URL.createObjectURL(arquivo.blob) });
+      validarPdf(sessaoPdf);
+      setRecibo({ ...arquivo, compartilhar, arquivo: typeof File !== "undefined" ? registrarPdf(new File([arquivo.blob], arquivo.nomeArquivo, { type: "application/pdf" })) : null, url: URL.createObjectURL(arquivo.blob) });
     }, "Não foi possível abrir o recibo.");
   }
 
@@ -237,6 +242,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
       <label className="field"><span>Competência</span><input type="month" value={competenciaFolha} disabled={ocupado} onChange={e => { if (e.target.value) abrirCompetencia(e.target.value); }} /></label>
       {carregandoFolha && <p role="status">Carregando folha…</p>}
       {avisoFolha && <p className="mensagem" role="status">{avisoFolha}</p>}
+      {folha.pontoRevisaoPendente && <label className="folha-checkbox"><input type="checkbox" checked={folha.confirmarRevisaoPonto===true} onChange={e=>editarFolha({confirmarRevisaoPonto:e.target.checked})} /><span>O ponto foi revisado. Conferi a jornada e atualizei as horas e descontos desta folha.</span></label>}
       <article className="card"><div className="section-header"><h2>Vale-transporte antecipado</h2><Badge>{totais.valeTransportePago > 0 ? "PAGO" : "Sem antecipações"}</Badge></div><strong>{moeda(totais.valeTransportePago)}</strong><p className="text-muted">{folhaBloqueada ? 'Valor preservado no fechamento.' : 'Atualizado pelos pagamentos desta competência.'} Não será pago novamente com o salário.</p>{!financeiroCarregado && !folhaBloqueada && <p role="status">Carregando pagamentos…</p>}</article>
       {etapaFolha === 0 && <article className="card"><div className="section-header"><h2>Folha {dataBr(competenciaFolha)}</h2><Badge tone={estadoFolha.status === 'em_andamento' || estadoFolha.status === 'nova' ? 'warning' : 'success'}>{statusFolhaLabel}</Badge></div><FinancialSummary totais={totais} moeda={moeda} /><button className="btn btn-primary" disabled={carregandoFolha || !funcionarioId || estadoFolha.status === 'erro'} onClick={() => setEtapaFolha(folhaBloqueada ? 3 : 1)}>{folhaBloqueada ? 'Ver folha fechada' : estadoFolha.status === 'em_andamento' ? 'Continuar preparação' : 'Preparar folha'}</button></article>}
       {etapaFolha > 0 && <form className="folha-form" onSubmit={e => { e.preventDefault(); if (etapaFolha === 1) setEtapaFolha(2); else if (etapaFolha === 2) guardarFolha(true); }}>
@@ -287,7 +293,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
         <div className="financeiro-lista">{grupo.itens.map(({ item, categoria, chave }) => <article className="card financeiro-item" key={chave}>
           <div><strong>{categoria === "recibo" ? `Recibo · ${TIPOS[item.tipo] || item.tipoLabel || item.tipo}` : item.titulo}</strong><span>{categoria === "recibo" ? `${dataBr(item.dataPagamento)} · ${moeda(item.valorLiquido ?? item.valor)}` : item.tipo}</span></div>
           <div className="financeiro-acoes">
-            {categoria === "recibo" ? <button type="button" className="btn btn-secondary" disabled={ocupado} onClick={() => abrirRecibo(item)}>Abrir</button> : urlComprovante(item.url) ? <a className="btn btn-secondary" href={urlComprovante(item.url)} target="_blank" rel="noreferrer">Abrir</a> : <button type="button" className="btn btn-secondary" disabled>Link indisponível</button>}
+            {categoria === "recibo" ? <button type="button" className="btn btn-secondary" disabled={ocupado} onClick={() => abrirRecibo(item)}>Abrir</button> : urlComprovante(item.url) ? <ComprovanteLink url={urlComprovante(item.url)} onErro={setErro}>Abrir</ComprovanteLink> : <button type="button" className="btn btn-secondary" disabled>Link indisponível</button>}
             <button type="button" className="btn btn-secondary" disabled={ocupado} onClick={() => categoria === "recibo" ? abrirRecibo(item, true) : compartilharLink(item)}>Compartilhar</button>
             <button type="button" className="btn btn-danger" disabled={ocupado} onClick={() => apagarComprovante(item, categoria)}>Apagar</button>
           </div>
@@ -299,10 +305,10 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
   </main>
   {recibo && <div className="recibo-modal" role="dialog" aria-modal="true" aria-label="Comprovante em PDF"><div className="recibo-modal-painel">
     <div className="recibo-modal-topo"><strong>{recibo.compartilhar ? "Compartilhar comprovante" : "Recibo arquivado"}</strong><button type="button" aria-label="Fechar comprovante" onClick={() => setRecibo(null)}>×</button></div>
-    <iframe src={`${recibo.url}#toolbar=0`} title="Recibo" />
+    <PdfAcoes arquivo={recibo.arquivo} url={recibo.url} nome={recibo.nomeArquivo} onErro={setErro} preview />
     <p className="comprovante-compartilhar-ajuda">Toque em Compartilhar PDF e escolha WhatsApp ou email no menu do celular. Se o navegador não permitir, baixe o PDF para anexar.</p>
     {erro && <p className="mensagem erro" role="alert">{erro}</p>}
-    <div className="recibo-modal-acoes"><button type="button" className="btn btn-success" onClick={compartilharPdf}>Compartilhar PDF</button><a className="btn btn-primary" href={recibo.url} download={recibo.nomeArquivo}>Baixar PDF</a><button type="button" className="btn btn-muted" onClick={() => setRecibo(null)}>Fechar</button></div>
+    <div className="recibo-modal-acoes"><button type="button" className="btn btn-success" onClick={compartilharPdf}>Compartilhar PDF</button><button type="button" className="btn btn-muted" onClick={() => setRecibo(null)}>Fechar</button></div>
   </div></div>}
   {compartilhamento && <div className="recibo-modal" role="dialog" aria-modal="true" aria-label="Compartilhar comprovante"><div className="card comprovante-compartilhar-painel">
     <div className="recibo-modal-topo"><strong>Compartilhar comprovante</strong><button type="button" aria-label="Fechar compartilhamento" onClick={() => setCompartilhamento(null)}>×</button></div>

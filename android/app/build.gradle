@@ -1,0 +1,122 @@
+apply plugin: 'com.android.application'
+
+android {
+    sourceSets {
+        // Assets de teste nunca entram no release por heranca de main.
+        main.assets.srcDirs = []
+        debug.assets.srcDirs = ['src/main/assets']
+        release.assets.srcDirs = ['src/release/assets']
+    }
+    buildFeatures { buildConfig true }
+    namespace = "br.dev.acstech.ap1303.dev"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "br.dev.acstech.ap1303.dev"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "0.1.0-dev"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        debug { buildConfigField 'boolean', 'CUIDADOS_DISPONIVEIS', 'true' }
+        release {
+            buildConfigField 'boolean', 'CUIDADOS_DISPONIVEIS', 'false'
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+// Identidade apenas da variante final. Release continua bloqueado abaixo.
+androidComponents {
+    onVariants(selector().withBuildType('release')) { variant ->
+        variant.applicationId.set('br.dev.acstech.ap1303')
+        variant.outputs.each { output ->
+            output.versionName.set('1.0.0')
+            // Candidato local: a configuração registra o código conferido no Console.
+            def releaseConfig = new groovy.json.JsonSlurper().parse(rootProject.file('release.local.json'))
+            output.versionCode.set(releaseConfig.versionCode as Integer)
+        }
+    }
+}
+
+// Esta base é exclusiva de desenvolvimento. Nem Android Studio pode empacotar
+// um build web/produção por engano ou gerar release com as exceções debug.
+def validarAssetsMobile = tasks.register('validarAssetsMobile') {
+    doLast {
+        def stampFile = file('src/main/assets/public/mobile-build.json')
+        if (!stampFile.exists()) throw new GradleException('Execute build:mobile:dev e cap:sync:android.')
+        def stamp = new groovy.json.JsonSlurper().parse(stampFile)
+        if (!(stamp.emuladores instanceof Boolean) || (stamp.destino == 'emuladores' && !stamp.emuladores)) throw new GradleException('Stamp sem destino de dados explícito; reconstrua e sincronize os assets.')
+        if (stamp.emuladores && (!(stamp.host ==~ /[a-zA-Z0-9.-]+/) || stamp.host == '0.0.0.0')) throw new GradleException('Host de emuladores inválido.')
+        def google = file('google-services.json')
+        if (google.exists()) {
+            def config = new groovy.json.JsonSlurper().parse(google)
+            def packageOk = config.client.any { it.client_info.android_client_info.package_name == 'br.dev.acstech.ap1303.dev' }
+            if (stamp.destino != 'teste' || config.project_info.project_id != stamp.projectId || !packageOk) throw new GradleException('FCM exige configuração dedicada de teste e pacote correspondente; mistura com demo/produção bloqueada.')
+        }
+        if (stamp.versao != 1 || !(stamp.destino in ['emuladores', 'teste']) || stamp.projectId == 'ponto-app-1c55a') throw new GradleException('Destino mobile de teste inválido.')
+    }
+}
+tasks.configureEach { task ->
+    if (task.name == 'preDebugBuild') task.dependsOn(validarAssetsMobile)
+}
+
+def validarReleaseFinal = tasks.register('validarDistribuicaoFinal') {
+    doLast {
+        if (project.findProperty('ap1303Assinatura') != 'true') throw new GradleException('Release exige assinatura de upload autorizada, nunca debug.')
+        def nodeLocal = rootProject.file('../node_modules/node/bin/' + (System.getProperty('os.name').toLowerCase().contains('windows') ? 'node.exe' : 'node'))
+        def resultado = providers.exec {
+            workingDir rootProject.projectDir.parentFile
+            def argumentos = [nodeLocal.absolutePath, 'scripts/android-release-validacao.mjs']
+            if (project.findProperty('ap1303ArtefatoLocal') == 'true') argumentos.add('--artefato-local')
+            commandLine argumentos
+            ignoreExitValue = true
+        }.result.get()
+        if (resultado.exitValue != 0) throw new GradleException('Release bloqueado pelos requisitos finais acima; nao alterar flags sem homologacao.')
+    }
+}
+tasks.configureEach { task ->
+    if (task.name.toLowerCase().contains('release')) task.dependsOn(validarReleaseFinal)
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation "com.google.firebase:firebase-messaging:25.0.1"
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+// Opt-in local: não carrega credenciais nem muda a assinatura do debug por padrão.
+if (project.findProperty('ap1303Assinatura') == 'true') {
+    apply from: rootProject.file('release-signing.gradle')
+}
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

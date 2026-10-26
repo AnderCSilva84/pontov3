@@ -2,25 +2,18 @@ import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import {resolverAmbiente} from '../utils/ambiente';
 
-export const firebaseConfig = import.meta.env.DEV && import.meta.env.MODE === 'compras-test' ? {
-  apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-ap1303', appId: 'demo-ap1303',
-} : {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+export const ambiente = resolverAmbiente(import.meta.env, import.meta.env.MODE);
+export const firebaseConfig = ambiente.config;
 
 export const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
-if (import.meta.env.DEV && import.meta.env.MODE === 'compras-test') {
-  connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8877);
-  connectFunctionsEmulator(functions, '127.0.0.1', 5007);
+if (ambiente.emuladores) {
+  connectAuthEmulator(auth, `http://${ambiente.host}:9098`, { disableWarnings: true });
+  connectFirestoreEmulator(db, ambiente.host, 8877);
+  connectFunctionsEmulator(functions, ambiente.host, 5007);
 }

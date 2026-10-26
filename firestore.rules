@@ -5,6 +5,10 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null;
     }
+    function contaSemExclusao(uid) {
+      return !exists(/databases/$(database)/documents/contaSolicitacoes/$(uid))
+        || get(/databases/$(database)/documents/contaSolicitacoes/$(uid)).data.get('etapa', null) == null;
+    }
 
     function userDocPath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
@@ -47,14 +51,19 @@ service cloud.firestore {
     }
 
     // USERS
+    match /contaSolicitacoes/{uid} { allow read, write: if false; }
+    match /contaExecucoes/{id} { allow read, write: if false; }
+    match /pontoOperacoes/{id} { allow read, write: if false; }
+    match /pontoPendencias/{id} { allow read, write: if false; }
+    match /pontoDecisoes/{id} { allow read, write: if false; }
     match /users/{uid} {
       allow read: if signedIn() && (isAdmin() || request.auth.uid == uid);
-      allow create, delete: if isAdmin() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(uid));
-      allow update: if (isAdmin() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(uid))) || (
+      allow create, delete: if contaSemExclusao(uid) && isAdmin() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(uid));
+      allow update: if contaSemExclusao(uid) && ((isAdmin() && !exists(/databases/$(database)/documents/vinculosUsuarios/$(uid))) || (
         userExists() && request.auth.uid == uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']) &&
         request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
-      );
+      ));
     }
 
     // FUNCIONARIOS
@@ -251,7 +260,7 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAdmin() && camposValidos() && request.resource.data.status == 'em_andamento'
         && request.resource.data.versao == 1 && request.resource.data.criadaPor == request.auth.uid && request.resource.data.criadaEm == request.time;
-      allow update: if isAdmin() && resource.data.status == 'em_andamento' && camposValidos()
+      allow update: if isAdmin() && resource.data.status == 'em_andamento' && !resource.data.get('pontoRevisaoPendente', false) && camposValidos()
         && request.resource.data.versao == resource.data.versao + 1
         && request.resource.data.funcionarioId == resource.data.funcionarioId && request.resource.data.competencia == resource.data.competencia
         && request.resource.data.criadaPor == resource.data.criadaPor && request.resource.data.criadaEm == resource.data.criadaEm;
@@ -269,6 +278,9 @@ service cloud.firestore {
       allow list, write: if false;
     }
     match /grupos/{grupoId} {
+      match /pontoOperacoes/{id} { allow read, write: if false; }
+      match /pontoPendencias/{id} { allow read, write: if false; }
+      match /pontoDecisoes/{id} { allow read, write: if false; }
       function userDocPath() { return /databases/$(database)/documents/grupos/$(grupoId)/users/$(request.auth.uid); }
       function userDoc() { return get(userDocPath()).data; }
       function userExists() {
@@ -291,9 +303,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if userExists() && (isAdmin() || request.auth.uid == uid);
       allow create, delete: if false;
-      allow update: if (isAdmin() && (!isTitular(uid) || (request.resource.data.role == 'admin' && request.resource.data.get('ativo',true) == true))) || (
+      allow update: if contaSemExclusao(uid) && ((isAdmin() && (!isTitular(uid) || (request.resource.data.role == 'admin' && request.resource.data.get('ativo',true) == true))) || (
         userExists() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']) && request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
-      );
+      ));
     }
 
     // FUNCIONARIOS
@@ -491,7 +503,7 @@ service cloud.firestore {
       allow read: if userExists() && (isAdmin() || (myFuncionarioId() != null && resource.data.funcionarioId == myFuncionarioId() && resource.data.status in ['pronta_pagamento','paga']));
       allow create: if isAdmin() && camposValidos() && request.resource.data.status == 'em_andamento'
         && request.resource.data.versao == 1 && request.resource.data.criadaPor == request.auth.uid && request.resource.data.criadaEm == request.time;
-      allow update: if isAdmin() && resource.data.status == 'em_andamento' && camposValidos()
+      allow update: if isAdmin() && resource.data.status == 'em_andamento' && !resource.data.get('pontoRevisaoPendente', false) && camposValidos()
         && request.resource.data.versao == resource.data.versao + 1
         && request.resource.data.funcionarioId == resource.data.funcionarioId && request.resource.data.competencia == resource.data.competencia
         && request.resource.data.criadaPor == resource.data.criadaPor && request.resource.data.criadaEm == resource.data.criadaEm;

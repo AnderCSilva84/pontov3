@@ -1,0 +1,12 @@
+﻿const test=require('node:test'),assert=require('node:assert/strict');
+test('catálogo: exclusão autorizada preserva preços, listas e associações',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);process.env.GCLOUD_PROJECT+='-catalogo-exclusao';process.env.FIREBASE_CONFIG=JSON.stringify({projectId:process.env.GCLOUD_PROJECT});
+ const admin=require('../functions/node_modules/firebase-admin'),api=require('../functions/index.js'),db=admin.firestore();t.after(()=>admin.app().delete());
+ for(const [uid,g,role]of [['adm','a','admin'],['func','a','funcionario'],['outro','b','admin']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+uid).set({grupoId:g,ativo:true});await db.doc('grupos/'+g+'/users/'+uid).set({role,ativo:true});}
+ const base='grupos/a/',produto=db.doc(base+'catalogoCompras/pao'),preco=db.doc(base+'comprasPrecos/preco'),item=db.doc(base+'comprasListas/lista/itens/item');
+ await produto.set({nome:'Pão francês',unidadeCompra:'kg',ativo:true});await preco.set({produtoId:'pao',precoUnitarioCentavos:1000});await item.set({produtoId:'pao',nomeSnapshot:'Pão francês',estado:'pendente'});
+ const op=(uid,data)=>api.comprasOperacao.run({auth:{uid},data});const pedido={operacao:'produtoExcluir',produtoId:'pao',confirmado:true};
+ await assert.rejects(api.comprasOperacao.run({data:pedido}),{code:'unauthenticated'});await assert.rejects(op('func',pedido),{code:'permission-denied'});await assert.rejects(op('outro',pedido),{code:'not-found'});await assert.rejects(op('adm',{...pedido,confirmado:false}),{code:'invalid-argument'});
+ const antesPreco=(await preco.get()).data(),antesItem=(await item.get()).data();await op('adm',pedido);const excluido=(await produto.get()).data();assert.equal(excluido.ativo,false);assert.equal(excluido.excluidoPor,'adm');assert.ok(excluido.excluidoEm);assert.deepEqual((await preco.get()).data(),antesPreco);assert.deepEqual((await item.get()).data(),antesItem);assert.equal((await op('adm',pedido)).jaExcluido,true);assert.deepEqual((await produto.get()).data(),excluido);
+ await db.doc(base+'categoriasCompras/padaria').set({nome:'Padaria',ativo:true});const novo=await op('adm',{operacao:'produto',nome:'Pão francês',apresentacao:'Pacote',unidadeCompra:'kg',categoriaId:'padaria'});assert.equal((await db.doc(base+'catalogoCompras/'+novo.produtoId).get()).data().nome,'PÃO FRANCÊS');
+});

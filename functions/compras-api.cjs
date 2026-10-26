@@ -1,3 +1,4 @@
+const {ehSupermercado}=require('./compras-tipo.cjs');
 const { catalogoProdutos } = require('./no-bolso-product-catalog.cjs');
 const { onRequest } = require('firebase-functions/v2/https');
 const { getFirestore, Timestamp, FieldPath } = require('firebase-admin/firestore');
@@ -13,7 +14,7 @@ const iso = timestamp => timestamp?.toDate().toISOString() || null;
 async function precosPeriodo(db, dias, agora) {
   const snap = await db.collection('comprasPrecos').where('compradoEm', '>=', new Date(agora - dias * 86400000)).where('compradoEm', '<=', new Date(agora)).orderBy('compradoEm').limit(5001).get();
   if (snap.size > 5000) throw problema(422, 'Selecione um período menor: limite de 5.000 observações por consulta.');
-  return snap.docs.filter(d => d.data().valido !== false).map(d => {
+  return snap.docs.filter(d => d.data().valido !== false && ehSupermercado(d.data())).map(d => {
     const p = d.data();
     return { id: d.id, listaId: p.listaId, produtoId: p.produtoId, nomeSnapshot: p.nomeSnapshot, marca: p.marca || '', apresentacao: p.apresentacao || '', unidadeCompra: p.unidadeCompra, supermercadoId: p.supermercadoId, supermercadoNome: p.supermercadoNome, quantidadeComprada: p.quantidadeComprada, precoUnitarioCentavos: p.precoUnitarioCentavos, compradoEmMs: p.compradoEm.toMillis() };
   });
@@ -60,7 +61,7 @@ function criarHandlerComprasApi({ db = bancoComprasOriginal, verificar = async t
         const snap = await consulta.limit(limite + 1).get(), docs = snap.docs.slice(0, limite), ultimo = docs.at(-1);
         const ts = ultimo?.data().criadaEm;
         const nextCursor = snap.size > limite ? Buffer.from(JSON.stringify({ s: ts.seconds, n: ts.nanoseconds, id: ultimo.id })).toString('base64url') : null;
-        return res.json({ ...meta, listas: docs.filter(d => d.data().status !== 'excluida').map(resumoLista), nextCursor });
+        return res.json({ ...meta, listas: docs.filter(d => d.data().status !== 'excluida' && ehSupermercado(d.data())).map(resumoLista), nextCursor });
       }
       if (rota.tipo === 'rankings' || rota.tipo === 'produto') {
         const registros = await precosPeriodo(banco, dias, momento);
@@ -68,7 +69,7 @@ function criarHandlerComprasApi({ db = bancoComprasOriginal, verificar = async t
       }
       const dados = await banco.runTransaction(async tx => {
         const ref = banco.doc(`comprasListas/${rota.id}`), lista = await tx.get(ref);
-        if (!lista.exists || lista.data().status === 'excluida') throw problema(404, 'Lista não encontrada.');
+        if (!lista.exists || lista.data().status === 'excluida' || !ehSupermercado(lista.data())) throw problema(404, 'Lista não encontrada.');
         const snap = await tx.get(ref.collection('itens'));
         const itens = snap.docs.map(d => {
           const p = d.data();

@@ -9,10 +9,11 @@ test('folha: rascunho persistente, fechamento protegido e pagamento único', { s
   const { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp, terminate } = await import('firebase/firestore');
   const { pagarFolhaFechada } = require('../functions/folha-pagamento.cjs');
   const app = initializeApp({ projectId: process.env.GCLOUD_PROJECT, apiKey: 'demo-key' }, 'folha-cliente');
-  const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9098', { disableWarnings: true });
-  const client = getFirestore(app); connectFirestoreEmulator(client, '127.0.0.1', 8877);
+  const auth = getAuth(app); connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
+  const client = getFirestore(app); connectFirestoreEmulator(client, process.env.FIRESTORE_EMULATOR_HOST.split(':')[0], Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]));
   t.after(async () => { await signOut(auth); await terminate(client); await deleteApp(app); await backend.delete(); });
-  const uid = (await createUserWithEmailAndPassword(auth, 'folha-adm@example.test', 'Senha-ficticia-123')).user.uid;
+  // Emulador compartilhado entre ensaios: não colidir com a conta fictícia anterior.
+  const uid = (await createUserWithEmailAndPassword(auth, `folha-adm-${require('node:crypto').randomUUID()}@example.test`, 'Senha-ficticia-123')).user.uid;
   await db.doc(`users/${uid}`).set({ role: 'admin', ativo: true });
   await db.doc('funcionarios/folha-ficticia').set({ nome: 'Funcionária fictícia', ativo: true });
   const id = 'folha-ficticia_2026-10', ref = doc(client, 'folhasPagamento', id);
@@ -52,7 +53,7 @@ test('folha: rascunho persistente, fechamento protegido e pagamento único', { s
     assert.equal((await db.collection('financeiro').where('folhaId', '==', 'folha-ficticia_2026-08').get()).size, 1);
   });
   await t.test('funcionária não consulta nem altera folhas', async () => {
-    const empregada = (await createUserWithEmailAndPassword(auth, 'folha-func@example.test', 'Senha-ficticia-123')).user.uid;
+    const empregada = (await createUserWithEmailAndPassword(auth, `folha-func-${require('node:crypto').randomUUID()}@example.test`, 'Senha-ficticia-123')).user.uid;
     await db.doc(`users/${empregada}`).set({ role: 'funcionario', ativo: true, funcionarioId: 'folha-ficticia' });
     await assert.rejects(getDoc(ref), /permission/i);
     await assert.rejects(setDoc(doc(client, 'folhasPagamento', 'folha-ficticia_2026-11'), { ...base, competencia: '2026-11' }), /permission/i);

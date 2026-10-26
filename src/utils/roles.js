@@ -115,6 +115,12 @@ export function canConsultSystem(user) {
   return getUserPermissions(user).accessAdmin;
 }
 
+// Grupos não concedem leitura trabalhista global ao papel consulta.
+// O conjunto legado conserva a permissão já definida nas regras anteriores.
+export function canListEmployees(user) {
+  return canConsultSystem(user) && (!user?.grupoId || normalizeRole(user.role) === ROLE_ADMIN);
+}
+
 export function canManageUsers(user) {
   return getUserPermissions(user).manageUsers;
 }

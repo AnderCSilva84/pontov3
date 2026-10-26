@@ -63,7 +63,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
       batch.set(notificacaoRef, {
         titulo: "Nova tarefa fixa",
         mensagem: `${titulo.trim()} · ${diaLabel} · ${turno === "tarde" ? "Tarde" : "Manhã"}${horario ? ` · ${horario}` : ""}`,
-        tipo: "tarefa_fixa_criada",
+        tipo: "tarefa_fixa_criada", tarefaId: tarefaRef.id,
         criadoEm: serverTimestamp(),
         criadoPor: user.uid,
       });
@@ -88,7 +88,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
       batch.set(notificacaoRef, {
         titulo: "Nova tarefa no calendário",
         mensagem: `${tituloAvulsa.trim()} · ${dataAvulsa.split("-").reverse().join("/")} · ${turnoAvulsa === "tarde" ? "Tarde" : "Manhã"}${horarioAvulsa ? ` · ${horarioAvulsa}` : ""}`,
-        tipo: "tarefa_avulsa_criada",
+        tipo: "tarefa_avulsa_criada", tarefaId: tarefaRef.id,
         criadoEm: serverTimestamp(),
         criadoPor: user.uid,
       });

@@ -4,7 +4,7 @@ import {filtrarProdutosConsulta} from '../utils/comprasConsulta';
 export default function ProdutoAutocomplete({registros,catalogo=[],categorias=[],value,onChange,label='Buscar produto ou marca'}){
  const [busca,setBusca]=useState(null),[aberta,setAberta]=useState(false),[ativo,setAtivo]=useState(-1),[categoria,setCategoria]=useState('');const listaId=useId();
  const porId=new Map(catalogo.map(p=>[p.id,p])),nomes=new Map(categorias.map(c=>[c.id,c.nome]));
- const opcoes=[...new Map(registros.map(r=>{const categoriaId=r.categoriaId||porId.get(r.produtoId)?.categoriaId||'sem-categoria';return [chaveProdutoPreco(r),{...r,categoriaId,categoriaNome:nomes.get(categoriaId)||'Sem categoria'}];})).entries()].sort((a,b)=>a[1].nomeSnapshot.localeCompare(b[1].nomeSnapshot));
+ const opcoes=[...new Map(registros.map(r=>{const categoriaId=r.categoriaId||porId.get(r.produtoId)?.categoriaId||'sem-categoria';return [chaveProdutoPreco(r),{...r,nomesAlternativos:[r.nomeSnapshot,...catalogo.filter(p=>p.principalId===r.produtoId).flatMap(p=>[p.nome,...(p.aliasesNomes||[])]),...(porId.get(r.produtoId)?.aliasesNomes||[])].join(' '),nomeSnapshot:r.nomeCanonico||r.nomeSnapshot,categoriaId,categoriaNome:nomes.get(categoriaId)||'Sem categoria'}];})).entries()].sort((a,b)=>a[1].nomeSnapshot.localeCompare(b[1].nomeSnapshot));
  const selecionado=opcoes.find(([id])=>id===value)?.[1];
  const descricao=r=>`${r.nomeSnapshot} · ${r.marca||'Marca não informada'} · ${r.apresentacao||'Sem apresentação'} · por ${r.unidadeCompra}`;
  const texto=busca??(selecionado?descricao(selecionado):'');

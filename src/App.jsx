@@ -1,19 +1,32 @@
-﻿import NoBolsoConnection from "./pages/NoBolsoConnection";
-import { useEffect, useState } from "react";
-import CadastroGrupo from './pages/CadastroGrupo';
-import MeusComprovantes from './pages/MeusComprovantes';
+import {SessaoContext} from './components/ui/SessaoContext';
+import NotificacoesAndroid from './components/NotificacoesAndroid';
+import RotaCarregamento from './components/RotaCarregamento';
+import {androidPush} from './services/pushNativo';
+import { lazy, Suspense, useEffect, useState } from "react";
 import { observeAuth } from "./services/auth";
 import Ponto from "./pages/Ponto";
-import ListaCompras from "./pages/ListaCompras";
-import Tarefas from "./pages/Tarefas";
-import Lembretes from './pages/Lembretes';
-import Admin from "./pages/Admin";
-import Financeiro from "./pages/Financeiro";
 import NotificacoesPush from "./components/NotificacoesPush";
 import CarregandoGatinho from "./components/CarregandoGatinho";
 import { normalizeRole, ROLE_ADMIN } from "./utils/roles";
 import { resolverRotaUsuario, ehRotaCompras } from "./utils/rotas";
 import "./styles/App.css";
+import {registrarShell} from './services/appShell';
+import {nativo,recursosWeb} from './services/plataforma';
+import {conectarCicloMobile} from './services/cicloMobile';
+import {ambiente} from './services/firebase';
+import {App as AppNativo} from '@capacitor/app';
+
+const NoBolsoConnection=lazy(()=>import('./pages/NoBolsoConnection'));
+const CadastroGrupo=lazy(()=>import('./pages/CadastroGrupo'));
+const Conta=lazy(()=>import('./pages/Conta'));
+const Demonstracao=lazy(()=>import('./pages/Demonstracao'));
+const RecuperarSenha=lazy(()=>import('./pages/RecuperarSenha'));
+const MeusComprovantes=lazy(()=>import('./pages/MeusComprovantes'));
+const ListaCompras=lazy(()=>import('./pages/ListaCompras'));
+const Tarefas=lazy(()=>import('./pages/Tarefas'));
+const Lembretes=lazy(()=>import('./pages/Lembretes'));
+const Admin=lazy(()=>import('./pages/Admin'));
+const Financeiro=lazy(()=>import('./pages/Financeiro'));
 
 const ROTAS_VALIDAS = new Set(["/ponto", "/lista-compras", "/tarefas", "/lembretes", "/admin", "/admin/financeiro"]);
 
@@ -58,8 +71,11 @@ function AppConteudo({ user }) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }
 
-  if (user === undefined) return <CarregandoGatinho />;
   if (rotaAtual === '/cadastro') return <CadastroGrupo user={user} onNavigate={navegarPara} />;
+  if (rotaAtual === '/conta') return <Conta onNavigate={navegarPara} />;
+  if (rotaAtual === '/recuperar-senha') return <RecuperarSenha onNavigate={navegarPara} />;
+  if (rotaAtual === '/demonstracao' && user?.grupoId === 'demo_play_ap1303_v1') return <Demonstracao key={user.uid} user={user} onNavigate={navegarPara}/>;
+  if (user === undefined) return <CarregandoGatinho />;
   if (rotaAtual === '/meus-comprovantes' && user?.grupoId && role === 'funcionario') return <MeusComprovantes user={user} onNavigate={navegarPara} />;
   if (rotaAtual === "/integracoes/no-bolso") return <NoBolsoConnection user={user} onNavigate={navegarPara} />;
 
@@ -112,7 +128,10 @@ function AppConteudo({ user }) {
 
 export default function App() {
   const [user, setUser] = useState(undefined);
+  useEffect(()=>nativo()?conectarCicloMobile({app:AppNativo,janela:window,documento:document}):undefined,[]);
+  useEffect(()=>{if(import.meta.env.PROD)registrarShell().catch(()=>{});},[user?.uid]);
   useEffect(() => observeAuth(setUser), []);
   const chave = `${user?.uid || 'visitante'}:${user?.grupoId || 'legado'}`;
-  return <>{user && !(import.meta.env.DEV && import.meta.env.MODE === 'compras-test') && <NotificacoesPush key={chave} uid={user.uid} />}<AppConteudo key={chave} user={user} /></>;
+  const demo=user?.grupoId==='demo_play_ap1303_v1';
+  return <SessaoContext.Provider value={user}>{demo&&<aside className="demo-faixa" role="status"><strong>DEMONSTRAÇÃO · Dados fictícios</strong><button className="demo-acao" onClick={()=>{window.history.pushState({}, "", "/demonstracao");window.dispatchEvent(new PopStateEvent("popstate"));}}>Simular ponto sem GPS</button></aside>}{ambiente.teste && <div className="ambiente-teste" role="status">TESTE · {ambiente.destino}{nativo()?' · Offline nativo em validação':''}</div>}{user && recursosWeb() && !ambiente.teste && <NotificacoesPush key={chave} uid={user.uid} />}{androidPush() && <NotificacoesAndroid user={user} />}<RotaCarregamento key={chave}><Suspense fallback={<CarregandoGatinho />}><AppConteudo key={chave} user={user} /></Suspense></RotaCarregamento></SessaoContext.Provider>;
 }

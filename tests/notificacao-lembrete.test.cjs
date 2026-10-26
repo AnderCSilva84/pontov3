@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 test('aviso de cuidado abre ocorrência específica, sem concluir automaticamente e sem aceitar outro destinatário',async()=>{
  const handlers={},avisos=[],abertos=[];let receber;
  const self={location:{origin:'https://app.example',href:'https://app.example/firebase-messaging-sw.js?uid=uid1&config=%7B%7D'},skipWaiting(){},clients:{claim(){},matchAll:async()=>[],openWindow:async url=>abertos.push(url)},registration:{showNotification:async(titulo,opcoes)=>avisos.push({titulo,opcoes})},addEventListener:(nome,fn)=>handlers[nome]=fn};
- const contexto={self,URL,importScripts(){},firebase:{initializeApp(){},messaging:()=>({onBackgroundMessage:fn=>receber=fn})}};
+ const contexto={self,URL,caches:{open:async()=>({match:async()=>null})},importScripts(){},firebase:{initializeApp(){},messaging:()=>({onBackgroundMessage:fn=>receber=fn})}};
  vm.runInNewContext(fs.readFileSync('public/firebase-messaging-sw.js','utf8'),contexto);
  const url='/lembretes?lembreteId=x&ocorrenciaId=1_123&destinatario=uid1';
  await receber({data:{uid:'outra',url}});assert.equal(avisos.length,0);

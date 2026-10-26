@@ -7,6 +7,19 @@ const { FieldValue } = require("firebase-admin/firestore");
 
 
 admin.initializeApp();
+exports.demonstracaoOperacao=onCall({timeoutSeconds:30,minInstances:0,maxInstances:2},request=>require('./demonstracao.cjs').operarDemonstracao(admin.firestore(),request));
+exports.contaOperacao = onCall({timeoutSeconds:120,minInstances:0,maxInstances:2},request=>require('./conta.cjs').operarConta(admin.firestore(),admin.auth(),request));
+exports.processarExclusaoConta = require('firebase-functions/v2/firestore').onDocumentCreated({document:'contaExecucoes/{execucao}',timeoutSeconds:120,maxInstances:2,retry:false},async evento=>{
+ const dados=evento.data?.data();if(!dados?.uid||evento.params.execucao!==`${dados.uid}_${dados.rodada}`)return;
+ try{return await require('./conta-exclusao.cjs').processarExclusao(admin.firestore(),admin.auth(),dados.uid);}
+ finally{await evento.data.ref.delete();}
+});
+exports.registrarOperacaoPonto = onCall({ timeoutSeconds: 30, minInstances: 0, maxInstances: 2 }, request => require('./ponto-operacoes.cjs').registrarOperacao(admin.firestore(), request));
+exports.revisarPendenciaPonto = onCall({ timeoutSeconds: 30, minInstances: 0, maxInstances: 2 }, request => require('./ponto-revisao.cjs').operarRevisao(admin.firestore(), request));
+exports.ajustarJornadaPonto = onCall({ timeoutSeconds:30,minInstances:0,maxInstances:2 },request=>{
+  if(!['detalheDia','ajustarDia'].includes(request.data?.acao))throw new HttpsError('invalid-argument','Ação de correção inválida.');
+  return require('./ponto-revisao.cjs').operarRevisao(admin.firestore(),request);
+});
 Object.assign(exports, require('./compras.cjs'));
 exports.comprasApi = require('./compras-api.cjs').comprasApi;
 
@@ -170,9 +183,17 @@ exports.excluirUsuario = onCall(async (request) => {
   }
 
   const userRef = db.collection("users").doc(uid);
-  const userSnap = await userRef.get();
-  if (!userSnap.exists) throw new HttpsError("not-found", "Usuário não encontrado.");
-  if (db.grupoId && (await admin.firestore().doc('grupos/' + db.grupoId).get()).data()?.titularUid === uid) throw new HttpsError('permission-denied', 'O acesso do titular não pode ser excluído por um administrador.');
+  // A exclusão administrativa existente também participa da barreira de transferência.
+  // Desativar antes do Auth impede transferir a titularidade para um destino em remoção.
+  const userSnap = await db.runTransaction(async tx=>{
+    const [alvo,ator]=await tx.getAll(userRef,db.collection('users').doc(request.auth.uid));
+    const grupo=db.grupoId?await tx.get(admin.firestore().doc('grupos/'+db.grupoId)):null;
+    if(ator.data()?.role!=='admin'||ator.data()?.ativo===false||grupo&&grupo.data()?.ativo!==true)throw new HttpsError('permission-denied','Administração indisponível.');
+    if(!alvo.exists)throw new HttpsError('not-found','Usuário não encontrado.');
+    if(grupo?.data()?.titularUid===uid)throw new HttpsError('permission-denied','O acesso do titular não pode ser excluído por um administrador.');
+    tx.update(userRef,{ativo:false});if(grupo)tx.update(grupo.ref,{revisaoConta:FieldValue.increment(1)});
+    return alvo;
+  });
   const dados = userSnap.data() || {};
   const funcionarioId = String(dados.funcionarioId || "");
 
@@ -208,4 +229,14 @@ Object.assign(exports, require('./lembretes.cjs').criarLembretes({ admin, enviar
 Object.assign(exports, require('./compras-estimativa.cjs').criarEstimativaCompras({ admin }));
 
 exports.criarGrupo = onCall(request => require('./grupos.cjs').criarGrupo(admin.firestore(), request));
+exports.noBolsoConsulta = onCall({timeoutSeconds:60,maxInstances:2}, request => require('./no-bolso-consulta.cjs').consultarNoBolso(admin.firestore(), request));
 exports.criarMembroGrupo = onCall(request => require('./grupos.cjs').criarMembro(admin.firestore(), admin.auth(), request));
+
+exports.acaoNotificacaoTarefa = onCall(request => require('./push-acoes.cjs').acaoTarefa(admin.firestore(), request));
+
+exports.acaoNotificacaoLembrete = onCall(async request => {
+ const destino=await require('./grupos-contexto.cjs').bancoDoUsuario(admin.firestore(),request.auth?.uid);
+ if((request.data?.grupoId||'')!==(destino.grupoId||''))throw new HttpsError('permission-denied','O grupo mudou.');
+ if(!['consultarOcorrencia','concluir'].includes(request.data?.operacao))throw new HttpsError('invalid-argument','Ação inválida.');
+ return require('./lembretes.cjs').operarLembretes(destino,request);
+});

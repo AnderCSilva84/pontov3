@@ -27,5 +27,12 @@ test('pratos: autoria, programação, fotos, permissões e isolamento entre grup
  await op('adm-a','salvarPrato',{...base,id,versao:1,modo:'semanal',diasSemana:[4],foto:''});
  gravado=(await db.doc(`grupos/a/pratosDia/${id}`).get()).data();assert.equal(gravado.foto,'');assert.equal(gravado.versao,2);
  assert.equal((await op('func-a','listarPratos',{dia:'2026-10-29'})).pratos.length,1);
- await op('adm-a','arquivarPrato',{id,versao:2});assert.equal((await op('adm-a','listarPratos')).pratos.length,0);
+ await op('adm-a','salvarPrato',{...base,id,versao:2,imagemUrl:'https://example.com/foto.jpg',foto:''});
+ let listado=(await op('adm-a','listarPratos')).pratos.find(p=>p.id===id);assert.equal(listado.imagemUrl,'https://example.com/foto.jpg');assert.equal(listado.temFoto,false);
+ await op('adm-a','salvarPrato',{...base,id,versao:3,linkReceita:'https://example.com/outra',foto:''});
+ gravado=(await db.doc(`grupos/a/pratosDia/${id}`).get()).data();assert.equal(gravado.imagemUrl,'https://example.com/foto.jpg');
+ await assert.rejects(op('adm-a','salvarPrato',{...base,id,versao:4,imagemUrl:'https://127.0.0.1/foto'}),/imagem/);
+ await op('adm-a','salvarPrato',{...base,id,versao:4,imagemUrl:'',foto:''});
+ assert.equal((await db.doc(`grupos/a/pratosDia/${id}`).get()).data().imagemUrl,'');
+ await op('adm-a','arquivarPrato',{id,versao:5});assert.equal((await op('adm-a','listarPratos')).pratos.length,0);
 });

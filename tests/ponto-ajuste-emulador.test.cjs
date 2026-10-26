@@ -1,0 +1,32 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+test('correção administrativa: transação, auditoria, replay, concorrência e isolamento',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);
+ const admin=require('../functions/node_modules/firebase-admin'),app=admin.initializeApp({projectId:process.env.GCLOUD_PROJECT},'ajuste-'+randomUUID()),db=app.firestore();t.after(()=>app.delete());
+ const {operarRevisao}=require('../functions/ponto-revisao.cjs');
+ const grupo='ajuste-'+randomUUID(),outro='outro-'+randomUUID(),f='func-'+randomUUID(),uid='adm-'+randomUUID(),func='user-'+randomUUID(),uidOutro='admin-'+randomUUID();
+ for(const [g,u,role]of[[grupo,uid,'admin'],[grupo,func,'funcionario'],[outro,uidOutro,'admin']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+u).set({ativo:true,grupoId:g});await db.doc(`grupos/${g}/users/${u}`).set({ativo:true,role,nome:'Pessoa fictícia',funcionarioId:role==='funcionario'?f:null});}
+ const root=`grupos/${grupo}/`;
+ await db.doc(root+'funcionarios/'+f).set({ativo:true,nome:'Funcionária fictícia',cargaSegSexMin:480,desconsiderarIntervalo:true});
+ await db.doc(root+'registros/original').set({funcionarioId:f,tipo:'ENTRADA',hora:'08:00'});
+ const req=(d,u=uid,g=grupo)=>operarRevisao(db,{auth:u?{uid:u}:null,data:{...d,grupoId:g}});
+ const base={funcionarioId:f,dataKey:'2026-10-20'},dados={...base,acao:'ajustarDia',tipo:'manual',entrada:'08:00',saida:'17:00',saidaIntervalo:'',entradaIntervalo:'',justificativa:'Correção fictícia conferida pelo administrador.',operacaoId:randomUUID()};
+ const detalhe=await req({...base,acao:'detalheDia'});assert.equal(detalhe.revisaoDia,'ausente');
+ dados.revisaoDia=detalhe.revisaoDia;
+ for(const u of [func,null])await assert.rejects(req(dados,u),{code:u?'permission-denied':'unauthenticated'});
+ await assert.rejects(req(dados,uidOutro),{code:'permission-denied'});
+ await assert.rejects(req(dados,uidOutro,outro),{code:'not-found'});
+ await assert.rejects(req({...dados,justificativa:''}),{code:'invalid-argument'});
+ const r=await req(dados);assert.deepEqual(await req(dados),r);
+ const dia=(await db.doc(root+`dias/${f}_${base.dataKey}`).get()).data();assert.equal(dia.totalMin,480);assert.equal(dia.atualizadoPor,uid);assert.equal(dia.origemUltimaAlteracao,'ajuste_administrativo');
+ assert.equal((await db.doc(root+'registros/original').get()).data().hora,'08:00');
+ const audit=(await db.doc(root+'ajustesPonto/'+r.ajusteId).get()).data();assert.equal(audit.antes,null);assert.equal(audit.criadoPor,uid);assert.equal(audit.depois.totalMin,480);
+ await assert.rejects(req({...dados,saida:'18:00'}),{code:'already-exists'});
+ await assert.rejects(req({...dados,operacaoId:randomUUID()}),{code:'aborted'});
+ const atual=await req({...base,acao:'detalheDia'}),pedido={...dados,operacaoId:randomUUID(),revisaoDia:atual.revisaoDia,saida:'18:00'};
+ await db.doc(root+`folhasPagamento/${f}_2026-10`).set({status:'paga',versao:1});
+ await assert.rejects(req(pedido),{code:'failed-precondition'});
+ await db.doc(root+`folhasPagamento/${f}_2026-10`).set({status:'em_andamento',versao:1});
+ const respostas=await Promise.allSettled([req(pedido),req({...pedido,operacaoId:randomUUID(),saida:'18:10'})]);assert.equal(respostas.filter(r=>r.status==='fulfilled').length,1);assert.equal(respostas.find(r=>r.status==='rejected').reason.code,'aborted');
+ assert.equal((await db.doc(root+`folhasPagamento/${f}_2026-10`).get()).data().pontoRevisaoPendente,true);
+ assert.equal((await db.collection(root+'ajustesPonto').get()).size,2);
+});

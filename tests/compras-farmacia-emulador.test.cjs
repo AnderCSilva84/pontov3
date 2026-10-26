@@ -1,0 +1,37 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+test('Script11: classificação, fechamento, autorização e contratos supermercado',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);
+ const admin=require('../functions/node_modules/firebase-admin');const app=admin.initializeApp({projectId:process.env.GCLOUD_PROJECT+'-farmacia'}),db=app.firestore();t.after(()=>app.delete());
+ const {comprasOperacao,comprasRelatorio}=require('../functions/compras.cjs');
+ const gid='grupo11';await db.doc('grupos/'+gid).set({ativo:true});
+ for(const [u,role,g]of [['adm','admin',gid],['func','funcionario',gid],['outro','admin','outro11']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+u).set({grupoId:g,ativo:true});await db.doc(`grupos/${g}/users/${u}`).set({nome:'Autoria confiável',ativo:true,role});}
+ const p='grupos/'+gid+'/';await db.doc(p+'catalogoCompras/produto').set({nome:'Produto demo',categoriaId:'farmacia',apresentacao:'Caixa',unidadeCompra:'un',ativo:true});await db.doc(p+'supermercados/loja').set({nome:'Estabelecimento demo',filial:'Demo',cidade:'Demo',ativo:true});
+ const op=(operacao,dados={},uid='adm')=>comprasOperacao.run({auth:{uid},data:{operacao,...dados}});
+ await op('criar',{listaId:'farmacia',titulo:'Farmácia demo',tipoCompra:'farmacia',criadaPor:'forjado',criadaPorNome:'Forjado'});
+ let l=(await db.doc(p+'comprasListas/farmacia').get()).data();assert.equal(l.tipoCompra,'farmacia');assert.equal(l.criadaPor,'adm');assert.equal(l.criadaPorNome,'Autoria confiável');
+ await assert.rejects(op('criar',{listaId:'errada',titulo:'Inválida',tipoCompra:'estoque'}),{code:'invalid-argument'});
+ await assert.rejects(op('tipoCompra',{listaId:'farmacia',versao:1,tipoCompra:'supermercado'},'func'),{code:'permission-denied'});
+ await assert.rejects(op('tipoCompra',{listaId:'farmacia',versao:1,tipoCompra:'supermercado'},'outro'),{code:'not-found'});
+ await op('tipoCompra',{listaId:'farmacia',versao:1,tipoCompra:'supermercado'});await op('tipoCompra',{listaId:'farmacia',versao:2,tipoCompra:'farmacia'});
+ assert.equal((await db.collection(p+'comprasListas/farmacia/alteracoes').get()).size,2);
+ await op('adicionar',{listaId:'farmacia',produtoId:'produto',quantidadePlanejada:2},'func');await op('iniciar',{listaId:'farmacia'});
+ await op('item',{listaId:'farmacia',itemId:'produto',versao:1,estado:'comprado',precoUnitarioCentavos:1234,quantidadeComprada:2,supermercadoId:'loja'});
+ l=(await db.doc(p+'comprasListas/farmacia').get()).data();await op('finalizar',{listaId:'farmacia',versao:l.versao,aceitarPendentes:true});
+ const final=(await db.doc(p+'comprasListas/farmacia').get()).data();assert.equal(final.totalCentavos,2468);assert.equal(final.tipoCompra,'farmacia');
+ await assert.rejects(op('tipoCompra',{listaId:'farmacia',versao:final.versao,tipoCompra:'supermercado'}),{code:'failed-precondition'});
+ assert.equal((await op('finalizar',{listaId:'farmacia'})).jaFinalizada,true);
+ const preco=(await db.doc(p+'comprasPrecos/farmacia_produto').get()).data();assert.equal(preco.tipoCompra,'farmacia');
+ const intervalo={inicioMs:Date.now()-86400000,fimMs:Date.now()+86400000};
+ assert.equal((await comprasRelatorio.run({auth:{uid:'adm'},data:intervalo})).registros.length,0);
+ assert.equal((await comprasRelatorio.run({auth:{uid:'adm'},data:{...intervalo,tipoCompra:'farmacia'}})).registros.length,1);
+ await op('criar',{listaId:'legada',titulo:'Compatível'});await db.doc(p+'comprasListas/legada').update({tipoCompra:admin.firestore.FieldValue.delete(),criadaPorNome:admin.firestore.FieldValue.delete()});
+ await op('criar',{listaId:'legada',titulo:'Compatível'});assert.equal((await db.doc(p+'comprasListas/legada').get()).data().criadaPorNome,undefined);
+ const {consultarNoBolso}=require('../functions/no-bolso-consulta.cjs');
+ const r=await consultarNoBolso(db,{auth:{uid:'adm'},data:{consulta:'rankings',dias:30}});assert.equal(r.produtos.length,0);
+ const {criarHandlerComprasApi}=require('../functions/compras-api.cjs');const banco=require('../functions/grupos-contexto.cjs').bancoDoGrupo(db,gid);
+ const h=criarHandlerComprasApi({db:async()=>banco,verificar:async()=>({email:'no-bolso-runtime@organizanderson.iam.gserviceaccount.com',email_verified:true})});
+ const res={set(){return this;},status(n){this.codigo=n;return this;},json(x){this.dados=x;return this;}};
+ await h({get:()=> 'Bearer '+randomUUID(),method:'GET',path:'/v1/listas',query:{}},res);
+ assert.ok(!res.dados.listas?.some(l=>l.id==='farmacia'));
+ await h({get:()=> 'Bearer '+randomUUID(),method:'GET',path:'/v1/listas/farmacia',query:{}},res);assert.equal(res.codigo,404);
+});

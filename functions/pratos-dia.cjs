@@ -10,8 +10,9 @@ function validarPrato(d){
  if(!idValido(d.usuarioId)||!['data','semanal'].includes(d.modo))falha('invalid-argument','Selecione a funcionária e quando preparar o prato.');
  const diasSemana=d.modo==='semanal'?d.diasSemana:[];
  if(d.modo==='data'&&!dataValida(d.data)||!Array.isArray(diasSemana)||d.modo==='semanal'&&!diasSemana.length||diasSemana.some(n=>!Number.isInteger(n)||n<0||n>6)||new Set(diasSemana).size!==diasSemana.length)falha('invalid-argument','Escolha uma data válida ou os dias da semana.');
+ if(d.imagemUrl!==undefined){if(typeof d.imagemUrl!=='string')falha('invalid-argument','Imagem inválida.');if(d.imagemUrl)try{require('./receita-imagem.cjs').urlPublica(d.imagemUrl);}catch{falha('invalid-argument','Use uma imagem HTTPS pública.');}}
  if(d.foto!==undefined&&(typeof d.foto!=='string'||d.foto.length>180000||d.foto!==''&&!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(d.foto)))falha('invalid-argument','Use uma foto JPEG, PNG ou WebP reduzida (até 180 KB).');
- return {titulo,receita,linkReceita,usuarioId:d.usuarioId,modo:d.modo,data:d.modo==='data'?d.data:'',diasSemana:[...diasSemana].sort(),...(d.foto!==undefined?{foto:d.foto}:{})};
+ return {titulo,receita,linkReceita,...(d.imagemUrl!==undefined?{imagemUrl:d.imagemUrl}:{}),usuarioId:d.usuarioId,modo:d.modo,data:d.modo==='data'?d.data:'',diasSemana:[...diasSemana].sort(),...(d.foto!==undefined?{foto:d.foto}:{})};
 }
 function pratoNoDia(p,dia){return p.ativo!==false&&(p.modo==='data'?p.data===dia:p.diasSemana.includes(new Date(dia+'T12:00Z').getUTCDay()));}
 async function operarPratos(db,request){
@@ -24,7 +25,7 @@ async function operarPratos(db,request){
    if(d.dia!==undefined&&!dataValida(d.dia))falha('invalid-argument','Data inválida.');
    let q=db.collection('pratosDia').where('ativo','==',true);if(!admin)q=q.where('usuarioId','==',uid);
    const snap=await tx.get(q.limit(101));if(snap.size>100)falha('resource-exhausted','Há muitos pratos cadastrados. Arquive os antigos.');
-   return {pratos:snap.docs.filter(doc=>!d.dia||pratoNoDia(doc.data(),d.dia)).map(doc=>{const p=doc.data();return {id:doc.id,titulo:p.titulo,receita:p.receita,linkReceita:p.linkReceita,usuarioId:p.usuarioId,usuarioNome:p.usuarioNome,modo:p.modo,data:p.data,diasSemana:p.diasSemana,temFoto:Boolean(p.foto),versao:p.versao,criadaPorNome:p.criadaPorNome};})};
+   return {pratos:snap.docs.filter(doc=>!d.dia||pratoNoDia(doc.data(),d.dia)).map(doc=>{const p=doc.data();return {id:doc.id,titulo:p.titulo,receita:p.receita,linkReceita:p.linkReceita,usuarioId:p.usuarioId,usuarioNome:p.usuarioNome,modo:p.modo,data:p.data,diasSemana:p.diasSemana,imagemUrl:p.imagemUrl||'',temFoto:Boolean(p.foto),versao:p.versao,criadaPorNome:p.criadaPorNome};})};
   }
   if(d.id!==undefined&&!idValido(d.id))falha('invalid-argument','Prato inválido.');
   if(d.operacao!=='salvarPrato'&&!idValido(d.id))falha('invalid-argument','Selecione o prato.');
@@ -42,7 +43,7 @@ async function operarPratos(db,request){
   const campos=validarPrato(d),alvo=(await tx.get(db.doc('users/'+campos.usuarioId))).data();
   if(alvo?.role!=='funcionario'||alvo.ativo===false)falha('failed-precondition','Escolha uma funcionária ativa.');
   if(!anterior&&(await tx.get(db.collection('pratosDia').where('ativo','==',true).limit(100))).size>=100)falha('failed-precondition','Arquive pratos antigos antes de cadastrar mais.');
-  tx.set(ref,{...campos,foto:campos.foto??anterior?.foto??'',usuarioNome:alvo.nome||alvo.email||'Funcionária',ativo:true,versao:(anterior?.versao||0)+1,criadaPor:anterior?.criadaPor||uid,criadaPorNome:anterior?.criadaPorNome||perfil.nome||perfil.email||'',criadaEm:anterior?.criadaEm||FieldValue.serverTimestamp(),atualizadaPor:uid,atualizadaEm:FieldValue.serverTimestamp()});return {id:ref.id};
+  tx.set(ref,{...campos,imagemUrl:campos.imagemUrl??anterior?.imagemUrl??'',foto:campos.foto??anterior?.foto??'',usuarioNome:alvo.nome||alvo.email||'Funcionária',ativo:true,versao:(anterior?.versao||0)+1,criadaPor:anterior?.criadaPor||uid,criadaPorNome:anterior?.criadaPorNome||perfil.nome||perfil.email||'',criadaEm:anterior?.criadaEm||FieldValue.serverTimestamp(),atualizadaPor:uid,atualizadaEm:FieldValue.serverTimestamp()});return {id:ref.id};
  });
 }
 module.exports={operarPratos,validarPrato,pratoNoDia};
