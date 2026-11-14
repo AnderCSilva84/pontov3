@@ -25,11 +25,21 @@ function decimal(valor) {
   if (!/^\d+(?:\.\d{3})*(?:,\d+)?$/.test(valor)) throw new Error('Número inválido na nota.');
   return Number(valor.replaceAll('.', '').replace(',', '.'));
 }
-function dinheiro(valor) {
-  if (!/^\d+(?:\.\d{3})*(?:,\d{1,2})?$/.test(valor)) throw new Error('Valor monetário inválido na nota.');
-  const n = Math.round(decimal(valor) * 100);
+function dinheiro(valor,campo='valor') {
+  // Zeros de apresentação não representam frações de centavo. Nunca arredondar
+  // dígitos significativos nem adivinhar se um ponto é decimal ou de milhar.
+  const normalizado=typeof valor==='string'?valor.replace(/(,\d{2})0+$/,'$1'):valor;
+  if (!/^\d+(?:\.\d{3})*(?:,\d{1,2})?$/.test(normalizado)) throw new Error(`Valor monetário inválido na nota: ${campo} (${String(valor).slice(0,40)}).`);
+  const n = Math.round(decimal(normalizado) * 100);
   if (!Number.isSafeInteger(n) || n < 0 || n > 100000000) throw new Error('Valor fora do limite.');
   return n;
+}
+function precoFiscal(valor,linha){
+  if(!/^\d+(?:\.\d{3})*(?:,\d{1,10})?$/.test(valor))throw Error(`Valor monetário inválido na nota: preço unitário da linha ${linha} (${String(valor).slice(0,40)}).`);
+  const [inteiro,fracao='']=valor.replaceAll('.','').split(',');
+  const escalado=BigInt(inteiro)*10000000000n+BigInt(fracao.padEnd(10,'0'));
+  if(escalado<=0n||escalado>10000000000000000n)throw Error(`Preço unitário fora do limite na linha ${linha}.`);
+  return {escalado,centavos:Number((escalado+50000000n)/100000000n),...(fracao.length>2&&/[1-9]/.test(fracao.slice(2))?{precoUnitarioOriginalFiscal:valor}:{})};
 }
 const EMBALAGENS_FISCAIS = new Set([
   'UN', 'UND', 'UNID', 'UNIDS', 'UNIDADE', 'UNIDADES', 'U',
@@ -51,13 +61,17 @@ function normalizarUnidadeFiscal(valor) {
   if (EMBALAGENS_FISCAIS.has(u)) return { unidadeCompra: 'un' };
   // Medidas menores e áreas não são embalagens: não comparar grama com kg,
   // mililitro com litro ou m² com metro sem conversão explícita.
-  if (['G', 'GR', 'GRS', 'GRAMA', 'GRAMAS', 'MG', 'ML', 'CL', 'DL', 'CM', 'MM', 'KM', 'M2', 'M3', 'M²', 'M³', 'CM2', 'CM3', 'CM²', 'CM³', 'TON', 'T'].includes(u)) throw new Error(`Unidade fiscal não suportada sem conversão: ${u}. Não é uma embalagem; mantenha a medida original.`);
-  if (!/^[A-Z][A-Z0-9_-]{0,19}$/.test(u)) throw new Error(`Unidade fiscal não suportada: ${u}. Confira o código copiado da nota.`);
+  if (['G', 'GR', 'GRS', 'GRAMA', 'GRAMAS', 'MG', 'ML', 'CL', 'DL', 'CM', 'MM', 'KM', 'M2', 'M3', 'M²', 'M³', 'CM2', 'CM3', 'CM²', 'CM³', 'TON', 'T', 'MCG', 'UG', 'LB', 'OZ'].includes(u)) return { unidadeCompra: null, unidadePendente: true, motivoUnidade: 'conversao' };
+  if (!/^[A-Z][A-Z0-9_-]{0,19}$/.test(u)) return { unidadeCompra: null, unidadePendente: true, motivoUnidade: 'codigo' };
   // A NFC-e permite códigos comerciais do emitente. Um código desconhecido
   // abre a revisão, mas só entra no histórico com confirmação explícita.
   return { unidadeCompra: 'un', unidadeConferir: true };
 }
-function unidadeFiscal(valor) { return normalizarUnidadeFiscal(valor).unidadeCompra; }
+function unidadeFiscal(valor) {
+  const resultado = normalizarUnidadeFiscal(valor);
+  if (resultado.unidadePendente) throw new Error(`Unidade fiscal não suportada${resultado.motivoUnidade === 'conversao' ? ' sem conversão' : ''}: ${normalizar(valor)}.`);
+  return resultado.unidadeCompra;
+}
 function chaveAlias(cnpj, item) { return hash(JSON.stringify([cnpj, item.codigo, normalizar(item.nomeOriginal), normalizar(item.unidadeOriginal)])); }
 function lerTextoNota(link, texto, agora = Date.now()) {
   if (typeof texto !== 'string' || texto.length > 150000) throw new Error('Copie o texto completo da nota (até 150 mil caracteres).');
@@ -84,11 +98,15 @@ function lerTextoNota(link, texto, agora = Date.now()) {
   const re = /([^\n]+?)\s*\(C[oó]digo:\s*([^\s)]+)\s*\)\s*Qtde\.:\s*([\d.,]+)\s*UN:\s*([^\s]+)\s*Vl\.\s*Unit\.:\s*([\d.,]+)\s*Vl\.\s*Total\s*([\d.,]+)/gi;
   for (const m of t.matchAll(re)) {
     const [, nome, codigo, qtd, un, unitario, total] = m;
-    const quantidade = decimal(qtd), precoUnitarioCentavos = dinheiro(unitario), totalCentavos = dinheiro(total);
-    if (nome.trim().length > 200 || codigo.length > 80 || quantidade <= 0 || quantidade > 10000 || Math.abs(quantidade * 10000 - Math.round(quantidade * 10000)) > .00001 || precoUnitarioCentavos <= 0 || Math.abs(Math.round(precoUnitarioCentavos * quantidade) - totalCentavos) > 1) throw new Error('Há um item com quantidade, preço ou total incompatível.');
-    itens.push({ linha: itens.length + 1, codigo, nomeOriginal: nome.trim(), unidadeOriginal: un, ...normalizarUnidadeFiscal(un), quantidade, precoUnitarioCentavos, totalCentavos });
+    const linha=itens.length+1;
+    const quantidade = decimal(qtd),preco=precoFiscal(unitario,linha),precoUnitarioCentavos=preco.centavos,totalCentavos=dinheiro(total,`total da linha ${linha}`);
+    if (nome.trim().length > 200 || codigo.length > 80 || quantidade <= 0 || quantidade > 10000 || Math.abs(quantidade * 10000 - Math.round(quantidade * 10000)) > .00001 || precoUnitarioCentavos <= 0) throw new Error(`Há um item com quantidade, preço ou total incompatível na linha ${linha}.`);
+    // Multiplicação decimal inteira: não arredondar o unitário antes de aplicar o peso.
+    const calculado=Number((preco.escalado*BigInt(Math.round(quantidade*10000))+500000000000n)/1000000000000n);
+    if(Math.abs(calculado-totalCentavos)>1)throw Error(`Há um item com quantidade, preço ou total incompatível na linha ${linha}.`);
+    itens.push({ linha: itens.length + 1, codigo, nomeOriginal: nome.trim(), unidadeOriginal: un, ...normalizarUnidadeFiscal(un), quantidade, precoUnitarioCentavos,totalCentavos,...(preco.precoUnitarioOriginalFiscal?{precoUnitarioOriginalFiscal:preco.precoUnitarioOriginalFiscal}:{}) });
   }
-  const lerTotal = (regex, nome) => { const valor = t.match(regex)?.[1]; if (!valor) throw new Error(`Totais da nota incompletos: não foi encontrado ${nome}. Copie também o resumo de valores abaixo dos produtos.`); return dinheiro(valor); };
+  const lerTotal = (regex, nome) => { const valor = t.match(regex)?.[1]; if (!valor) throw new Error(`Totais da nota incompletos: não foi encontrado ${nome}. Copie também o resumo de valores abaixo dos produtos.`); return dinheiro(valor,nome); };
   // A cópia do navegador pode separar rótulo, moeda, dois-pontos e valor
   // por tabs ou quebras de linha. Sem cabeçalho bruto, o original é a soma
   // das linhas fiscais; descontos nunca são deduzidos por aproximação.
@@ -98,7 +116,7 @@ function lerTextoNota(link, texto, agora = Date.now()) {
   const descontoCentavos = /Descontos?\s+R\s*\$/i.test(t) ? lerTotal(/Descontos?\s+R\s*\$\s*:?\s*([\d.,]+)/i, 'o desconto') : 0;
   const totalPagoCentavos = lerTotal(/Valor\s+a\s+pagar\s+R\s*\$\s*:?\s*([\d.,]+)/i, 'o valor a pagar');
   const numeroItens = Number(t.match(/Qtd\.?\s*total\s+de\s+itens\s*:?\s*(\d+)/i)?.[1]);
-  if (!itens.length || itens.length !== numeroItens || itens.length > 120) throw new Error('Não foi possível ler todas as linhas. Limite: 120 linhas por cupom.');
+  if (!itens.length || itens.length !== numeroItens || itens.length > 200) throw new Error('Não foi possível ler todas as linhas. Limite: 200 linhas por cupom.');
   if (somaItensCentavos !== totalOriginalCentavos || totalOriginalCentavos - descontoCentavos !== totalPagoCentavos) throw new Error('Os itens, descontos e total pago não conferem. A nota não foi importada.');
   return { ...identidade, emitente, endereco, emitidaEm, totalOriginalCentavos, descontoCentavos, totalPagoCentavos, itens };
 }

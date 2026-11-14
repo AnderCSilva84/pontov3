@@ -88,7 +88,7 @@ async function operarRevisao(raiz,request){
       if(d.revisaoDia!==revisaoDia(diaSnap))falhar('aborted','A jornada mudou após abrir o detalhe. Atualize e examine novamente.');
       if(Object.values({entrada:dia?.entrada,saidaIntervalo:dia?.saidaIntervalo,entradaIntervalo:dia?.entradaIntervalo}).some(h=>h&&h>=d.horaRevisada))falhar('failed-precondition','Horário sobreposto ou anterior à última marcação.');
       if(data>partesOperacionais(Date.now()).dataKey)falhar('failed-precondition','Não aprove uma jornada futura.');
-      try{alteracoes=aplicarAcao(dia,original.tipo,d.horaRevisada,funcionario,new Date(data+'T12:00Z').getUTCDay());}catch(e){falhar('failed-precondition',e.message);}
+      try{alteracoes=aplicarAcao(dia,original.tipo,d.horaRevisada,funcionario,new Date(data+'T12:00Z').getUTCDay(),data);}catch(e){falhar('failed-precondition',e.message);}
       if((await tx.get(db.doc('registros/'+registroId))).exists)falhar('failed-precondition','Registro administrativo já existente; procure suporte.');
     }
     const aprovado=d.resultado==='aprovada',timestamp=FieldValue.serverTimestamp();

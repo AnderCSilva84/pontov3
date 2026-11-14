@@ -1,3 +1,4 @@
+const { jornadaNaData } = require('./jornada.mjs');
 const DIA = 86400000, FUSO = 3 * 3600000;
 const dataLocal = ms => new Date(ms - FUSO).toISOString().slice(0, 10);
 function dataValida(valor) {
@@ -32,6 +33,9 @@ function validarLembrete(d, agora = Date.now()) {
   if (!Array.isArray(diasSemana) || (d.repeticao === 'dias' && !diasSemana.length) || diasSemana.some(n => !Number.isInteger(n) || n < 0 || n > 6) || new Set(diasSemana).size !== diasSemana.length) throw Error('Selecione os dias da semana.');
   const ordenados = [...horarios].sort();
   const dados = { titulo, observacao, tipo: d.tipo, destinatarioCuidado, nomeCuidado, horario: ordenados[0], horarios: ordenados, dataInicio: d.dataInicio, repeticao: d.repeticao, diasSemana };
+  const dataCompromisso=d.tipo==='consulta'?(d.dataCompromisso||''):'',horarioCompromisso=d.tipo==='consulta'?(d.horarioCompromisso||''):'';
+  if((dataCompromisso||horarioCompromisso)&&(!dataValida(dataCompromisso)||typeof horarioCompromisso!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(horarioCompromisso)))throw Error('Informe a data e a hora do compromisso. Os horários de aviso são separados.');
+  Object.assign(dados,{dataCompromisso,horarioCompromisso});
   if (d.tipo === 'remedio') {
     const medicamento = typeof d.medicamento === 'string' ? d.medicamento.trim() : '';
     const posologia = typeof d.posologia === 'string' ? d.posologia.trim() : '';
@@ -51,7 +55,9 @@ function dentroExpediente(perfil, funcionario, ms) {
   const local = new Date(ms - FUSO), minuto = local.getUTCHours() * 60 + local.getUTCMinutes();
   const minutos = h => typeof h === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(h) ? Number(h.slice(0, 2)) * 60 + Number(h.slice(3)) : null;
   function intervalo(dia) {
-    const escala = funcionario.escala?.[dias[dia]];
+    const dataEscala = new Date(local);
+    if (dia !== local.getUTCDay()) dataEscala.setUTCDate(dataEscala.getUTCDate() - 1);
+    const escala = jornadaNaData(funcionario, dataEscala.toISOString().slice(0, 10)).escala?.[dias[dia]];
     if (!escala || escala.ativo === false || Number(escala.cargaMin) === 0) return null;
     const inicio = minutos(escala.inicio), fim = minutos(escala.fim);
     return inicio !== null && fim !== null && inicio !== fim ? { inicio, fim } : null;

@@ -4,6 +4,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 async function salvarFolha(db, dados, uid) {
   if (!uid) throw new HttpsError('unauthenticated', 'Entre no app.');
   const { calcularFolha, transportesDaCompetencia } = await import('./folha-calculos.mjs');
+  const {adiantamentosDaCompetencia}=await import('./adiantamentos-calculos.mjs');
   const f = dados.folha || {}, fid = dados.funcionarioId;
   if (typeof fid !== 'string' || !/^[\w-]{1,128}$/.test(fid) || !/^\d{4}-(0[1-9]|1[0-2])$/.test(f.competencia)) throw new HttpsError('invalid-argument', 'Selecione funcionária e competência.');
   if (f.bonusSemIncidenciaInss !== undefined && typeof f.bonusSemIncidenciaInss !== 'boolean') throw new HttpsError('invalid-argument', 'Revise a incidência do bônus.');
@@ -21,13 +22,19 @@ async function salvarFolha(db, dados, uid) {
     if (dados.fechar && !anterior) throw new HttpsError('failed-precondition', 'Salve a folha em andamento antes de fechar.');
     if ((anterior?.versao || 0) !== dados.versao) throw new HttpsError('aborted', 'A folha foi alterada em outra sessão. Reabra antes de salvar.');
     if (anterior?.pontoRevisaoPendente && f.confirmarRevisaoPonto !== true) throw new HttpsError('failed-precondition', 'O ponto foi revisado. Confira as horas e confirme a revisão na folha antes de salvar ou fechar.');
+    // O mesmo controle é alterado ao criar/cancelar/excluir um plano. Evita
+    // fechar uma folha enquanto outra sessão acrescenta uma parcela.
+    await tx.get(db.doc('adiantamentosControle/'+fid));
     const lancamentos = await tx.get(db.collection('financeiro').where('funcionarioId', '==', fid));
-    const totais = calcularFolha(f, transportesDaCompetencia(lancamentos.docs.map(d => ({ ...d.data(), id: d.id })), fid, f.competencia));
+    const registros=lancamentos.docs.map(d=>({...d.data(),id:d.id}));
+    const totais = calcularFolha(f, transportesDaCompetencia(registros, fid, f.competencia),adiantamentosDaCompetencia(registros,fid,f.competencia));
     if (totais.erroCalculo) throw new HttpsError('failed-precondition', totais.erroCalculo);
     if (dados.fechar && ['proventos','descontos','valeTransportePago'].some(c => dados.revisao?.[c] !== totais[c])) throw new HttpsError('aborted', 'Os valores foram atualizados. Confira novamente o transporte e o resumo antes de fechar.');
+    if(dados.fechar&&(totais.parcelasAdiantamentos.length||dados.revisao?.parcelasAdiantamentos?.length)&&!require('node:util').isDeepStrictEqual(dados.revisao?.parcelasAdiantamentos,totais.parcelasAdiantamentos))throw new HttpsError('aborted','As parcelas foram alteradas. Atualize e confira os vales/adiantamentos antes de fechar.');
     if (dados.fechar && (totais.proventos <= 0 || totais.descontos > totais.proventos)) throw new HttpsError('failed-precondition', 'Revise proventos e descontos antes de fechar.');
     const campos = Object.fromEntries(numericos.map(c => [c, Number(f[c] ?? (c === 'proporcaoVt' ? 100 : 0))]));
     const registro = { ...campos, competencia: f.competencia, descontarHoras: f.descontarHoras !== false, bonusBaseDesconto: f.bonusBaseDesconto === true, bonusSemIncidenciaInss: f.bonusSemIncidenciaInss === true, inssAutomatico: f.inssAutomatico === true, baseInssManual: f.baseInssManual === true, cobrarValeTransporte: f.cobrarValeTransporte === true, observacao: f.observacao, ...totais, calculoVersao: 2, funcionarioId: fid, funcionarioNome: funcionario.nome || '', status: dados.fechar ? 'pronta_pagamento' : 'em_andamento', versao: (anterior?.versao || 0) + 1, criadaPor: anterior?.criadaPor || uid, criadaEm: anterior?.criadaEm || FieldValue.serverTimestamp(), atualizadaPor: uid, atualizadaEm: FieldValue.serverTimestamp(), ...(dados.fechar ? { fechadaPor: uid, fechadaEm: FieldValue.serverTimestamp() } : {}) };
+    registro.calculoVersao=3;
     tx.set(ref, registro);
     return { versao: registro.versao, status: registro.status, totais };
   });
@@ -58,8 +65,8 @@ async function pagarFolhaFechada(db, dados, uid) {
     if ((await tx.get(pagamento)).exists) throw new HttpsError('failed-precondition', 'Já existe pagamento vinculado a esta folha.');
     const funcionario = (await tx.get(db.doc(`funcionarios/${folha.funcionarioId}`))).data();
     if (!funcionario) throw new HttpsError('not-found', 'Funcionária não encontrada.');
-    const campos = ['salarioBase', 'bonus', 'horasExtras', 'adicionais', 'horasDevidas', 'descontoHoras', 'faltas', 'inss', 'adiantamentos', 'outrosDescontos', 'valeTransportePago', 'descontoValeTransporte', 'baseInss'];
-    tx.create(pagamento, { ...Object.fromEntries(campos.map(c => [c, Number(folha[c]) || 0])), tipo: 'salario', tipoLabel: 'Salário', folhaId: dados.folhaId, valor, proventos: valor, descontos, valorLiquido: valor - descontos, funcionarioId: folha.funcionarioId, funcionarioNome: funcionario.nome || folha.funcionarioNome || '', dataPagamento: dados.dataPagamento, competenciaMes: folha.competencia, descricao: 'Pagamento da folha fechada', observacao: folha.observacao || '', criadoPor: uid, criadoEm: FieldValue.serverTimestamp() });
+    const campos = ['salarioBase', 'bonus', 'horasExtras', 'adicionais', 'horasDevidas', 'descontoHoras', 'faltas', 'inss', 'adiantamentos', 'adiantamentosAutomaticos','totalAdiantamentos', 'outrosDescontos', 'valeTransportePago', 'descontoValeTransporte', 'baseInss'];
+    tx.create(pagamento, { ...Object.fromEntries(campos.map(c => [c, Number(folha[c]) || 0])), ...(folha.parcelasAdiantamentos?{parcelasAdiantamentos:folha.parcelasAdiantamentos}:{}), tipo: 'salario', tipoLabel: 'Salário', folhaId: dados.folhaId, valor, proventos: valor, descontos, valorLiquido: valor - descontos, funcionarioId: folha.funcionarioId, funcionarioNome: funcionario.nome || folha.funcionarioNome || '', dataPagamento: dados.dataPagamento, competenciaMes: folha.competencia, descricao: 'Pagamento da folha fechada', observacao: folha.observacao || '', criadoPor: uid, criadoEm: FieldValue.serverTimestamp() });
     tx.update(ref, { status: 'paga', pagamentoId: pagamento.id, pagaEm: FieldValue.serverTimestamp(), pagaPor: uid });
     return { id: pagamento.id };
   });

@@ -1,3 +1,4 @@
+const { cargaNaData } = require('./jornada.mjs');
 const {HttpsError}=require('firebase-functions/v2/https');
 const {FieldValue}=require('firebase-admin/firestore');
 const {createHash}=require('node:crypto');
@@ -6,8 +7,7 @@ const fail=(c,m)=>{throw new HttpsError(c,m);};
 const campos=['entrada','saidaIntervalo','entradaIntervalo','saida'];
 function calcularAjuste(d,f){
  const semana=new Date(d.dataKey+'T12:00Z').getUTCDay();
- const nomes=['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
- const carga=Number(f.escala?.[nomes[semana]]?.cargaMin??(semana===0?0:semana===6?f.cargaSabadoMin??0:f.cargaSegSexMin??480));
+ const carga=cargaNaData(f,d.dataKey);
  if(!Number.isFinite(carga)||carga<0||carga>1440)fail('failed-precondition','Carga de trabalho inválida. Revise o cadastro.');
  const base={entrada:null,saidaIntervalo:null,entradaIntervalo:null,saida:null,ajusteAbonoMin:null};
  if(['atestado','dispensa','ferias','falta'].includes(d.tipo)){
@@ -22,7 +22,7 @@ function calcularAjuste(d,f){
  try{
   for(const [tipo,campo] of [['ENTRADA','entrada'],...(!semIntervalo?[['SAIDA_INTERVALO','saidaIntervalo'],['ENTRADA_INTERVALO','entradaIntervalo']]:[]),['SAIDA','saida']]){
    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(d[campo]||''))fail('invalid-argument','Preencha os horários completos conforme a jornada.');
-   dia={...dia,...aplicarAcao(dia,tipo,d[campo],f,semana)};
+   dia={...dia,...aplicarAcao(dia,tipo,d[campo],f,semana,d.dataKey)};
   }
  }catch(e){if(e instanceof HttpsError)throw e;fail('invalid-argument',e.message);}
  if(d.tipo==='saida_mais_cedo')dia.saldoMin=0;

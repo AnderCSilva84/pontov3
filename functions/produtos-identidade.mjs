@@ -1,6 +1,6 @@
 export const normalizarProduto=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/(\d),(\d)/g,'$1.$2').replace(/[^a-z0-9.]+/g,' ').trim().replace(/\s+/g,' ');
 const ABREV={integ:'integral',desn:'desnatado',lt:'l',lts:'l',litro:'l',litros:'l',quilo:'kg',quilos:'kg',gramas:'g',gr:'g',mls:'ml',pct:'pacote',pcte:'pacote',pc:'pacote',cx:'caixa',comp:'comprimido',comprimidos:'comprimido',caps:'capsula',capsulas:'capsula',unid:'un',unidades:'un',und:'un'};
-export const termosProduto=v=>normalizarProduto(v).split(' ').map(t=>ABREV[t]||t).join(' ');
+export const termosProduto=v=>normalizarProduto(v).replace(/(\d)(litros?|lts?|quilos?|gramas?|mls?|kg|mg|mcg|g|l|cm|m)\b/g,'$1 $2').split(' ').map(t=>t==='grama'?'g':ABREV[t]||t).join(' ');
 export function gtinValido(v){const s=String(v||'');if(!/^(\d{8}|\d{12,14})$/.test(s)||/^0+$/.test(s))return false;let soma=0;for(let i=s.length-2,p=0;i>=0;i--,p++)soma+=Number(s[i])*(p%2?1:3);return (10-soma%10)%10===Number(s.at(-1));}
 export function atributosProduto(p){
  const texto=termosProduto([p.nomeOriginal||p.nome,p.apresentacao,p.dosagem].filter(Boolean).join(' '));
@@ -14,7 +14,7 @@ export function conflitosProdutos(a,b){
  const x=atributosProduto(a),y=atributosProduto(b),r=[];
  if(a.unidadeCompra&&b.unidadeCompra&&a.unidadeCompra!==b.unidadeCompra)r.push('Unidades de compra diferentes');
  for(const [k,n]of [['marca','Marcas'],['principio','Princípios ativos'],['dosagem','Dosagens'],['medidas','Peso/volume/dose'],['packs','Quantidade na embalagem'],['sabores','Sabores/versões'],['formas','Formas farmacêuticas']]){const v=x[k],w=y[k];if(v.length&&w.length&&JSON.stringify(v)!==JSON.stringify(w))r.push(n+' diferentes');}
- if(gtinValido(a.gtin)&&gtinValido(b.gtin)&&a.gtin!==b.gtin)r.push('GTINs diferentes');
+ if(gtinValido(a.gtin)&&gtinValido(b.gtin)&&String(a.gtin)!==String(b.gtin))r.push('GTINs diferentes');
  return r;
 }
 function distancia(a,b){if(a.length>200||b.length>200)return 200;let linha=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){const prox=[i];for(let j=1;j<=b.length;j++)prox[j]=Math.min(prox[j-1]+1,linha[j]+1,linha[j-1]+(a[i-1]===b[j-1]?0:1));linha=prox;}return linha[b.length];}

@@ -1,4 +1,9 @@
-/* eslint-disable */
+
+// Opt-in de homologação local: desvia antes de inicializações e gatilhos normais.
+if (process.env.AP1303_QR_LOCAL === 'true') {
+  module.exports = require('./qr-local.cjs');
+  return;
+}
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
@@ -21,6 +26,23 @@ exports.ajustarJornadaPonto = onCall({ timeoutSeconds:30,minInstances:0,maxInsta
   return require('./ponto-revisao.cjs').operarRevisao(admin.firestore(),request);
 });
 Object.assign(exports, require('./compras.cjs'));
+exports.centralPrecos=onCall({timeoutSeconds:120,minInstances:0,maxInstances:4},request=>require('./central-precos.cjs').operarCentral(admin.firestore(),request));
+// Eventos específicos: não há listener global de coleções nem agendamento novo.
+for(const colecao of ['comprasPrecos','comprasListas','catalogoCompras','supermercados','centralVinculos','centralLocais','comprasAssociacoesOperacoes']){
+ for(const agrupado of [true,false]){
+  const nome='centralEvento'+colecao+(agrupado?'Grupo':'Legado');
+  exports[nome]=require('firebase-functions/v2/firestore').onDocumentWritten({document:(agrupado?'grupos/{grupoId}/':'')+colecao+'/{id}',region:'southamerica-east1',timeoutSeconds:120,maxInstances:2,retry:false},async e=>{
+   try{return await require('./central-precos.cjs').eventoOrigem(admin.firestore(),e.params.grupoId||null,colecao,e.params.id,e.data?.before.data(),e.data?.after.data(),e.id);}
+   catch(error){
+    // Falha persistida, sem payload privado nos logs; recuperação explícita.
+    const db=e.params.grupoId?require('./grupos-contexto.cjs').bancoDoGrupo(admin.firestore(),e.params.grupoId):admin.firestore();
+    await require('./central-precos.cjs').criarLote(db,{tipo:colecao==='comprasPrecos'?'fonte':'reconciliar',alvo:colecao==='comprasPrecos'?{campo:'precoId',id:e.params.id}:null,evento:e.id},'evento');
+    console.warn('Central: processamento pendente',error.code||'falha');
+   }
+  });
+ }
+}
+exports.centralExecutarLote=require('firebase-functions/v2/firestore').onDocumentCreated({document:'centralExecucoes/{id}',region:'southamerica-east1',timeoutSeconds:120,maxInstances:2,retry:false},e=>require('./central-precos.cjs').eventoExecucao(admin.firestore(),e.data.ref));
 exports.comprasApi = require('./compras-api.cjs').comprasApi;
 
 const { aplicarAcao, distanciaMetros, dataValida } = require("./ponto-validacao.cjs");
@@ -64,7 +86,7 @@ exports.registrarPonto = onCall(async (request) => {
     if (!localAutorizado) throw new HttpsError("permission-denied", "Você está fora do local autorizado.");
     const dia = (await transaction.get(diaRef)).data();
     let alteracoes;
-    try { alteracoes = aplicarAcao(dia, tipo, hora, funcionario, diaSemana); }
+    try { alteracoes = aplicarAcao(dia, tipo, hora, funcionario, diaSemana, dataKey); }
     catch (error) { throw new HttpsError("failed-precondition", error.message); }
     const timestamp = FieldValue.serverTimestamp();
     transaction.set(diaRef, { ...alteracoes, funcionarioId, dataKey, atualizadoEm: timestamp }, { merge: true });
@@ -89,6 +111,7 @@ exports.criarLancamentoFinanceiro = onCall(async (request) => {
   const db = await exigirAdmin(request);
   const dados = request.data || {};
   if (dados.folhaId) return require('./folha-pagamento.cjs').pagarFolhaFechada(db, dados, request.auth.uid);
+  if((dados.tipo==='vale'&&dados.descontoFolha===true)||dados.tipo==='adiantamento')return require('./adiantamentos.cjs').criarAdiantamento(db,dados,request.auth.uid);
   const tipos = { transporte: "Transporte", salario: "Salário", vale: "Vale / adiantamento", decimo_terceiro: "13º salário", ferias: "Férias", rescisao: "Rescisão" };
   if (['decimo_terceiro','ferias','rescisao'].includes(dados.tipo)) return require('./pagamentos-especiais.cjs').pagarEspecial(db, dados, request.auth.uid);
   const valor = Number(dados.valor);
@@ -159,10 +182,12 @@ exports.excluirLancamentoFinanceiro = onCall(async (request) => {
   await db.runTransaction(async (transaction) => {
     const snap = await transaction.get(ref);
     if (!snap.exists) throw new HttpsError("not-found", "Lançamento não encontrado.");
+    const concluirParcelamento=snap.data().parcelamento?.versao===1?await require('./adiantamentos.cjs').protegerExclusao(transaction,db,snap.data(),id):null;
     if (snap.data().tipo === 'transporte') {
       const folhas = await transaction.get(db.collection('folhasPagamento').where('funcionarioId', '==', snap.data().funcionarioId));
       if (folhas.docs.some(d => d.data().status !== 'em_andamento' && d.data().transportes?.some(i => i.id === id))) throw new HttpsError('failed-precondition', 'Este transporte integra uma folha fechada e não pode ser apagado.');
     }
+    concluirParcelamento?.();
     transaction.set(db.collection("financeiroAuditoria").doc(), {
       acao: "exclusao", lancamentoId: id, dados: snap.data(),
       executadoPor: request.auth.uid, executadoEm: FieldValue.serverTimestamp(),
@@ -171,6 +196,8 @@ exports.excluirLancamentoFinanceiro = onCall(async (request) => {
   });
   return { ok: true };
 });
+
+exports.cancelarParcelasAdiantamento=onCall({timeoutSeconds:60,minInstances:0,maxInstances:2},async request=>require('./adiantamentos.cjs').cancelarParcelas(await bancoDoUsuario(admin.firestore(),request.auth?.uid),request.data||{},request.auth?.uid));
 
 exports.excluirUsuario = onCall(async (request) => {
   const db = await exigirAdmin(request);
@@ -191,6 +218,9 @@ exports.excluirUsuario = onCall(async (request) => {
     if(ator.data()?.role!=='admin'||ator.data()?.ativo===false||grupo&&grupo.data()?.ativo!==true)throw new HttpsError('permission-denied','Administração indisponível.');
     if(!alvo.exists)throw new HttpsError('not-found','Usuário não encontrado.');
     if(grupo?.data()?.titularUid===uid)throw new HttpsError('permission-denied','O acesso do titular não pode ser excluído por um administrador.');
+    const fidFoto=['funcionario','funcionaria'].includes(alvo.data().role)?alvo.data().funcionarioId:null;
+    const fFoto=typeof fidFoto==='string'&&/^[\w-]{1,128}$/.test(fidFoto)?await tx.get(db.doc('funcionarios/'+fidFoto)):null;
+    if(fFoto?.exists&&fFoto.data().fotoPerfilUid===uid)tx.update(fFoto.ref,{fotoPerfilUid:FieldValue.delete(),temFotoPerfil:FieldValue.delete(),fotoPerfilVersao:FieldValue.delete()});
     tx.update(userRef,{ativo:false});if(grupo)tx.update(grupo.ref,{revisaoConta:FieldValue.increment(1)});
     return alvo;
   });
@@ -202,6 +232,7 @@ exports.excluirUsuario = onCall(async (request) => {
   });
 
   const batch = db.batch();
+  batch.delete(db.doc('fotosPerfis/'+uid));
   batch.delete(userRef);
   if (db.grupoId) batch.delete(admin.firestore().doc('vinculosUsuarios/' + uid));
   if (funcionarioId) {
@@ -239,4 +270,14 @@ exports.acaoNotificacaoLembrete = onCall(async request => {
  if((request.data?.grupoId||'')!==(destino.grupoId||''))throw new HttpsError('permission-denied','O grupo mudou.');
  if(!['consultarOcorrencia','concluir'].includes(request.data?.operacao))throw new HttpsError('invalid-argument','Ação inválida.');
  return require('./lembretes.cjs').operarLembretes(destino,request);
+});
+
+// Arquivos privados: autenticação e grupo no servidor, payload limitado e concorrência contida.
+exports.lembretesAnexos=onCall({region:'us-central1',timeoutSeconds:120,memory:'512MiB',concurrency:4,maxInstances:2,minInstances:0},async request=>{
+ const uid=request.auth?.uid,destino=await bancoDoUsuario(admin.firestore(),uid);
+ const projeto=admin.app().options.projectId||process.env.GCLOUD_PROJECT||process.env.GOOGLE_CLOUD_PROJECT;
+ let bucket;
+ if(projeto==='ponto-app-1c55a'&&!process.env.FUNCTIONS_EMULATOR)bucket=require('firebase-admin/storage').getStorage().bucket(require('./lembretes-anexos.cjs').BUCKET);
+ else if(projeto?.startsWith('demo-')&&process.env.FIREBASE_STORAGE_EMULATOR_HOST)bucket=require('firebase-admin/storage').getStorage().bucket(projeto+'-lembretes-anexos');
+ return require('./lembretes-anexos.cjs').operarAnexos(destino,request,{bucket,validarContexto:async()=>{const atual=await bancoDoUsuario(admin.firestore(),uid);if((atual.grupoId||'')!==(destino.grupoId||''))throw new HttpsError('permission-denied','O grupo mudou durante a operação.');}});
 });

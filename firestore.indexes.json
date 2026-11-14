@@ -131,7 +131,83 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "centralObservacoes",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "bucketId"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "dataMs"
+        }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "centralObservacoes",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "resumoId"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "dataMs"
+        }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "bucketId"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "precoOrdenacao"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "dataMs"
+        }
+      ],
+      "collectionGroup": "centralObservacoes",
+      "queryScope": "COLLECTION"
+    },
+    {
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "precoOrdenacao"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "dataMs"
+        }
+      ],
+      "collectionGroup": "estabelecimentos",
+      "queryScope": "COLLECTION"
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "indexes": [],
+      "fieldPath": "dados",
+      "collectionGroup": "centralObservacoes"
+    },
+    {
+      "indexes": [],
+      "fieldPath": "dados",
+      "collectionGroup": "apoios"
+    },
+    {
+      "indexes": [],
+      "fieldPath": "dados",
+      "collectionGroup": "estabelecimentos"
+    }
+  ]
 }

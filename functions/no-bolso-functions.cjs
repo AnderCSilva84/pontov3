@@ -15,15 +15,15 @@ const bridge = () =>
     assertAuthUser: async (uid) => {
       const user = await getAuth().getUser(uid)
       if (user.disabled)
-        throw Object.assign(new Error('Conta AP1303 indisponível.'), { status: 403 })
+        throw Object.assign(new Error('Conta Tá no Ponto indisponível.'), { status: 403 })
     },
   })
 exports.handleNoBolsoGrant = async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Entre no AP1303.')
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Entre no Tá no Ponto.')
   let currentUser
   try { currentUser = await getAuth().getUser(request.auth.uid) }
   catch (error) {
-    if (error.code === 'auth/user-not-found') throw new HttpsError('permission-denied', 'Entre novamente no AP1303 antes de vincular.')
+    if (error.code === 'auth/user-not-found') throw new HttpsError('permission-denied', 'Entre novamente no Tá no Ponto antes de vincular.')
     throw new HttpsError('unavailable', 'Não foi possível conferir a conta.')
   }
   if (
@@ -34,7 +34,7 @@ exports.handleNoBolsoGrant = async (request) => {
   )
     throw new HttpsError(
       'permission-denied',
-      'Entre novamente no AP1303 antes de vincular.',
+      'Entre novamente no Tá no Ponto antes de vincular.',
     )
   const data = request.data
   if (

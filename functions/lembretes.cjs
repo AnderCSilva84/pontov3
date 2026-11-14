@@ -11,6 +11,8 @@ async function operarLembretes(db, request, agora = Date.now()) {
   const uid = request.auth.uid, d = request.data || {};
   const auditoriaAcao = d.declaradaEmMs === undefined ? {} : { acaoDeclaradaEmMs: d.declaradaEmMs, acaoConfirmadaEm: FieldValue.serverTimestamp() };
   if(d.declaradaEmMs !== undefined && (!Number.isSafeInteger(d.declaradaEmMs)||d.declaradaEmMs>agora+60000||d.declaradaEmMs<agora-86400000))falha('invalid-argument','Horário da ação inválido.');
+  if(['geralPessoas','geralListar','geralSalvar','geralConcluir','geralAdiar','geralOrganizar','geralLidos','geralPausar'].includes(d.operacao))return require('./lembretes-gerais.cjs').operarGerais(db,request,agora);
+  if(['alimentacaoListar','alimentacaoSalvar','alimentacaoArquivar'].includes(d.operacao))return require('./alimentacao.cjs').operarAlimentacao(db,request,agora);
   if(d.operacao==='buscarImagemReceita')return require('./receita-imagem.cjs').operarImagem(db,request);
   if(['listarPratos','salvarPrato','arquivarPrato','obterPrato'].includes(d.operacao))return require('./pratos-dia.cjs').operarPratos(db,request);
   if (['listarCuidados', 'salvarCuidado'].includes(d.operacao)) return operarCuidados(db, request);
@@ -23,16 +25,18 @@ async function operarLembretes(db, request, agora = Date.now()) {
       const usuarioId = admin ? d.usuarioId : uid;
       if (d.visao !== 'cuidados' && !idValido(usuarioId)) falha('invalid-argument', 'Selecione uma funcionária.');
       const snap = d.visao === 'cuidados' ? await selecionarPorCuidado(tx, db, uid, perfil, d) : await tx.get(db.collection('lembretes').where('usuarioId', '==', usuarioId).limit(100));
-      return { lembretes: await Promise.all(snap.docs.filter(doc => d.visao === 'cuidados' || !doc.data().cuidadoId).map(async doc => {
+      const lembretes=await Promise.all(snap.docs.filter(doc => !['geral','alimentacao'].includes(doc.data().dominio) && (d.visao === 'cuidados' || !doc.data().cuidadoId)).map(async doc => {
         const l = doc.data(), cuidado = snap.cuidados?.get(l.cuidadoId);
         const destino = destinoLembrete(l, cuidado);
         const responsavelAnterior = (l.destinatarios || !cuidado) && l.usuarioId !== 'todos' && idValido(l.usuarioId) ? (await tx.get(db.doc(`users/${l.usuarioId}`))).data() : null;
         const criador = !l.criadaPorNome && idValido(l.criadaPor) ? (await tx.get(db.doc(`users/${l.criadaPor}`))).data() : null;
         const inicioHoje = Date.parse(`${dataLocal(agora)}T00:00:00-03:00`);
         const registros = await tx.get(doc.ref.collection('ocorrencias').where('horarioMs', '>=', inicioHoje).orderBy('horarioMs', 'desc').limit(24));
-        const ocorrencias = registros.docs.filter(r => r.id.startsWith(`${l.versao}_`)).map(r => { const o = r.data(); return { id: r.id, horarioMs: o.horarioMs, status: o.status, notificacaoStatus: o.notificacaoStatus || '', avisosAdministradores: o.avisosAdministradores === true, concluidaEmMs: o.concluidaEmMs || null }; });
-        return { id: doc.id, cuidadoId: l.cuidadoId || '', destinatarios: l.destinatarios || '', criadaPor: l.criadaPor || '', criadaPorNome: l.criadaPorNome || criador?.nome || criador?.email || 'Não disponível', criadaEmMs: l.criadaEm?.toMillis() || null, responsavelDescricao: destino?.destinatarios === 'todos' ? 'Global · todos os usuários habilitados' : responsavelAnterior?.nome || responsavelAnterior?.email || cuidado?.usuarioNome || 'Usuário responsável', usuarioId: l.usuarioId, titulo: l.titulo, observacao: l.observacao || '', tipo: l.tipo, destinatarioCuidado: cuidado?.tipo || l.destinatarioCuidado || '', nomeCuidado: cuidado?.nome || l.nomeCuidado || '', medicamento: l.medicamento || '', posologia: l.posologia || '', horario: l.horario, horarios: l.horarios || [l.horario], dataInicio: l.dataInicio, repeticao: l.repeticao, diasSemana: l.diasSemana, ativo: l.ativo, versao: l.versao, proximoDisparoEmMs: l.proximoDisparoEm?.toMillis() || null, ultimaOcorrencia: l.ultimaOcorrencia || null, ocorrencias };
-      })) };
+        const ocorrencias = registros.docs.filter(r => r.id.startsWith(`${l.versao}_`)).map(r => { const o = r.data(); return { id: r.id, horarioMs: o.horarioMs, status: o.status, notificacaoStatus: o.notificacaoStatus || '', avisosAdministradores: o.avisosAdministradores === true, concluidaPor:o.concluidaPor||'',concluidaPorNome:o.concluidaPorNome||'', concluidaEmMs: o.concluidaEmMs || null }; });
+        return { id: doc.id, cuidadoId: l.cuidadoId || '', destinatarios: l.destinatarios || '', criadaPor: l.criadaPor || '', criadaPorNome: l.criadaPorNome || criador?.nome || criador?.email || 'Não disponível', criadaEmMs: l.criadaEm?.toMillis() || null, responsavelDescricao: destino?.destinatarios === 'todos' ? 'Global · todos os usuários habilitados' : responsavelAnterior?.nome || responsavelAnterior?.email || cuidado?.usuarioNome || 'Usuário responsável', usuarioId: l.usuarioId, titulo: l.titulo, observacao: l.observacao || '', tipo: l.tipo, destinatarioCuidado: cuidado?.tipo || l.destinatarioCuidado || '', nomeCuidado: cuidado?.nome || l.nomeCuidado || '', medicamento: l.medicamento || '', posologia: l.posologia || '', horario: l.horario, horarios: l.horarios || [l.horario], dataInicio: l.dataInicio, dataCompromisso: l.dataCompromisso || '', horarioCompromisso: l.horarioCompromisso || '', repeticao: l.repeticao, diasSemana: l.diasSemana, ativo: l.ativo, versao: l.versao, proximoDisparoEmMs: l.proximoDisparoEm?.toMillis() || null, ultimaOcorrencia: l.ultimaOcorrencia || null, ultimaConclusao:l.ultimaConclusao||(l.ultimaOcorrencia?.status==='concluido'?l.ultimaOcorrencia:null), ocorrencias };
+      }));
+      const {fotosInteracoes,atoresLembretes}=require('./fotos-interacoes.cjs');
+      return {lembretes,...(d.fotosInteracoes===true?{pessoasInteracoes:await fotosInteracoes(tx,db,atoresLembretes(lembretes))}:{})};
     }
     if (d.operacao === 'salvar') {
       if (!admin) falha('permission-denied', 'Somente o administrador cadastra e edita lembretes.');
@@ -50,10 +54,11 @@ async function operarLembretes(db, request, agora = Date.now()) {
       if (!idValido(d.usuarioId) || (d.id !== undefined && !idValido(d.id))) falha('invalid-argument', 'Funcionária ou lembrete inválido.');
       const alvo = global ? null : (await tx.get(db.doc(`users/${d.usuarioId}`))).data();
       if (!global && !destinatarioAtivo(alvo)) falha('failed-precondition', 'Habilite os lembretes no acesso do administrador ou marque Babá/Cuidadora na funcionária ativa.');
-      let campos;
-      try { campos = validarLembrete(d, agora); } catch (e) { falha('invalid-argument', e.message); }
       const ref = d.id ? db.doc(`lembretes/${d.id}`) : db.collection('lembretes').doc();
       const anterior = (await tx.get(ref)).data();
+      if(['geral','alimentacao'].includes(anterior?.dominio))falha('permission-denied','Use a área correspondente deste aviso.');
+      let campos;
+      try { campos = validarLembrete({ ...d, dataCompromisso: d.dataCompromisso ?? anterior?.dataCompromisso, horarioCompromisso: d.horarioCompromisso ?? anterior?.horarioCompromisso }, agora); } catch (e) { falha('invalid-argument', e.message); }
       if (d.id && !anterior) falha('not-found', 'Lembrete não encontrado para esta pessoa.');
       if (anterior && d.versao !== anterior.versao) falha('aborted', 'O lembrete mudou. Reabra a edição.');
       if (!anterior && (await tx.get(db.collection('lembretes').where(cuidado ? 'cuidadoId' : 'usuarioId', '==', cuidado ? d.cuidadoId : d.usuarioId).limit(101))).size >= 100) falha('failed-precondition', 'Limite de 100 lembretes por pessoa.');
@@ -63,6 +68,7 @@ async function operarLembretes(db, request, agora = Date.now()) {
     }
     if (!idValido(d.id)) falha('invalid-argument', 'Lembrete inválido.');
     const ref = db.doc(`lembretes/${d.id}`), lembrete = (await tx.get(ref)).data();
+    if(['geral','alimentacao'].includes(lembrete?.dominio))falha('permission-denied','Use a área correspondente deste aviso.');
     if (!lembrete) falha('not-found', 'Lembrete não encontrado.');
     if (['concluir','consultarOcorrencia'].includes(d.operacao)) {
       const cuidado = lembrete.cuidadoId ? (await tx.get(db.doc(`pessoasCuidados/${lembrete.cuidadoId}`))).data() : null;
@@ -71,15 +77,16 @@ async function operarLembretes(db, request, agora = Date.now()) {
         if(!idValido(d.ocorrenciaId)||!d.ocorrenciaId.startsWith(`${lembrete.versao}_`))falha('failed-precondition','Este aviso é de uma versão anterior. Consulte a escala atual.');
         const registro=(await tx.get(ref.collection('ocorrencias').doc(d.ocorrenciaId))).data();
         if(!registro||['cancelado','sem_acesso'].includes(registro.status))falha('not-found','Esta ocorrência não está mais disponível.');
-        return {id:d.id,ocorrenciaId:d.ocorrenciaId,titulo:lembrete.titulo,nomeCuidado:cuidado?.nome||lembrete.nomeCuidado||'',medicamento:lembrete.medicamento||'',posologia:lembrete.posologia||'',horarioMs:registro.horarioMs,concluida:registro.status==='concluido',liberada:registro.horarioMs<=agora};
+        const pessoasInteracoes=d.fotosInteracoes===true?await require('./fotos-interacoes.cjs').fotosInteracoes(tx,db,[lembrete.criadaPor,registro.concluidaPor]):{};
+        return {pessoasInteracoes,criadaPor:lembrete.criadaPor||'',criadaPorNome:lembrete.criadaPorNome||'',concluidaPor:registro.concluidaPor||'',concluidaPorNome:registro.concluidaPorNome||'',id:d.id,ocorrenciaId:d.ocorrenciaId,titulo:lembrete.titulo,nomeCuidado:cuidado?.nome||lembrete.nomeCuidado||'',medicamento:lembrete.medicamento||'',posologia:lembrete.posologia||'',horarioMs:registro.horarioMs,concluida:registro.status==='concluido',liberada:registro.horarioMs<=agora};
       }
       const ultima = lembrete.ultimaOcorrencia;
       const devidoMs = lembrete.proximoDisparoEm?.toMillis();
       if (lembrete.ativo && Number.isFinite(devidoMs) && devidoMs <= agora && dataLocal(devidoMs) === dataLocal(agora) && d.ocorrenciaId === `${lembrete.versao}_${devidoMs}`) {
-        const registro = { id: d.ocorrenciaId, horarioMs: devidoMs, status: 'concluido', concluidaPor: uid, concluidaEmMs: agora, ...auditoriaAcao };
+        const registro = { id: d.ocorrenciaId, horarioMs: devidoMs, status: 'concluido', concluidaPor: uid, concluidaPorNome:perfil.nome||'Usuário do grupo', concluidaEmMs: agora, ...auditoriaAcao };
         const proximoMs = proximoDisparo(lembrete, devidoMs);
         tx.set(db.doc(`lembretes/${d.id}/ocorrencias/${d.ocorrenciaId}`), { ...registro, usuarioId: lembrete.usuarioId, titulo: lembrete.titulo, tipo: lembrete.tipo, destinatarioCuidado: lembrete.destinatarioCuidado || '', nomeCuidado: lembrete.nomeCuidado || '', medicamento: lembrete.medicamento || '', posologia: lembrete.posologia || '' }, { merge: true });
-        tx.update(ref, { ultimaOcorrencia: registro, proximoDisparoEm: proximoMs ? Timestamp.fromMillis(proximoMs) : null });
+        tx.update(ref, { ultimaConclusao:registro, ultimaOcorrencia: registro, proximoDisparoEm: proximoMs ? Timestamp.fromMillis(proximoMs) : null });
         return { ok: true };
       }
       if (!idValido(d.ocorrenciaId) || !d.ocorrenciaId.startsWith(`${lembrete.versao}_`)) falha('failed-precondition', 'Atualize a tela antes de registrar a realização.');
@@ -87,6 +94,7 @@ async function operarLembretes(db, request, agora = Date.now()) {
       const registro = (await tx.get(registroRef)).data();
       if (!registro || registro.horarioMs > agora || ['cancelado', 'sem_acesso'].includes(registro.status)) falha('failed-precondition', 'Atualize a tela antes de registrar a realização.');
       if (registro.status === 'concluido') return { ok: true };
+      tx.update(ref,{ultimaConclusao:{id:d.ocorrenciaId,horarioMs:registro.horarioMs,status:'concluido',concluidaPor:uid,concluidaPorNome:perfil.nome||'Usuário do grupo',concluidaEmMs:agora}});
       if (ultima?.id === d.ocorrenciaId) tx.update(ref, { ultimaOcorrencia: { ...ultima, status: 'concluido', concluidaPor: uid, concluidaEmMs: agora } });
       tx.set(registroRef, { status: 'concluido', concluidaPor: uid, concluidaEmMs: agora, ...auditoriaAcao }, { merge: true });
       return { ok: true };
@@ -108,10 +116,13 @@ async function operarLembretes(db, request, agora = Date.now()) {
 }
 
 async function processarLembretes(db, enviar, agora = Date.now(), relogio = () => agora) {
+  await require('./lembretes-gerais.cjs').processarEnviosGerais(db,enviar,agora);
   const vencidos = await db.collection('lembretes').where('proximoDisparoEm', '<=', Timestamp.fromMillis(agora)).orderBy('proximoDisparoEm').limit(100).get();
   let processados = 0;
   for (const candidato of vencidos.docs) {
     const ref = candidato.ref;
+    if(candidato.data().dominio==='alimentacao'){processados+=await require('./alimentacao.cjs').processarAlimentacao(db,ref,enviar,agora,relogio);continue;}
+    if(candidato.data().dominio==='geral'){processados+=await require('./lembretes-gerais.cjs').processarGeral(db,ref,enviar,agora,relogio);continue;}
     if (candidato.data().cuidadoId || candidato.data().destinatarios) { processados += await processarVinculado(db, ref, enviar, agora, relogio); continue; }
     const reserva = await db.runTransaction(async tx => {
       const lembrete = (await tx.get(ref)).data();

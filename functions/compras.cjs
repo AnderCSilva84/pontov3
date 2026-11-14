@@ -1,9 +1,10 @@
+const contextoCatalogo=require('./catalogo-contexto.cjs');
 const { bancoDoUsuario } = require('./grupos-contexto.cjs');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const { CATEGORIAS, categoriaLegada, podeMontar, podeComprar, quantidade, totalItem, prepararFechamento, calcularRelatorios } = require('./compras-dominio.cjs');
-const {tipoCompra,validarTipoCompra}=require('./compras-tipo.cjs');
+const {tipoCompra,validarTipoCompra,exigirTipoHabilitado,configurarTipos}=require('./compras-tipo.cjs');
 const falha = (codigo, mensagem) => { throw new HttpsError(codigo, mensagem); };
 function id(valor) { if (typeof valor !== 'string' || !/^[\w-]{1,128}$/.test(valor)) falha('invalid-argument', 'Identificador inválido.'); return valor; }
 function texto(valor, max = 120) { if (typeof valor !== 'string' || !valor.trim() || valor.trim().length > max) falha('invalid-argument', 'Preencha os campos de texto corretamente.'); return valor.trim(); }
@@ -18,12 +19,15 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
   if (['cupomPreparar', 'cupomConfirmar'].includes(request.data?.operacao)) return require('./cupom-operacoes.cjs').operarCupom(await bancoDoUsuario(admin.firestore(), request.auth.uid), request);
   if (["noBolsoGerarCodigo", "noBolsoRevogar"].includes(request.data?.operacao)) return require("./no-bolso-functions.cjs").handleNoBolsoGrant(request);
   const db = await bancoDoUsuario(admin.firestore(), request.auth.uid), uid = request.auth.uid, dados = request.data || {};
-  if(['mesclaPrevia','mesclarProdutos','desfazerMescla','mesclasListar','corrigirItemProduto','corrigirAliasProduto','aliasCatalogo'].includes(dados.operacao))return require('./compras-associacoes.cjs').operarAssociacoes(db,request);
+  if(['correspondenciaPrevia','correspondenciaConfirmar','catalogoMesclaPrevia','catalogoMesclaConfirmar'].includes(dados.operacao))return require('./compras-correspondencias.cjs').operarCorrespondencias(db,request);
+  if(['catalogoParecidosPagina','mesclaPrevia','mesclarProdutos','desfazerMescla','mesclasListar','corrigirItemProduto','corrigirAliasProduto','aliasCatalogo'].includes(dados.operacao))return require('./compras-associacoes.cjs').operarAssociacoes(db,request);
   const identidade=await import('./produtos-identidade.mjs');
   try {
     return await db.runTransaction(async tx => {
       const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
       if (!perfil || perfil.ativo === false) falha('permission-denied', 'Acesso não autorizado.');
+      if(['consultarCategoriasCompras','salvarCategoriasCompras'].includes(dados.operacao))return configurarTipos(tx,db,perfil,uid,dados);
+      if(['catalogoPorTipo','catalogoRevisar','produtoCategorias'].includes(dados.operacao))return contextoCatalogo.operarCatalogo(tx,db,perfil,uid,dados);
       const ehAdmin = perfil.role === 'admin';
       const exigirAdmin = () => { if (!ehAdmin) falha('permission-denied', 'Apenas o administrador pode fazer isso.'); };
       const exigirComprador = () => { if (!podeComprar(perfil)) falha('permission-denied', 'Somente o administrador pode realizar compras.'); };
@@ -91,7 +95,9 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
           const historico = await tx.get(db.collection('comprasPrecos').where('produtoId', '==', ref.id).limit(1));
           if (!historico.empty) falha('failed-precondition', 'Este produto já tem histórico. Cadastre outra embalagem como um novo produto.');
         }
-        tx.set(ref, { ...identidadeProduto, nome: nomeProduto(texto(dados.nome)), apresentacao, categoriaId, categoria: categoria.nome, unidadeCompra, ativo: true }, { merge: true });
+        const tiposProduto=new Set(contextoCatalogo.tiposProduto(atual));
+        if(!atual||dados.tipoCompra!==undefined)tiposProduto.add(validarTipoCompra(dados.tipoCompra));
+        tx.set(ref, { tiposCompra:[...tiposProduto], ...identidadeProduto, nome: nomeProduto(texto(dados.nome)), apresentacao, categoriaId, categoria: categoria.nome, unidadeCompra, ativo: true }, { merge: true });
         return { produtoId: ref.id };
       }
       if (dados.operacao === 'supermercado') {
@@ -113,6 +119,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
           if (existente.data().criadaPor !== uid) falha('already-exists', 'Esta lista já existe.');
           return { listaId: ref.id };
         }
+        await exigirTipoHabilitado(tx,db,validarTipoCompra(dados.tipoCompra));
         tx.create(ref, { titulo: texto(dados.titulo), tipoCompra:validarTipoCompra(dados.tipoCompra), status: 'rascunho', criadaPor: uid, criadaPorNome: nomeCriador(perfil), criadaEm: timestamp(), atualizadaEm: timestamp(), versao: 1, quantidadeItens: 0, schemaVersion: 1 });
         return { listaId: ref.id };
       }
@@ -164,6 +171,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         const novo=validarTipoCompra(dados.tipoCompra);
         if(dados.versao!==lista.versao)falha('aborted','A lista mudou. Reabra antes de classificar.');
         if(novo!==tipoCompra(lista)){
+          await exigirTipoHabilitado(tx,db,novo);
           tx.create(listaRef.collection('alteracoes').doc(),{tipo:'classificacao',de:tipoCompra(lista),para:novo,por:uid,em:timestamp()});
           atualizarLista({tipoCompra:novo});
         }
@@ -196,6 +204,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         const existente = await tx.get(ref), produto = (await tx.get(db.doc(`catalogoCompras/${produtoId}`))).data();
         if (existente.exists) return { ok: true };
         if (!produto || produto.ativo === false) falha('not-found', 'Produto não encontrado.');
+        await contextoCatalogo.exigirCompativel(tx,db,{...produto,id:produtoId},tipoCompra(lista));
         if (lista.quantidadeItens >= 200) falha('failed-precondition', 'Limite de 200 itens por lista.');
         const qtd = quantidade(dados.quantidadePlanejada);
         tx.create(ref, { produtoId, nomeSnapshot: nomeProduto(produto.nome), categoriaId: produto.categoriaId || categoriaLegada(produto.categoria), apresentacao: produto.apresentacao || '', unidadeCompra: produto.unidadeCompra || 'un', quantidadePlanejada: qtd, estado: 'pendente', solicitadaPor: uid, solicitadaPorNome: nomeCriador(perfil), adicionadaEm: timestamp(), versao: 1 });
@@ -246,16 +255,6 @@ exports.comprasRelatorio = onCall({ timeoutSeconds: 60 }, async request => {
   if (!request.auth) falha('unauthenticated', 'Entre no app para consultar.');
   const db = await bancoDoUsuario(admin.firestore(), request.auth.uid), perfil = (await db.doc(`users/${request.auth.uid}`).get()).data();
   if (!perfil || perfil.ativo === false) falha('permission-denied', 'Acesso não autorizado.');
-  const inicio = Number(request.data?.inicioMs), fim = Number(request.data?.fimMs);
-  const tipo=validarTipoCompra(request.data?.tipoCompra);
-  if (!Number.isFinite(inicio) || !Number.isFinite(fim) || inicio < 0 || fim < inicio || fim - inicio > 366 * 86400000) falha('invalid-argument', 'Escolha um período de até um ano.');
-  const snap = await db.collection('comprasPrecos').where('compradoEm', '>=', new Date(inicio)).where('compradoEm', '<=', new Date(fim)).orderBy('compradoEm').limit(5001).get();
-  if (snap.size > 5000) falha('resource-exhausted', 'Há muitos registros. Selecione um período menor.');
-  const registros = snap.docs.filter(d => d.data().valido !== false&&tipoCompra(d.data())===tipo).map(d => {
-    const p = d.data();
-    return { id: d.id, nomeOriginal:p.nomeOriginalFiscal||p.nomeOriginal||p.nomeSnapshot, itemId:p.itemId||'',cupomChave:p.cupomChave||'', listaId: p.listaId, produtoId: p.produtoId, nomeSnapshot: p.nomeSnapshot, marca: p.marca || '', apresentacao: p.apresentacao, unidadeCompra: p.unidadeCompra, supermercadoId: p.supermercadoId, supermercadoNome: p.supermercadoNome, quantidadeComprada: p.quantidadeComprada, precoUnitarioCentavos: p.precoUnitarioCentavos, compradoEmMs: p.compradoEm.toMillis() };
-  });
-  const associacoes=require('./compras-associacoes.cjs'),mapa=await associacoes.lerMapa(db);
-  const reunidos=associacoes.aplicarAssociacoes(registros,mapa);
-  return { registros:reunidos, associacoesVersao:mapa.versao, rankings: calcularRelatorios(reunidos.map(r=>({...r,nomeSnapshot:r.nomeCanonico}))) };
+  const resultado=await require('./compras-relatorio.cjs').lerRelatorioCompras(db,request.data);
+  return {...resultado,rankings:calcularRelatorios(resultado.registros.map(r=>({...r,nomeSnapshot:r.nomeCanonico})))};
 });

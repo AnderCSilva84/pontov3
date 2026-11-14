@@ -83,7 +83,7 @@ function createNoBolsoBridge({
   async function grantFor(uid, recipient = pilotUid) {
     if (!recipients.length) throw problem(403, 'Vinculação pessoal desligada.')
     requirePilot(recipient)
-    if (!validId(uid)) throw problem(401, 'Entre no AP1303.')
+    if (!validId(uid)) throw problem(401, 'Entre no Tá no Ponto.')
     await assertAuthUser(uid)
     const origem = await bancoDaOrigem(uid)
     const secret = randomBytes(24).toString('base64url')
@@ -91,7 +91,7 @@ function createNoBolsoBridge({
       if((await tx.get(db.doc('contaSolicitacoes/'+uid))).data()?.etapa)throw problem(403,'Conta em exclusão.');
       const profile = (await tx.get(origem.doc(`users/${uid}`))).data()
       const owner = await tx.get(reverse(uid))
-      if (!active(profile)) throw problem(403, 'Conta AP1303 indisponível.')
+      if (!active(profile)) throw problem(403, 'Conta Tá no Ponto indisponível.')
       if (ownersOf(owner.data()).includes(recipient))
         throw problem(409, 'Esta conta já está vinculada ao destinatário informado.')
       tx.set(grant(uid), {
@@ -128,13 +128,13 @@ function createNoBolsoBridge({
         !/^[a-f0-9]{64}$/.test(value.hash ?? '') ||
         !timingSafeEqual(Buffer.from(value.hash, 'hex'), Buffer.from(hash(secret), 'hex'))
       )
-        throw problem(403, 'Código expirado ou inválido. Gere outro no AP1303.')
+        throw problem(403, 'Código expirado ou inválido. Gere outro no Tá no Ponto.')
       const ids = sourcesOf(target.data())
       const owners = ownersOf(owner.data())
       if (!owners.includes(noBolsoUid) && owners.length >= 2)
         throw problem(409, 'Limite de destinatários atingido.')
       if (!ids.includes(uid) && ids.length >= 2)
-        throw problem(409, 'O piloto permite no máximo duas contas AP1303.')
+        throw problem(409, 'O piloto permite no máximo duas contas Tá no Ponto.')
       tx.set(link(noBolsoUid), {
         apUids: [...new Set([...ids, uid])],
         createdAt: target.data()?.createdAt ?? new Date(now()),
@@ -204,7 +204,7 @@ function createNoBolsoBridge({
         reverse(uid).get(),
       ])
       if (!active(profile.data()) || !ownersOf(owner.data()).includes(noBolsoUid))
-        throw problem(403, 'Conta AP1303 indisponível; resumo conjunto não calculado.')
+        throw problem(403, 'Conta Tá no Ponto indisponível; resumo conjunto não calculado.')
       const name = profile.data().nome ?? profile.data().name
       people.push({
         uid,

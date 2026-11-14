@@ -88,7 +88,7 @@ async function registrarOperacao(raiz,request,agoraMs=Date.now()) {
       }
       if(!localId)return recusar('Você está fora do local autorizado.');
       const diaRef=db.collection('dias').doc(`${p.funcionarioId}_${tempo.dataKey}`),dia=(await tx.get(diaRef)).data();
-      let alteracoes;try{alteracoes=aplicarAcao(dia,p.tipo,tempo.hora,funcionario,new Date(tempo.dataKey+'T12:00Z').getUTCDay());}
+      let alteracoes;try{alteracoes=aplicarAcao(dia,p.tipo,tempo.hora,funcionario,new Date(tempo.dataKey+'T12:00Z').getUTCDay(),tempo.dataKey);}
       catch(e){return recusar(e.message);}
       resultado={operacaoId:p.operacaoId,status:'confirmado',dataKey:tempo.dataKey,hora:tempo.hora,recebidoEmMs:agoraMs};
       tx.set(diaRef,{...alteracoes,funcionarioId:p.funcionarioId,dataKey:tempo.dataKey,atualizadoEm:timestamp},{merge:true});

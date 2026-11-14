@@ -1,3 +1,4 @@
+const { cargaNaData } = require('./jornada.mjs');
 const CAMPOS = { ENTRADA: 'entrada', SAIDA_INTERVALO: 'saidaIntervalo', ENTRADA_INTERVALO: 'entradaIntervalo', SAIDA: 'saida' };
 
 function proximaAcao(dia, semIntervalo) {
@@ -15,7 +16,7 @@ function minutos(hora) {
   return h * 60 + m;
 }
 
-function aplicarAcao(dia, tipo, hora, funcionario, diaSemana) {
+function aplicarAcao(dia, tipo, hora, funcionario, diaSemana, dataKey = dia?.dataKey) {
   const semIntervalo = diaSemana === 6 || funcionario.desconsiderarIntervalo === true;
   if (!CAMPOS[tipo] || tipo !== proximaAcao(dia, semIntervalo)) throw new Error('Sequência de ponto inválida. Atualize o dia antes de registrar.');
   const anteriores = ['entrada', 'saidaIntervalo', 'entradaIntervalo'].filter((campo) => dia?.[campo]);
@@ -26,7 +27,7 @@ function aplicarAcao(dia, tipo, hora, funcionario, diaSemana) {
     const intervalo = diaSemana === 6 ? 0 : funcionario.desconsiderarIntervalo === true
       ? intervaloConfigurado : minutos(dia.entradaIntervalo) - minutos(dia.saidaIntervalo);
     const chaves = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-    const carga = Number(funcionario.escala?.[chaves[diaSemana]]?.cargaMin ?? (diaSemana === 0 ? 0 : diaSemana === 6 ? funcionario.cargaSabadoMin ?? 0 : funcionario.cargaSegSexMin ?? 480));
+    const carga = dataKey ? cargaNaData(funcionario, dataKey) : Number(funcionario.escala?.[chaves[diaSemana]]?.cargaMin ?? (diaSemana === 0 ? 0 : diaSemana === 6 ? funcionario.cargaSabadoMin ?? 0 : funcionario.cargaSegSexMin ?? 480));
     if (!Number.isFinite(intervalo) || intervalo < 0 || !Number.isFinite(carga) || carga < 0) throw new Error('Configuração da jornada inválida.');
     resultado.totalMin = Math.max(0, minutos(hora) - minutos(dia.entrada) - intervalo);
     resultado.saldoMin = resultado.totalMin - carga;

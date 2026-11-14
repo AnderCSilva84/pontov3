@@ -7,7 +7,7 @@ const { catalogoProdutos } = require('./no-bolso-product-catalog.cjs');
 
 // Entrada de capacidade mínima. Nenhum comando de vínculo, compra ou financeiro é despachado aqui.
 async function consultarNoBolso(raiz, request, agora = Date.now()) {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Entre no AP1303.');
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Entre no Tá no Ponto.');
   const dados = request.data;
   if (!dados || typeof dados !== 'object' || Array.isArray(dados) || Object.keys(dados).some(k => !['consulta', 'dias', 'produtoId'].includes(k)) || !['status', 'rankings', 'produto'].includes(dados.consulta)) throw new HttpsError('invalid-argument', 'Integração somente de consulta de preços.');
   if ((dados.consulta !== 'produto' && dados.produtoId !== undefined) || (dados.consulta === 'produto' && (typeof dados.produtoId !== 'string' || !/^[\w-]{1,128}$/.test(dados.produtoId)))) throw new HttpsError('invalid-argument', 'Produto inválido.');

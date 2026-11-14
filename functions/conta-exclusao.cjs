@@ -94,6 +94,8 @@ async function processarExclusao(raiz,auth,uid,{agora=Date.now,aposEtapa=async()
      if(v.exists&&(v.data().grupoId||null)!==(p.grupoId||null))throw Error('VINCULO_ALTERADO');
      const f=p.funcionarioId?await tx.get(db.doc('funcionarios/'+p.funcionarioId)):null;
      const compartilhado=f?.exists?await tx.get(db.collection('users').where('funcionarioId','==',p.funcionarioId).where(FieldPath.documentId(),'!=',uid).limit(1)):null;
+     tx.delete(db.doc('fotosPerfis/'+uid));
+     if(f?.exists&&f.data().fotoPerfilUid===uid)tx.update(f.ref,{fotoPerfilUid:FieldValue.delete(),temFotoPerfil:FieldValue.delete(),fotoPerfilVersao:FieldValue.delete()});
      tx.delete(db.doc('users/'+uid));if(p.grupoId)tx.delete(raiz.doc('users/'+uid));tx.delete(raiz.doc('vinculosUsuarios/'+uid));tx.delete(db.doc('pushTestes/'+uid));if(p.grupoId)tx.delete(raiz.doc('pushTestes/'+uid));
      if(f?.exists&&!compartilhado.size)tx.update(f.ref,{ativo:false,acessoExcluidoEm:tempo()});
      return {etapa:'auth'};

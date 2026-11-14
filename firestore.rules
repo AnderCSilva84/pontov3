@@ -2,6 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Central: clientes consultam apenas via callable autenticado/limitado.
+    // Inclui apoios/origens internos, catálogo e resumos; sem escrita direta.
+    match /centralObservacoes/{documento=**} { allow read, write: if false; }
+    match /centralResumos/{documento=**} { allow read, write: if false; }
+    match /centralCidades/{documento=**} { allow read, write: if false; }
+    match /centralProdutos/{id} { allow read, write: if false; }
+    match /centralExecucoes/{id} { allow read, write: if false; }
+    match /centralLimites/{id} { allow read, write: if false; }
+    match /centralCursores/{documento=**} { allow read, write: if false; }
+
     function signedIn() {
       return request.auth != null;
     }
@@ -50,6 +60,10 @@ service cloud.firestore {
         : [];
     }
 
+    match /lembretesEstado/{uid} {
+      allow get: if userExists() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
     // USERS
     match /contaSolicitacoes/{uid} { allow read, write: if false; }
     match /contaExecucoes/{id} { allow read, write: if false; }
@@ -244,6 +258,7 @@ service cloud.firestore {
     }
 
     match /folhasPagamento/{folhaId} {
+      function semParcelamentoAutomatico() { return !exists(/databases/$(database)/documents/adiantamentosControle/$(request.resource.data.funcionarioId)); }
       function camposValidos() {
         let d = request.resource.data;
         return d.keys().hasOnly(['competencia','salarioBase','bonus','horasExtras','adicionais','horasDevidas','divisorHoras','bonusBaseDesconto','faltas','inss','adiantamentos','outrosDescontos','observacao','proventos','descontos','descontoHoras','valorHora','liquido','funcionarioId','funcionarioNome','status','versao','criadaEm','criadaPor','atualizadaEm','atualizadaPor','fechadaEm','fechadaPor'])
@@ -258,9 +273,9 @@ service cloud.firestore {
           && (d.status == 'em_andamento' || (d.status == 'pronta_pagamento' && d.proventos > 0 && d.descontos <= d.proventos && d.fechadaPor == request.auth.uid && d.fechadaEm == request.time));
       }
       allow read: if isAdmin();
-      allow create: if isAdmin() && camposValidos() && request.resource.data.status == 'em_andamento'
+      allow create: if isAdmin() && semParcelamentoAutomatico() && camposValidos() && request.resource.data.status == 'em_andamento'
         && request.resource.data.versao == 1 && request.resource.data.criadaPor == request.auth.uid && request.resource.data.criadaEm == request.time;
-      allow update: if isAdmin() && resource.data.status == 'em_andamento' && !resource.data.get('pontoRevisaoPendente', false) && camposValidos()
+      allow update: if isAdmin() && semParcelamentoAutomatico() && resource.data.status == 'em_andamento' && !resource.data.get('pontoRevisaoPendente', false) && camposValidos()
         && request.resource.data.versao == resource.data.versao + 1
         && request.resource.data.funcionarioId == resource.data.funcionarioId && request.resource.data.competencia == resource.data.competencia
         && request.resource.data.criadaPor == resource.data.criadaPor && request.resource.data.criadaEm == resource.data.criadaEm;
@@ -299,6 +314,10 @@ service cloud.firestore {
       function myLocaisPermitidos() { return myFuncionarioExists() && myFuncionarioDoc().locaisPermitidos is list ? myFuncionarioDoc().locaisPermitidos : []; }
       allow get: if userExists();
       allow list, write: if false;
+    match /lembretesEstado/{uid} {
+      allow get: if userExists() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
     // USERS
     match /users/{uid} {
       allow read: if userExists() && (isAdmin() || request.auth.uid == uid);
@@ -487,6 +506,7 @@ service cloud.firestore {
     }
 
     match /folhasPagamento/{folhaId} {
+      function semParcelamentoAutomatico() { return !exists(/databases/$(database)/documents/grupos/$(grupoId)/adiantamentosControle/$(request.resource.data.funcionarioId)); }
       function camposValidos() {
         let d = request.resource.data;
         return d.keys().hasOnly(['competencia','salarioBase','bonus','horasExtras','adicionais','horasDevidas','divisorHoras','bonusBaseDesconto','faltas','inss','adiantamentos','outrosDescontos','observacao','proventos','descontos','descontoHoras','valorHora','liquido','funcionarioId','funcionarioNome','status','versao','criadaEm','criadaPor','atualizadaEm','atualizadaPor','fechadaEm','fechadaPor'])
@@ -501,9 +521,9 @@ service cloud.firestore {
           && (d.status == 'em_andamento' || (d.status == 'pronta_pagamento' && d.proventos > 0 && d.descontos <= d.proventos && d.fechadaPor == request.auth.uid && d.fechadaEm == request.time));
       }
       allow read: if userExists() && (isAdmin() || (myFuncionarioId() != null && resource.data.funcionarioId == myFuncionarioId() && resource.data.status in ['pronta_pagamento','paga']));
-      allow create: if isAdmin() && camposValidos() && request.resource.data.status == 'em_andamento'
+      allow create: if isAdmin() && semParcelamentoAutomatico() && camposValidos() && request.resource.data.status == 'em_andamento'
         && request.resource.data.versao == 1 && request.resource.data.criadaPor == request.auth.uid && request.resource.data.criadaEm == request.time;
-      allow update: if isAdmin() && resource.data.status == 'em_andamento' && !resource.data.get('pontoRevisaoPendente', false) && camposValidos()
+      allow update: if isAdmin() && semParcelamentoAutomatico() && resource.data.status == 'em_andamento' && !resource.data.get('pontoRevisaoPendente', false) && camposValidos()
         && request.resource.data.versao == resource.data.versao + 1
         && request.resource.data.funcionarioId == resource.data.funcionarioId && request.resource.data.competencia == resource.data.competencia
         && request.resource.data.criadaPor == resource.data.criadaPor && request.resource.data.criadaEm == resource.data.criadaEm;

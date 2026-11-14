@@ -26,7 +26,7 @@ export function transportesDaCompetencia(lancamentos, funcionarioId, competencia
   }
   return { itens, total: dinheiro(itens.reduce((a, i) => a + i.valor, 0)) };
 }
-export function calcularFolha(f, transporte = { total: 0, itens: [] }) {
+export function calcularFolha(f, transporte = { total: 0, itens: [] }, adiantamentos = {total:0,itens:[]}) {
   const proventos = dinheiro(n(f.salarioBase) + n(f.bonus) + n(f.horasExtras) + n(f.adicionais));
   const valorHora = (n(f.salarioBase) + (f.bonusBaseDesconto ? n(f.bonus) : 0)) / n(f.divisorHoras);
   const descontoHoras = f.descontarHoras === false ? 0 : dinheiro(valorHora * n(f.horasDevidas));
@@ -34,11 +34,13 @@ export function calcularFolha(f, transporte = { total: 0, itens: [] }) {
   const baseInss = dinheiro(Math.max(0, f.baseInssManual ? n(f.baseInssInformada) : proventos - bonusSemIncidencia - descontoHoras - n(f.faltas)));
   let inss = n(f.inss), erroCalculo = '';
   if (f.inssAutomatico) { try { inss = calcularInss(baseInss, f.competencia); } catch (e) { erroCalculo = e.message; } }
+  if(adiantamentos.erro)erroCalculo=adiantamentos.erro;
   const valeTransportePago = dinheiro(transporte.total);
   const limiteValeTransporte = dinheiro(n(f.salarioBase) * .06 * n(f.proporcaoVt ?? 100) / 100);
   const descontoValeTransporte = f.cobrarValeTransporte ? dinheiro(Math.min(limiteValeTransporte, valeTransportePago)) : 0;
-  const descontos = dinheiro(descontoHoras + n(f.faltas) + inss + n(f.adiantamentos) + n(f.outrosDescontos) + descontoValeTransporte);
-  return { proventos, descontos, descontoHoras, valorHora, liquido: dinheiro(Math.max(0, proventos - descontos)), baseInss, inss, valeTransportePago, limiteValeTransporte, descontoValeTransporte, transportes: transporte.itens, erroCalculo };
+  const adiantamentosAutomaticos=dinheiro(adiantamentos.total),totalAdiantamentos=dinheiro(n(f.adiantamentos)+adiantamentosAutomaticos);
+  const descontos = dinheiro(descontoHoras + n(f.faltas) + inss + totalAdiantamentos + n(f.outrosDescontos) + descontoValeTransporte);
+  return { proventos, descontos, descontoHoras, valorHora, liquido: dinheiro(Math.max(0, proventos - descontos)), baseInss, inss, valeTransportePago, limiteValeTransporte, descontoValeTransporte, transportes: transporte.itens, adiantamentosAutomaticos,totalAdiantamentos,parcelasAdiantamentos:adiantamentos.itens,erroCalculo };
 }
 const data = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') && Number.isFinite(Date.parse(v + 'T12:00:00Z')) && new Date(v + 'T12:00:00Z').toISOString().slice(0, 10) === v;
 const diasMes = (ano, mes) => new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();

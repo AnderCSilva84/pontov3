@@ -44,7 +44,7 @@ async function selecionarPorCuidado(tx, db, uid, perfil, dados) {
   if (dados.cuidadoId && !idValido(dados.cuidadoId)) erro('permission-denied', 'Acesso não autorizado a esta pessoa ou pet.');
   const snap = dados.cuidadoId ? await tx.get(db.collection('lembretes').where('cuidadoId', '==', dados.cuidadoId).limit(101)) : await tx.get(db.collection('lembretes').limit(1001));
   if (snap.size > (dados.cuidadoId ? 100 : 1000)) erro('resource-exhausted', 'Escolha uma pessoa ou pet para reduzir a consulta.');
-  const docs = snap.docs.filter(doc => { const l = doc.data(); return podeVerLembrete(l, cuidados.get(l.cuidadoId), uid, perfil); });
+  const docs = snap.docs.filter(doc => { const l = doc.data(); return l.dominio!=='geral' && podeVerLembrete(l, cuidados.get(l.cuidadoId), uid, perfil); });
   if (dados.cuidadoId && !podeVerCuidado(cuidados.get(dados.cuidadoId), uid, perfil) && !docs.length) erro('permission-denied', 'Acesso não autorizado a esta pessoa ou pet.');
   return { docs, cuidados };
 }

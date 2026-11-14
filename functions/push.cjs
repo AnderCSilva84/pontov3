@@ -48,6 +48,7 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
   });
 
   async function enviar(titulo, mensagem, url, eventoId, apenasUid, apenasAdmins = false, opcoes = {}) {
+    if (process.env.FUNCTIONS_EMULATOR === 'true' || process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST || process.env.AP1303_QR_LOCAL === 'true') return 0;
     if (db.grupoId === 'demo_play_ap1303_v1') return 0; // Grupo de revisão nunca envia push.
     const [devices, users] = await Promise.all([
       apenasUid ? db.collection('pushDispositivos').where('uid', '==', apenasUid).limit(101).get() : db.collection('pushDispositivos').limit(5001).get(),
@@ -146,7 +147,7 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
       const hoje=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
       if(tarefa&&tarefa.ativa!==false&&!tarefa.concluida&&(!fixa?tarefa.dataAgendada===hoje:Number(tarefa.diaSemana)===new Date(hoje+'T12:00:00-03:00').getUTCDay()))acao={tipo:fixa?'tarefa_fixa':'tarefa',id:data.tarefaId,dataKey:hoje,revisao:revisaoTarefa(tarefa)};
     }
-    await executarEvento(event.id, () => enviar(data.titulo || 'App Ponto', data.mensagem || 'Há uma atualização nas tarefas.', '/ponto', event.id,undefined,false,{acao}));
+    await executarEvento(event.id, () => enviar(data.titulo || 'Tá no Ponto', data.mensagem || 'Há uma atualização nas tarefas.', '/ponto', event.id,undefined,false,{acao}));
   };
   const alertaNotificacoes = onDocumentCreated({ document: 'notificacoes/{id}', region: 'southamerica-east1', retry: true, timeoutSeconds: 300 }, tratar_alertaNotificacoes);
   const testarNotificacaoPush = onCall(async (request) => {
@@ -161,7 +162,7 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
     });
     const periodo = Math.floor(agoraTeste / 30000);
     const diagnostico={};
-    const enviados = await criarPush({ admin, db: destino, somenteEnvio: true })('App Ponto', 'Os avisos do celular estão funcionando!', '/ponto', `teste:${uid}:${periodo}`, uid,false,{diagnostico});
+    const enviados = await criarPush({ admin, db: destino, somenteEnvio: true })('Tá no Ponto', 'Os avisos do celular estão funcionando!', '/ponto', `teste:${uid}:${periodo}`, uid,false,{diagnostico});
     if (!enviados) throw new HttpsError('failed-precondition', 'Ative os avisos primeiro ou aguarde 30 segundos para repetir o teste.',{motivo:diagnostico.dispositivos===0?'sem-dispositivo':'intervalo'});
     return { enviados };
   });

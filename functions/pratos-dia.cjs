@@ -16,6 +16,8 @@ function validarPrato(d){
 }
 function pratoNoDia(p,dia){return p.ativo!==false&&(p.modo==='data'?p.data===dia:p.diasSemana.includes(new Date(dia+'T12:00Z').getUTCDay()));}
 async function operarPratos(db,request){
+ const {diaPrato,pratoVencido}=await import('./pratos-calendario.mjs');
+ const diaAtual=diaPrato();
  const uid=request.auth?.uid,d=request.data||{};if(!uid)falha('unauthenticated','Entre no app.');
  return db.runTransaction(async tx=>{
   const perfil=(await tx.get(db.doc('users/'+uid))).data();
@@ -23,15 +25,25 @@ async function operarPratos(db,request){
   const admin=perfil.role==='admin';
   if(d.operacao==='listarPratos'){
    if(d.dia!==undefined&&!dataValida(d.dia))falha('invalid-argument','Data inválida.');
+   if(d.arquivados!==undefined&&typeof d.arquivados!=='boolean'||d.cursor!==undefined&&!idValido(d.cursor))falha('invalid-argument','Filtro de arquivo inválido.');
    let q=db.collection('pratosDia').where('ativo','==',true);if(!admin)q=q.where('usuarioId','==',uid);
-   const snap=await tx.get(q.limit(101));if(snap.size>100)falha('resource-exhausted','Há muitos pratos cadastrados. Arquive os antigos.');
-   return {pratos:snap.docs.filter(doc=>!d.dia||pratoNoDia(doc.data(),d.dia)).map(doc=>{const p=doc.data();return {id:doc.id,titulo:p.titulo,receita:p.receita,linkReceita:p.linkReceita,usuarioId:p.usuarioId,usuarioNome:p.usuarioNome,modo:p.modo,data:p.data,diasSemana:p.diasSemana,imagemUrl:p.imagemUrl||'',temFoto:Boolean(p.foto),versao:p.versao,criadaPorNome:p.criadaPorNome};})};
+   const snap=await tx.get(q.limit(101)),vencidos=snap.docs.filter(doc=>pratoVencido(doc.data(),diaAtual));
+   if(snap.size>100&&!vencidos.length)falha('resource-exhausted','Há muitos pratos cadastrados. Arquive os antigos.');
+   let docs=snap.docs.filter(doc=>!pratoVencido(doc.data(),diaAtual)),cursor=null;
+   if(d.arquivados){
+    let a=db.collection('pratosDia').where('ativo','==',false).orderBy('__name__');if(!admin)a=a.where('usuarioId','==',uid);if(d.cursor)a=a.startAfter(d.cursor);
+    const arquivos=await tx.get(a.limit(26));docs=[...arquivos.docs,...vencidos.filter(doc=>!d.cursor||doc.id>d.cursor)].sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
+    if(docs.length>25)cursor=docs[24].id;docs=docs.slice(0,25);
+   }else if(d.dia){docs=docs.filter(doc=>pratoNoDia(doc.data(),d.dia));}
+   // Arquivamento oportunista, uma escrita por prato vencido; sem Scheduler ou polling.
+   for(const doc of vencidos){const p=doc.data();tx.update(doc.ref,{ativo:false,arquivamentoAutomatico:true,arquivadaEm:FieldValue.serverTimestamp(),versao:p.versao+1});}
+   return {cursor,pratos:docs.map(doc=>{const p=doc.data();return {id:doc.id,titulo:p.titulo,receita:p.receita,linkReceita:p.linkReceita,usuarioId:p.usuarioId,usuarioNome:p.usuarioNome,modo:p.modo,data:p.data,diasSemana:p.diasSemana,imagemUrl:p.imagemUrl||'',temFoto:Boolean(p.foto),versao:p.versao+(vencidos.some(x=>x.id===doc.id)?1:0),criadaPorNome:p.criadaPorNome,ativo:d.arquivados?false:p.ativo,arquivamentoAutomatico:p.arquivamentoAutomatico||vencidos.some(x=>x.id===doc.id)};})};
   }
   if(d.id!==undefined&&!idValido(d.id))falha('invalid-argument','Prato inválido.');
   if(d.operacao!=='salvarPrato'&&!idValido(d.id))falha('invalid-argument','Selecione o prato.');
   const ref=d.id?db.doc('pratosDia/'+d.id):db.collection('pratosDia').doc(),anterior=(await tx.get(ref)).data();
   if(d.operacao==='obterPrato'){
-   if(!anterior||anterior.ativo===false)falha('not-found','Prato não encontrado.');
+   if(!anterior)falha('not-found','Prato não encontrado.');
    if(!admin&&anterior.usuarioId!==uid)falha('permission-denied','Este prato é de outra funcionária.');
    return {foto:anterior.foto||''};
   }
@@ -42,7 +54,7 @@ async function operarPratos(db,request){
   if(d.operacao!=='salvarPrato')falha('invalid-argument','Operação inválida.');
   const campos=validarPrato(d),alvo=(await tx.get(db.doc('users/'+campos.usuarioId))).data();
   if(alvo?.role!=='funcionario'||alvo.ativo===false)falha('failed-precondition','Escolha uma funcionária ativa.');
-  if(!anterior&&(await tx.get(db.collection('pratosDia').where('ativo','==',true).limit(100))).size>=100)falha('failed-precondition','Arquive pratos antigos antes de cadastrar mais.');
+  if(!anterior){const ativos=await tx.get(db.collection('pratosDia').where('ativo','==',true).limit(100));const vencidos=ativos.docs.filter(doc=>pratoVencido(doc.data(),diaAtual));if(ativos.size-vencidos.length>=100)falha('failed-precondition','Arquive pratos antigos antes de cadastrar mais.');for(const doc of vencidos)tx.update(doc.ref,{ativo:false,arquivamentoAutomatico:true,arquivadaEm:FieldValue.serverTimestamp(),versao:doc.data().versao+1});}
   tx.set(ref,{...campos,imagemUrl:campos.imagemUrl??anterior?.imagemUrl??'',foto:campos.foto??anterior?.foto??'',usuarioNome:alvo.nome||alvo.email||'Funcionária',ativo:true,versao:(anterior?.versao||0)+1,criadaPor:anterior?.criadaPor||uid,criadaPorNome:anterior?.criadaPorNome||perfil.nome||perfil.email||'',criadaEm:anterior?.criadaEm||FieldValue.serverTimestamp(),atualizadaPor:uid,atualizadaEm:FieldValue.serverTimestamp()});return {id:ref.id};
  });
 }

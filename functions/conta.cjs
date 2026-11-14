@@ -6,6 +6,7 @@ const {publico,autorizarExclusao,processarExclusao}=require('./conta-exclusao.cj
 async function operarConta(raiz,auth,request,agora=Date.now()) {
   const uid=request.auth?.uid,d=request.data||{};
   if(!uid)falha('unauthenticated','Entre na própria conta para continuar.');
+  if(['fotoPerfilConsultar','fotoPerfilSalvar','fotoPerfilRemover'].includes(d.acao))return require('./foto-perfil.cjs').operarFoto(raiz,request);
   if(Object.keys(d).some(k=>!['acao','confirmacao','pendencias','destinatario','encerrarGrupoVazio'].includes(k)))falha('invalid-argument','Dados de solicitação inválidos. O titular é definido pela sessão.');
   const ref=raiz.doc(`contaSolicitacoes/${uid}`);
   // Consultar a própria solicitação continua permitido se o perfil foi removido:
