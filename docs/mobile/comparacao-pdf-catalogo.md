@@ -1,0 +1,17 @@
+# Catálogo após correspondência e PDF de comparação — 04/11/2026
+
+Solicitação: confirmar São o mesmo produto deve mesclar também na lista de produtos; exportar a comparação em PDF.
+
+A operação publicada já gravava principalId/membrosIds/aliases no catálogo. A interface da comparação reaplicava somente o mapa de preços e não atualizava a cópia do catálogo. Agora confirmar e desfazer também chamam a atualização existente do catálogo. A carga forçada invalida o cache de classificações desse usuário/grupo, pode substituir uma leitura anterior em andamento e usa revisão/token para impedir resposta antiga de repor os cadastros anteriores. Sem listener ou consulta por produto. Listas e notas históricas preservam seus snapshots e valores; o catálogo apresenta o principal conforme mesclagem já existente.
+
+Botão Exportar comparação em PDF após selecionar duas filiais ou carregar duas listas completas. Exporta todos os produtos do filtro de busca atual, além dos dez visíveis; não exporta correspondências ainda não confirmadas. PDF A4 horizontal com identidade Tá no Ponto, nomes dos dois lados, classificação, período, geração, produtos numerados, marca/embalagem/unidade, preços e suas datas, quantidades em listas e diferença por unidade. Menor verde, maior vermelho, empate cinza, com rótulos textuais. Listas usam a média ponderada já exibida; nota explicativa de preços históricos e descontos globais não distribuídos.
+
+Geração local com jsPDF/autotable já presentes. Reutiliza logo oficial e entrega já existente: validação de sessão/grupo antes de disponibilizar arquivo, modal de compartilhar, baixar e abrir/imprimir; Android usa ponte PDF existente. URL do arquivo anterior liberada pela rotina existente. Sem nova dependência, infraestrutura ou alteração de servidor/dados reais. Sem envio de PDF para terceiros por automação.
+
+Validação: 21 testes direcionados de correspondências, comparação, catálogo e segurança do fluxo PDF aprovados; lint completo e build PWA aprovados. Navegador a 390px com compras fictícias, hook real de cache e serviço simulado: catálogo 27 para 26 ao confirmar e 27 ao desfazer; comparação 3 para 4; exportação e download do PDF de quatro produtos. Não houve largura horizontal excedente. Captura capturas/comparacao-pdf/exportar-mobile.png.
+
+PDF sintético de 65 produtos (output/pdf/Comparacao_de_precos_demonstracao.pdf), nove páginas renderizadas com Poppler e inspecionadas, incluindo primeira/última página e contato de todas. Corrigida quebra da coluna numérica em dois dígitos. Texto reaberto com pypdf verificou os 65 produtos únicos, cabeçalhos em todas as páginas, quantidades e rótulos/preços; PDF baixado pelo navegador confirmou quatro produtos. Exemplo contém somente dados fictícios. Evidências output/comparacao-pdf-verificado.json, comparacao-pdf-testes.log, comparacao-pdf-lint-final.log e comparacao-pdf-build-final.log.
+
+Prévia encerrada; sem homologação física, APK, instalação, Play, commit/push. Publicação somente frontend Netlify ponto1303, site cf66ee21-9935-4013-8043-1471c62694e7, continuação da funcionalidade de Preços autorizada na conversa.
+
+Publicação concluída em 04/11/2026 às 12:43 (UTC−3): Netlify deploy 6aeb5277cd736ec978b46c5d ready, publicado 2026-11-04T15:43:01.704Z. Sete rotas e 16 arquivos públicos comparados byte a byte com o build final, incluindo módulo PDF, biblioteca e logo; todos iguais. Consulta sem login HTTP401. Evidências output/comparacao-pdf-netlify-deploy.json e comparacao-pdf-publicado-verificado.json. Sem deploy de servidor nesta rodada.

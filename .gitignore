@@ -64,3 +64,6 @@ dist-android-release/
 android/app/src/release/assets/
 android/app/src/release/google-services.json
 firebase.review-emulator.local.json
+
+# Novas capturas de homologação ficam locais; imagens já rastreadas são preservadas.
+docs/mobile/capturas/
