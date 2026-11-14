@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AP1303</string>
-    <string name="title_activity_main">AP1303</string>
+    <string name="app_name">Tá no Ponto</string>
+    <string name="title_activity_main">Tá no Ponto</string>
     <string name="package_name">br.dev.acstech.ap1303.dev</string>
     <string name="custom_url_scheme">br.dev.acstech.ap1303.dev</string>
 </resources>

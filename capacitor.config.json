@@ -1,6 +1,6 @@
 {
   "appId": "br.dev.acstech.ap1303.dev",
-  "appName": "AP1303",
+  "appName": "Tá no Ponto",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

@@ -1,7 +1,7 @@
 // Apenas dados fictícios para os emuladores. Nunca executa contra produção.
-if (process.env.GCLOUD_PROJECT !== 'demo-ap1303' || process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8877') throw new Error('Use exclusivamente o emulador demo-ap1303.');
+const projectId = require('../functions/teste-local.cjs').exigirEmuladoresLocais();
 const admin = require('../functions/node_modules/firebase-admin');
-admin.initializeApp({ projectId: 'demo-ap1303' });
+admin.initializeApp({ projectId });
 const { comprasOperacao } = require('../functions/compras.cjs');
 async function main() {
   const db = admin.firestore();
@@ -28,7 +28,7 @@ async function main() {
   }
   await op('criar', { listaId: 'demo-semana', titulo: 'Compras da semana' });
   for (const p of produtos) await op('adicionar', { listaId: 'demo-semana', produtoId: p[0], quantidadePlanejada: 2 });
-  console.log('Dados fictícios preparados em demo-ap1303.');
+  console.log('Dados fictícios preparados exclusivamente nos emuladores locais.');
   await admin.app().delete();
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });

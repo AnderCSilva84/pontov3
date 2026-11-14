@@ -65,5 +65,5 @@ public class PushNativoPlugin extends Plugin {
  @PluginMethod public void pendente(PluginCall call){String raw=PushEstado.prefs(getContext()).getString("pendente",null);JSObject d=new JSObject();try{if(raw!=null){JSONObject obj=new JSONObject(raw);if(PushEstado.aceita(getContext(),obj))d.put("aviso",obj);}}catch(Exception ignored){}call.resolve(d);}
  @PluginMethod public void limparPendente(PluginCall call){PushEstado.prefs(getContext()).edit().remove("pendente").apply();call.resolve();}
  @PluginMethod public void removerAviso(PluginCall call){NotificationManagerCompat.from(getContext()).cancel(call.getString("eventId",""),PushEstado.numero(call.getString("eventId","")));call.resolve();}
- @PluginMethod public void configuracoes(PluginCall call){try{getActivity().startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getContext().getPackageName()));call.resolve();}catch(Exception e){call.reject("Abra as configurações do Android e permita as notificações do AP1303.");}}
+ @PluginMethod public void configuracoes(PluginCall call){try{getActivity().startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getContext().getPackageName()));call.resolve();}catch(Exception e){call.reject("Abra as configurações do Android e permita as notificações do Tá no Ponto.");}}
 }

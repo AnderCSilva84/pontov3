@@ -12,6 +12,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PdfArquivosPlugin.class);
         registerPlugin(PushNativoPlugin.class);
         super.onCreate(savedInstanceState);
+        // Somente WebView Android. Não altera o zoom acessível do PWA nem textZoom/fontScale.
+        WebSettings settings = getBridge().getWebView().getSettings();
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
         // HTTP permitido somente no debug e somente no domínio configurado
         // pelo network-security-config debug. Release permanece bloqueado.
         if (BuildConfig.DEBUG) {

@@ -31,8 +31,13 @@ final class PushEstado {
   if(PushNativoPlugin.emPrimeiroPlano()){PushDiagnostico.etapa("primeiro_plano");PushNativoPlugin.emitir("mensagem",d);return;}
   String canal=d.optString("canal");if(!Arrays.asList("tarefas","cuidados","compras","ponto").contains(canal))canal="ponto";
   NotificationManager manager=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
-  if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(new NotificationChannel(canal,"AP1303 · "+canal,NotificationManager.IMPORTANCE_DEFAULT));
-  NotificationCompat.Builder n=new NotificationCompat.Builder(c,canal).setSmallIcon(R.drawable.ic_notificacao).setContentTitle("AP1303").setContentText("Há uma atualização no aplicativo.").setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOnlyAlertOnce(true).setAutoCancel(false).setTimeoutAfter(Math.max(1,d.optLong("expiraEm")-System.currentTimeMillis()));
+  if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(new NotificationChannel(canal,"Tá no Ponto · "+canal,NotificationManager.IMPORTANCE_DEFAULT));
+  NotificationCompat.Builder n=new NotificationCompat.Builder(c,canal).setSmallIcon(R.drawable.ic_notificacao).setContentTitle("Tá no Ponto").setContentText("Há uma atualização no aplicativo.").setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOnlyAlertOnce(true).setAutoCancel(false).setTimeoutAfter(Math.max(1,d.optLong("expiraEm")-System.currentTimeMillis()));
+  if("alimentacao".equals(d.optString("conteudo"))&&"tarefas".equals(canal)&&Arrays.asList("/tarefas","/alimentacao").contains(d.optString("rota"))){
+   String titulo=d.optString("title","Hora da refeição"),texto=d.optString("body","");
+   titulo=titulo.substring(0,Math.min(100,titulo.length()));texto=texto.substring(0,Math.min(300,texto.length()));
+   n.setContentTitle(titulo).setContentText(texto).setStyle(new NotificationCompat.BigTextStyle().bigText(texto));
+  }
   n.setContentIntent(intent(c,d,false));
   if(Arrays.asList("tarefa","tarefa_fixa","lembrete").contains(d.optString("tipo"))){
    NotificationCompat.Action.Builder action=new NotificationCompat.Action.Builder(R.drawable.ic_notificacao,d.optString("tipo").equals("lembrete")?"Confirmar cuidado":"Concluir tarefa",intent(c,d,true));

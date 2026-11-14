@@ -7,11 +7,11 @@ final class PdfCacheSeguro {
     static final long PRAZO = 86400000L;
     static boolean reconhecido(String nome) {
         String uuid = "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}";
-        return nome.matches(uuid + "\\.pdf") || nome.matches("u_[0-9]{1,3}_[A-Za-z0-9_-]+_" + uuid + "(_entregue)?\\.pdf");
+        return nome.matches(uuid + "\\.pdf") || nome.matches("u_[0-9]{1,3}_[A-Za-z0-9_-]+_" + uuid + "(_entregue)?\\.(pdf|jpg|png|webp)");
     }
     static boolean podeApagar(File pasta, File arquivo, long agora, boolean logout) throws IOException {
         if (!arquivo.isFile() || !reconhecido(arquivo.getName()) || !arquivo.getCanonicalFile().equals(new File(pasta.getCanonicalFile(), arquivo.getName()))) return false;
-        if (arquivo.getName().endsWith("_entregue.pdf")) return agora - arquivo.lastModified() > PRAZO;
+        if (arquivo.getName().matches(".*_entregue\\.(pdf|jpg|png|webp)")) return agora - arquivo.lastModified() > PRAZO;
         return logout || agora - arquivo.lastModified() > PRAZO;
     }
     static void limparAntigos(File pasta, long agora) {
