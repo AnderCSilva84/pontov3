@@ -17,7 +17,7 @@ export function criarRecuperacaoSenha(enviar) {
     pendente=(async()=>{
       try{await enviar(email.trim());}
       catch(e){if(!['auth/user-not-found','auth/invalid-email'].includes(e.code))throw Error(e.code==='auth/network-request-failed'?'Sem conexão. Confira a rede e tente novamente.':e.code==='auth/too-many-requests'?'Muitas tentativas. Aguarde antes de solicitar novamente.':'Não foi possível solicitar a recuperação agora. Tente novamente mais tarde.');}
-      return 'Se houver uma conta com este email, você receberá instruções para redefinir a senha. Depois, volte ao AP1303 e entre com a nova senha.';
+      return 'Se houver uma conta com este email, você receberá instruções para redefinir a senha. Depois, volte ao Tá no Ponto e entre com a nova senha.';
     })().finally(()=>{pendente=null;});return pendente;
   };
 }

@@ -155,7 +155,7 @@
 .notificacoes-cabecalho button { border: 0; background: transparent; color: #9a5d15; font-weight: 700; cursor: pointer; }
 .notificacoes-painel article { display: flex; gap: 10px; padding: 12px 2px; border-bottom: 1px solid rgba(108,84,46,.09); }
 .notificacoes-painel article p { margin: 4px 0 0; color: var(--text-muted); font-size: .84rem; line-height: 1.35; }
-.tarefas-fixas-hoje { padding: 12px 14px; border: 1px solid #d59a30; background: linear-gradient(135deg, #fffaf0, #fff1ce); }
+.tarefas-fixas-hoje { padding: 12px 14px; border: 1px solid #d59a30; background: #fff4df; }
 .tarefas-fixas-titulo { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
 .tarefas-fixas-titulo > span { font-size: 1.05rem; transform: rotate(-18deg); }
 .tarefas-fixas-titulo h2 { margin: 0; color: #6e4b14; font-size: .92rem; text-transform: uppercase; letter-spacing: .05em; }

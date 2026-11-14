@@ -20,7 +20,7 @@ function shellManifest() {
       }
     }
     for(const m of String(bundle['index.html'].source).matchAll(/(?:src|href)="\/(assets\/[^"?]+)"/g))incluir(m[1]);
-    const assets=[...necessarios],publicos=['icon-192.png','icon-512.png','manifest.json'];
+    const assets=[...necessarios],publicos=['icon-192.png','icon-512.png','marca-ta-no-ponto.png','apple-touch-icon-ta-no-ponto-v1.png','manifest.json'];
     const hash=createHash('sha256');
     for(const n of [...assets].sort())hash.update(n).update(bundle[n].type==='asset'?bundle[n].source:bundle[n].code);
     for(const n of publicos)hash.update(n).update(readFileSync(new URL('./public/'+n,import.meta.url)));

@@ -1,10 +1,15 @@
+import { criarModeloJornada, validarModeloJornada, cargaNaData, jornadaNaData } from '../../functions/jornada.mjs';
+import CentralPrecosGestao from '../components/CentralPrecosGestao';
+import CategoriasComprasConfig from '../components/CategoriasComprasConfig';
+import { dataHoraExibicao } from '../utils/datasExibicao.js';
+import SenhaInput from '../components/SenhaInput';
 import {cuidadosDisponiveis} from '../utils/edicaoBuild';
 import {coordenadasValidas} from '../utils/mapaLocal';
 import PontoAjuste from '../components/PontoAjuste';
 import LocalMapa from '../components/LocalMapa';
 import {obterPosicaoAtual} from '../utils/localizacao';
 import { collection, doc } from '../services/dadosGrupo';
-import { PageHeader } from '../components/ui';
+import { PageHeader, Icon } from '../components/ui';
 import PontoRevisao from '../components/PontoRevisao';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { criarUsuario, excluirUsuario, login, logout } from "../services/auth";
@@ -36,7 +41,7 @@ function formatarDataBr(dataIso) {
   if (!dataIso) return "-";
   const [ano, mes, dia] = String(dataIso).split("-");
   if (!ano || !mes || !dia) return dataIso;
-  return `${dia}/${mes}/${ano}`;
+  return `${dia}-${mes}-${ano.slice(-2)}`;
 }
 
 function dataParaDate(valor) {
@@ -50,7 +55,7 @@ function dataParaDate(valor) {
 function formatarDataHora(valor) {
   const data = dataParaDate(valor);
   if (!data) return "-";
-  return data.toLocaleString("pt-BR");
+  return dataHoraExibicao(data);
 }
 
 function dataKeyParaDate(dataKey) {
@@ -95,21 +100,7 @@ function calcularTotalMinutos({ entrada, saidaIntervalo, entradaIntervalo, saida
   return Math.max(0, saidaMin - entradaMin - intervalo);
 }
 
-function getCargaDiaMin(dataKey, funcionario) {
-  const data = dataKeyParaDate(dataKey);
-  if (!data) return 0;
-  const diaSemana = data.getDay();
-  const chaves = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
-  const cargaEscala = Number(funcionario?.escala?.[chaves[diaSemana]]?.cargaMin);
-  if (Number.isFinite(cargaEscala)) return cargaEscala;
-  if (diaSemana === 0) return 0;
-  if (diaSemana === 6) {
-    const sabado = Number(funcionario?.cargaSabadoMin);
-    return Number.isFinite(sabado) ? sabado : 0;
-  }
-  const segSex = Number(funcionario?.cargaSegSexMin);
-  return Number.isFinite(segSex) ? segSex : 480;
-}
+function getCargaDiaMin(dataKey, funcionario) { return cargaNaData(funcionario, dataKey); }
 
 function getDatasNoIntervalo(dataInicio, dataFim) {
   const inicio = dataKeyParaDate(dataInicio);
@@ -319,6 +310,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [jornadaSegSexHoras, setJornadaSegSexHoras] = useState("8");
   const [jornadaSabadoHoras, setJornadaSabadoHoras] = useState("0");
   const [escalaForm, setEscalaForm] = useState({});
+  const [modeloJornada, setModeloJornada] = useState("");
+  const [vigenciaJornada, setVigenciaJornada] = useState("2026-12-01");
   const [jornadaSalvando, setJornadaSalvando] = useState(false);
   const [jornadaErro, setJornadaErro] = useState("");
   const [jornadaSucesso, setJornadaSucesso] = useState("");
@@ -363,7 +356,9 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     return () => { ativo = false; };
   }, [user]);
   useEffect(() => {
-    const escalaAtual = funcionarioAtual?.escala || {};
+    setModeloJornada("");
+    const cadastroJornada = jornadaNaData(funcionarioAtual || {}, dataKeyHoje());
+    const escalaAtual = cadastroJornada.escala || {};
     const proximaEscala = {};
 
     DIAS_ESCALA.forEach((dia) => {
@@ -378,13 +373,13 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
 
     setEscalaForm(proximaEscala);
     setJornadaSegSexHoras(
-      Number.isFinite(Number(funcionarioAtual?.cargaSegSexMin))
-        ? String(Number(funcionarioAtual.cargaSegSexMin) / 60)
+      Number.isFinite(Number(cadastroJornada.cargaSegSexMin))
+        ? String(Number(cadastroJornada.cargaSegSexMin) / 60)
         : "8"
     );
     setJornadaSabadoHoras(
-      Number.isFinite(Number(funcionarioAtual?.cargaSabadoMin))
-        ? String(Number(funcionarioAtual.cargaSabadoMin) / 60)
+      Number.isFinite(Number(cadastroJornada.cargaSabadoMin))
+        ? String(Number(cadastroJornada.cargaSabadoMin) / 60)
         : "0"
     );
     setJornadaErro("");
@@ -1189,15 +1184,27 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       };
     }
 
+    let dadosJornada = { cargaSegSexMin, cargaSabadoMin, escala };
+    if (modeloJornada) {
+      for (const dia of DIAS_ESCALA) if (!escala[dia]) escala[dia] = { inicio: '', fim: '', cargaMin: 0 };
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Fortaleza' });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(vigenciaJornada) || vigenciaJornada < hoje || new Date(vigenciaJornada + 'T12:00Z').toISOString().slice(0, 10) !== vigenciaJornada) {
+        setJornadaErro('Informe uma vigência válida a partir de hoje.'); return;
+      }
+      const erro = validarModeloJornada(Number(modeloJornada), vigenciaJornada, escala);
+      if (erro) { setJornadaErro(erro); return; }
+      dadosJornada = { jornadas: [...(funcionarioAtual.jornadas || []).filter(j => j.vigencia !== vigenciaJornada),
+        { ...dadosJornada, horasSemanais: Number(modeloJornada), vigencia: vigenciaJornada }] };
+    } else if (funcionarioAtual.jornadas?.length) {
+      setJornadaErro('Selecione uma modalidade e a vigência para alterar uma jornada programada.'); return;
+    }
     setJornadaSalvando(true);
     setJornadaErro("");
     setJornadaSucesso("");
 
     try {
       await updateDoc(doc(db, "funcionarios", funcionarioSelecionado), {
-        cargaSegSexMin,
-        cargaSabadoMin,
-        escala,
+        ...dadosJornada,
       });
 
       setFuncionarios((prev) =>
@@ -1205,9 +1212,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
           func.id === funcionarioSelecionado
             ? {
                 ...func,
-                cargaSegSexMin,
-                cargaSabadoMin,
-                escala,
+                ...dadosJornada,
               }
             : func
         )
@@ -1402,8 +1407,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
               </label>
               <label className="field">
                 <span>Senha</span>
-                <input
-                  type="password"
+                <SenhaInput
                   value={adminSenha}
                   onChange={(event) => setAdminSenha(event.target.value)}
                   placeholder="Digite sua senha"
@@ -1452,6 +1456,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     <div className="page-bg admin-bg">
       <main className="page-shell admin-shell">
         <PageHeader title="Gestão" subtitle="Usuários, acessos e escritório contábil." />
+        {user.role==='admin'&&<CentralPrecosGestao key={'central:'+user.uid+':'+user.grupoId}/>}
+        {user.role==='admin'&&<CategoriasComprasConfig key={user.uid+':'+user.grupoId} user={user}/>}
         {user.role==='admin'&&<PontoRevisao key={`${user.uid}:${user.grupoId||''}`} user={user} />}
 
         <p className="admin-ola">
@@ -1461,8 +1467,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
 
         {normalizeRole(user.role) === ROLE_ADMIN && (
           <div className="admin-atalhos">
-            <button type="button" className="btn btn-secondary admin-financeiro-link" onClick={() => onNavigate && onNavigate("/admin/financeiro")}>Abrir escritório contábil</button>
-            <button type="button" className={`btn ${mostrarAdmPonto ? "btn-primary" : "btn-secondary"}`} onClick={() => setMostrarAdmPonto((atual) => !atual)}>{mostrarAdmPonto ? "Fechar ponto e configurações" : "Ponto, ajustes e locais"}</button>
+            <button type="button" className="btn btn-secondary admin-financeiro-link" onClick={() => onNavigate && onNavigate("/admin/financeiro")}><Icon name="file"/><span>Escritório contábil</span></button>
+            <button type="button" className={`btn admin-ponto-link ${mostrarAdmPonto ? "btn-primary" : "btn-secondary"}`} onClick={() => setMostrarAdmPonto((atual) => !atual)} aria-expanded={mostrarAdmPonto}><Icon name="clock"/><span>{mostrarAdmPonto ? "Fechar ponto e configurações" : "Ponto, ajustes e locais"}</span></button>
           </div>
         )}
 
@@ -1496,8 +1502,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
 
               <label className="field">
                 <span>Senha</span>
-                <input
-                  type="password"
+                <SenhaInput
                   value={usuarioSenha}
                   onChange={(event) => setUsuarioSenha(event.target.value)}
                   placeholder={user?.grupoId ? 'Mínimo 8 caracteres' : 'Mínimo 6 caracteres'}
@@ -1524,7 +1529,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             {usuarioSucesso && <p className="mensagem">{usuarioSucesso}</p>}
 
             <div className="card tarefas-lista">
-              <div className="usuarios-expandir"><h2>Usuários cadastrados</h2><button type="button" className="btn btn-secondary" aria-expanded={mostrarUsuarios} aria-controls="usuarios-cadastrados-conteudo" onClick={() => setMostrarUsuarios((atual) => !atual)}>{mostrarUsuarios ? "▴ Recolher" : "▾ Expandir"}</button></div>
+              <div className="usuarios-expandir"><h2>Usuários cadastrados</h2><button type="button" className="btn btn-secondary" aria-expanded={mostrarUsuarios} aria-controls="usuarios-cadastrados-conteudo" onClick={() => setMostrarUsuarios((atual) => !atual)}><Icon name="chevron" style={{transform:mostrarUsuarios?'rotate(-90deg)':'rotate(90deg)'}}/><span>{mostrarUsuarios?'Recolher':'Expandir'}</span></button></div>
               {mostrarUsuarios && <><div id="usuarios-cadastrados-conteudo" className="ui-user-filtros"><label className="field"><span>Buscar usuários nesta página</span><input type="search" value={buscaUsuario} onChange={e => setBuscaUsuario(e.target.value)} /></label><label className="field"><span>Filtrar perfil</span><select value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}><option value="">Todos</option>{Object.entries(ROLE_LABELS).map(([id,nome]) => <option key={id} value={id}>{nome}</option>)}</select></label></div>
               {loadingUsuarios && <p className="text-muted">Carregando usuários...</p>}
               {!loadingUsuarios && usuarios.length === 0 && (
@@ -1813,13 +1818,27 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             </div>
 
             <div className="card jornada-card">
+              <label className="field"><span>Modalidade semanal</span>
+                <select value={modeloJornada} onChange={e => {
+                  const valor = e.target.value; setModeloJornada(valor);
+                  if (!valor) return;
+                  const modelo = criarModeloJornada(Number(valor));
+                  setJornadaSegSexHoras(String(modelo.cargaSegSexMin / 60));
+                  setJornadaSabadoHoras(String(modelo.cargaSabadoMin / 60));
+                  setEscalaForm(Object.fromEntries(Object.entries(modelo.escala).map(([dia, item]) => [dia, { ...item, ativo: item.cargaMin > 0, cargaHoras: String(item.cargaMin / 60) }])));
+                }}><option value="">Jornada personalizada atual</option><option value="44">44 horas — 6 dias</option><option value="42">42 horas — 5 dias e 2 folgas</option><option value="40">40 horas — 5 dias</option></select>
+              </label>
+              {modeloJornada && <label className="field"><span>Vigência da modalidade</span><input type="date" value={vigenciaJornada} min={Number(modeloJornada) === 42 ? '2026-12-01' : undefined} onChange={e => setVigenciaJornada(e.target.value)} /></label>}
+              <p className="text-muted">42h: 8h24 por dia em cinco dias, disponível a partir de 01/12/2026. Ajuste os dias e horários antes de salvar. O intervalo não integra a carga.</p>
+              {funcionarioAtual.jornadas?.map(j => <p key={j.vigencia}>A partir de {formatarDataBr(j.vigencia)}: {j.horasSemanais}h semanais</p>)}
+
               <div className="jornada-cargas">
                 <label className="field">
                   <span>Carga seg-sex (horas)</span>
                   <input
                     type="number"
                     min="0"
-                    step="0.5"
+                    step="0.01"
                     value={jornadaSegSexHoras}
                     onChange={(event) => setJornadaSegSexHoras(event.target.value)}
                   />
@@ -1830,7 +1849,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                   <input
                     type="number"
                     min="0"
-                    step="0.5"
+                    step="0.01"
                     value={jornadaSabadoHoras}
                     onChange={(event) => setJornadaSabadoHoras(event.target.value)}
                   />
@@ -1868,7 +1887,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                         type="number"
                         min="0"
                         max="24"
-                        step="0.5"
+                        step="0.01"
                         aria-label={`Carga de ${labelDiaSemana(dia)} em horas`}
                         placeholder="Carga (h)"
                         value={escalaForm?.[dia]?.cargaHoras || ""}

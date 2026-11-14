@@ -1,0 +1,81 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+test('alimentação: destinos do grupo, edição atômica, notificações por refeição, replay e arquivo',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);process.env.GCLOUD_PROJECT+='-alimentacao';process.env.FIREBASE_CONFIG=JSON.stringify({projectId:process.env.GCLOUD_PROJECT});
+ const admin=require('../functions/node_modules/firebase-admin'),api=require('../functions/index.js'),raiz=admin.firestore();t.after(()=>admin.app().delete());
+ const {bancoDoGrupo}=require('../functions/grupos-contexto.cjs'),db=bancoDoGrupo(raiz,'a');
+ for(const [uid,g,role,ativo]of [['adm','a','admin',true],['al','a','funcionario',true],['be','a','consulta',true],['fora','b','admin',true],['inativo','a','funcionario',false]]){
+  await raiz.doc('grupos/'+g).set({ativo:true});await raiz.doc('vinculosUsuarios/'+uid).set({grupoId:g,ativo:true});await raiz.doc(`grupos/${g}/users/${uid}`).set({role,ativo,nome:uid,babaCuidadora:role==='funcionario'});
+ }
+ const {operarLembretes,processarLembretes}=require('../functions/lembretes.cjs');
+ const agora=Date.parse('2026-11-04T09:00Z'),op=(uid,operacao,d={})=>operarLembretes(db,{auth:{uid},data:{operacao,...d}},agora);
+ const plano={id:'plano1',operacaoId:randomUUID(),versao:0,titulo:'Plano fictício',dataInicio:'2026-11-04',dataFim:'2026-11-06',repeticao:'diario',destinatarios:'selecionados',usuarioIds:['al','be'],refeicoes:[{id:'cafe',nome:'Café da manhã',horario:'07:00',sugestao:'Sugestão fictícia para o café'},{id:'almoco',nome:'Almoço',horario:'12:00',sugestao:'Sugestão fictícia para o almoço'}]};
+ await assert.rejects(op('al','alimentacaoSalvar',plano),{code:'permission-denied'});
+ await assert.rejects(op('adm','alimentacaoSalvar',{...plano,usuarioIds:['fora']}),{code:'failed-precondition'});
+ await assert.rejects(op('adm','alimentacaoSalvar',{...plano,usuarioIds:['inativo']}),{code:'failed-precondition'});
+ await op('adm','alimentacaoSalvar',plano);await op('adm','alimentacaoSalvar',plano);assert.equal((await db.collection('lembretes').get()).size,2);
+ assert.equal((await op('adm','alimentacaoListar',{visao:'minhas',fotosInteracoes:true})).planos.length,0);
+ assert.deepEqual(Object.keys((await op('adm','alimentacaoListar',{visao:'minhas',fotosInteracoes:true})).pessoasInteracoes),[]);
+ assert.equal((await op('al','alimentacaoListar',{visao:'minhas'})).planos.length,1);
+ assert.equal((await op('adm','alimentacaoListar',{visao:'criadas'})).planos.length,1);
+ await assert.rejects(op('al','alimentacaoListar',{visao:'criadas'}),{code:'permission-denied'});
+ const planoFoto={...plano,id:'foto-refeicao',operacaoId:randomUUID(),refeicoes:[{...plano.refeicoes[0],imagemUrl:'https://example.com/cafe.jpg'}]};
+ await assert.rejects(op('adm','alimentacaoSalvar',{...planoFoto,refeicoes:[{...planoFoto.refeicoes[0],imagemUrl:'http://example.com/cafe.jpg'}]}),{code:'invalid-argument'});
+ await op('adm','alimentacaoSalvar',planoFoto);
+ assert.equal((await op('al','alimentacaoListar')).planos.find(p=>p.id==='foto-refeicao').refeicoes[0].imagemUrl,'https://example.com/cafe.jpg');
+ await op('adm','alimentacaoSalvar',{...planoFoto,versao:1,operacaoId:randomUUID(),refeicoes:[{...planoFoto.refeicoes[0],imagemUrl:''}]});
+ assert.equal((await db.doc('planosAlimentares/foto-refeicao').get()).data().refeicoes[0].imagemUrl,'');
+ await op('adm','alimentacaoArquivar',{id:'foto-refeicao',versao:2,operacaoId:randomUUID()});
+ const linhas={...plano,id:'linhas-cho',opcoesPorRefeicao:true,operacaoId:randomUUID(),refeicoes:[{...plano.refeicoes[0],opcoes:[{id:'op1',descricao:'Opção A de teste',choGramas:'21,5'},{id:'op2',descricao:'Opção B de teste',choGramas:''}]}]};
+ await op('adm','alimentacaoSalvar',linhas);await op('adm','alimentacaoSalvar',linhas);
+ const salvoLinhas=(await op('al','alimentacaoListar')).planos.find(p=>p.id==='linhas-cho');assert.equal(salvoLinhas.refeicoes[0].opcoes[0].choGramas,21.5);assert.equal(salvoLinhas.refeicoes[0].opcoes[1].choGramas,null);
+ assert.match((await db.doc('lembretes/alimentacao_linhas-cho_cafe').get()).data().sugestao,/Opção A de teste \(CHO: 21,5 g\)/);
+ await op('adm','alimentacaoSalvar',{...linhas,versao:1,operacaoId:randomUUID(),refeicoes:[{...linhas.refeicoes[0],opcoes:[linhas.refeicoes[0].opcoes[1]]}]});
+ assert.equal((await db.doc('planosAlimentares/linhas-cho').get()).data().refeicoes[0].opcoes.length,1);
+ const total={...linhas,versao:2,operacaoId:randomUUID(),choPorRefeicao:true,refeicoes:[{...linhas.refeicoes[0],choModo:'total',choTotalGramas:'53,5'}]};
+ await op('adm','alimentacaoSalvar',total);await op('adm','alimentacaoSalvar',total);
+ const refeicaoTotal=(await op('al','alimentacaoListar',{visao:'minhas'})).planos.find(p=>p.id==='linhas-cho').refeicoes[0];assert.equal(refeicaoTotal.choTotalGramas,53.5);assert.equal(refeicaoTotal.choModo,'total');assert.equal(refeicaoTotal.opcoes[0].choGramas,21.5);
+ assert.match((await db.doc('lembretes/alimentacao_linhas-cho_cafe').get()).data().sugestao,/CHO total da refeição: 53,5 g/);
+ await assert.rejects(op('adm','alimentacaoSalvar',{...linhas,versao:3,operacaoId:randomUUID()}),{code:'failed-precondition'});
+ await op('adm','alimentacaoArquivar',{id:'linhas-cho',versao:3,operacaoId:randomUUID()});
+ const foto=Buffer.from('miniatura-ficticia');
+ await db.doc('users/al').update({temFotoPerfil:true,fotoPerfilVersao:1});await db.doc('fotosPerfis/al').set({bytes:foto,versao:1});
+ await db.doc('users/adm').update({temFotoPerfil:true,fotoPerfilVersao:1});await db.doc('fotosPerfis/adm').set({bytes:Buffer.from('foto-administrador'),versao:1});
+ await raiz.doc('grupos/b/users/al').set({nome:'Pessoa de outro grupo',role:'admin',ativo:true,temFotoPerfil:true});await raiz.doc('grupos/b/fotosPerfis/al').set({bytes:Buffer.from('nao-vazar')});
+ const comFotos=await op('al','alimentacaoListar',{fotosInteracoes:true});assert.deepEqual(Object.keys(comFotos.pessoasInteracoes).sort(),['al','be']);assert.equal(comFotos.pessoasInteracoes.al.fotoInteracao,'data:image/jpeg;base64,'+foto.toString('base64'));assert.equal(comFotos.pessoasInteracoes.be.fotoInteracao,null);assert.equal(comFotos.pessoasInteracoes.adm,undefined);
+ await db.doc('users/nao-selecionado').set({role:'funcionario',ativo:true,nome:'Fora da programação'});
+ const semPlano=await op('nao-selecionado','alimentacaoListar',{fotosInteracoes:true});assert.equal(semPlano.planos.length,0);assert.deepEqual(Object.keys(semPlano.pessoasInteracoes),[]);
+ await db.doc('users/nao-selecionado').update({ativo:false});
+ assert.equal((await op('al','alimentacaoListar')).pessoasInteracoes,undefined);
+ await db.doc('users/al').update({fotoPerfilVersao:2,nome:'Aline atualizada'});await db.doc('fotosPerfis/al').update({bytes:Buffer.from('miniatura-atualizada'),versao:2});
+ assert.equal((await op('al','alimentacaoListar',{fotosInteracoes:true})).pessoasInteracoes.al.fotoPerfilVersao,2);
+ assert.equal((await db.doc('planosAlimentares/plano1').get()).data().pessoasInteracoes,undefined);
+ assert.equal((await op('al','alimentacaoListar')).planos.length,1);assert.equal((await op('be','alimentacaoListar')).planos.length,1);
+ const externa=await api.lembretesOperacao.run({auth:{uid:'fora'},data:{operacao:'alimentacaoListar',grupoId:'a',fotosInteracoes:true}});assert.equal(externa.planos.length,0);assert.deepEqual(Object.keys(externa.pessoasInteracoes),[]);
+ const envios=[],enviar=async(...args)=>{envios.push(args);return 1;};
+ const sete=Date.parse('2026-11-04T10:00Z');await processarLembretes(db,enviar,sete);assert.deepEqual(envios.map(e=>e[4]).sort(),['al','be']);assert.ok(envios.every(e=>e[0]==='Hora de Café da manhã'&&e[1].includes('Sugestão fictícia para o café')&&e[2]==='/alimentacao'&&e[6].acao.categoria==='alimentacao'));
+ await processarLembretes(db,enviar,sete);assert.equal(envios.length,2);
+ assert.equal((await db.doc('lembretes/alimentacao_plano1_cafe').get()).data().proximoDisparoEm.toMillis(),Date.parse('2026-11-05T10:00Z'));
+ await assert.rejects(op('adm','alimentacaoSalvar',{...plano,operacaoId:randomUUID()}),{code:'aborted'});
+ const atualizado={...plano,versao:1,operacaoId:randomUUID(),destinatarios:'todos',refeicoes:[{...plano.refeicoes[1],sugestao:'Nova sugestão do almoço'}]};await op('adm','alimentacaoSalvar',atualizado);
+ assert.equal((await db.doc('lembretes/alimentacao_plano1_cafe').get()).data().ativo,false);
+ await db.doc('users/novo').set({role:'funcionario',ativo:true,nome:'Novo integrante'});
+ const globalFotos=await op('be','alimentacaoListar',{fotosInteracoes:true});assert.deepEqual(globalFotos.planos[0].destinatariosNomes.map(p=>p.id).sort(),['adm','al','be','novo']);assert.deepEqual(Object.keys(globalFotos.pessoasInteracoes).sort(),['adm','al','be','novo']);assert.equal(globalFotos.pessoasInteracoes.inativo,undefined);assert.equal(globalFotos.pessoasInteracoes.al.nome,'Aline atualizada');
+ const meioDia=Date.parse('2026-11-04T15:00Z');await processarLembretes(db,enviar,meioDia);assert.deepEqual(envios.slice(2).map(e=>e[4]).sort(),['adm','al','be','novo']);assert.ok(envios.slice(2).every(e=>e[1].includes('Nova sugestão')));
+ // Somente a programação alimentar gerencia esses lembretes.
+ await assert.rejects(op('adm','pausar',{id:'alimentacao_plano1_almoco',ativo:false,versao:2}),{code:'permission-denied'});
+ await assert.rejects(op('adm','salvar',{id:'alimentacao_plano1_almoco',usuarioId:'al'}),{code:'permission-denied'});
+ const arquivo={id:'plano1',versao:2,operacaoId:randomUUID()};await op('adm','alimentacaoArquivar',arquivo);await op('adm','alimentacaoArquivar',arquivo);
+ assert.equal((await op('al','alimentacaoListar')).planos.length,0);assert.equal((await db.doc('lembretes/alimentacao_plano1_almoco').get()).data().proximoDisparoEm,null);
+ await processarLembretes(db,enviar,Date.parse('2026-11-05T15:00Z'));assert.equal(envios.length,6);
+ // Recuperação após falha parcial reusa o mesmo identificador de evento.
+ await op('adm','alimentacaoSalvar',{...plano,id:'retry',operacaoId:randomUUID(),refeicoes:[plano.refeicoes[0]]});
+ let falhar=true;const eventos=[];const envioFalho=async(...args)=>{eventos.push(args);if(args[4]==='be'&&falhar){falhar=false;throw Error('Falha simulada');}return 1;};
+ await processarLembretes(db,envioFalho,sete);await processarLembretes(db,envioFalho,sete);
+ assert.equal(new Set(eventos.map(e=>e[3])).size,1);assert.equal((await db.doc('lembretes/alimentacao_retry_cafe/ocorrencias/1_'+sete).get()).data().status,'enviado');
+ // Não despeja refeições antigas no celular depois de indisponibilidade longa.
+ const antes=eventos.length;await processarLembretes(db,envioFalho,Date.parse('2026-11-05T11:00Z'));assert.equal(eventos.length,antes);
+ await op('adm','alimentacaoSalvar',{...plano,id:'cancelado',operacaoId:randomUUID(),refeicoes:[plano.refeicoes[0]]});
+ await db.doc('planosAlimentares/cancelado').update({ativo:false});
+ await processarLembretes(db,enviar,sete);assert.equal((await db.doc('lembretes/alimentacao_cancelado_cafe').get()).data().proximoDisparoEm,null);
+});
+

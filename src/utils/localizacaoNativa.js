@@ -1,8 +1,8 @@
 export function erroLocalizacao(codigo) {
   const mensagens={
-    aproximada:['O Android está fornecendo localização aproximada. Para validar o local do ponto, ative “Usar localização precisa” em Configurações → Aplicativos → AP1303 → Permissões → Localização.','permissao'],
-    permissao:['Localização não permitida. Em Configurações → Aplicativos → AP1303 → Permissões → Localização, escolha “Permitir durante o uso” e ative a localização precisa.','permissao'],
-    bloqueada:['A permissão de localização está bloqueada. Abra Configurações → Aplicativos → AP1303 → Permissões → Localização e permita durante o uso, com localização precisa. O app não repetirá o pedido automaticamente.','permissao'],
+    aproximada:['O Android está fornecendo localização aproximada. Para validar o local do ponto, ative “Usar localização precisa” em Configurações → Aplicativos → Tá no Ponto → Permissões → Localização.','permissao'],
+    permissao:['Localização não permitida. Em Configurações → Aplicativos → Tá no Ponto → Permissões → Localização, escolha “Permitir durante o uso” e ative a localização precisa.','permissao'],
+    bloqueada:['A permissão de localização está bloqueada. Abra Configurações → Aplicativos → Tá no Ponto → Permissões → Localização e permita durante o uso, com localização precisa. O app não repetirá o pedido automaticamente.','permissao'],
     desligada:['A localização do aparelho está desligada ou indisponível nas configurações. Ative Localização no Android e tente registrar novamente.','servico'],
     timeout:['A busca de localização excedeu o tempo de espera. Vá para um lugar com melhor sinal, como próximo de uma janela, e toque em registrar novamente. Nenhuma tentativa foi salva.','sinal'],
     configuracao:['A versão instalada não declarou as permissões de localização. Atualize o APK de desenvolvimento.','atualizar'],

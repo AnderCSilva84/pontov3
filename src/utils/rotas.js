@@ -2,11 +2,13 @@ import {cuidadosDisponiveis} from './edicaoBuild.js';
 import { canAccessPonto, normalizeRole, ROLE_FUNCIONARIO } from "./roles.js";
 
 export function ehRotaCompras(rota) {
-  return /^\/lista-compras(?:\/(?:historico|consulta|precos|rankings|categorias|catalogo)|\/listas\/[\w-]{1,128})?$/.test(rota);
+  return /^\/lista-compras(?:\/(?:historico|consulta|precos|rankings|categorias|catalogo|cidade)|\/listas\/[\w-]{1,128})?$/.test(rota);
 }
 
 export function resolverRotaUsuario(user, rota) {
+  if (rota === '/alimentacao') return user ? rota : '/ponto';
   if (!cuidadosDisponiveis && (rota === '/lembretes' || rota.startsWith('/lembretes/'))) return '/tarefas';
+  if (rota === '/avisos') return user ? rota : '/ponto';
   if (rota === '/meus-comprovantes') return user?.grupoId && normalizeRole(user.role) === ROLE_FUNCIONARIO ? rota : '/ponto';
   if (rota === '/lembretes') return user && ['admin',ROLE_FUNCIONARIO].includes(normalizeRole(user.role)) ? rota : '/ponto';
   if (rota === '/lista-compras/categorias' && user && normalizeRole(user.role) !== 'admin') return '/lista-compras';

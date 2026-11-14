@@ -1,8 +1,11 @@
-import { Icon } from './ui';
+import {useContext} from 'react';
+import {AvisosNovosContext} from '../context/AvisosNovosContext';
+import { Icon,BrandMark,SessionIdentity } from './ui';
 import {cuidadosDisponiveis} from '../utils/edicaoBuild';
 import { normalizeRole, ROLE_ADMIN, ROLE_FUNCIONARIO, canConsultSystem } from "../utils/roles";
 
 export default function BottomNav({ activePath, onNavigate, user }) {
+  const {novos}=useContext(AvisosNovosContext);
   const themeClass =
     activePath === "/lista-compras"
       ? "theme-compras"
@@ -57,29 +60,32 @@ export default function BottomNav({ activePath, onNavigate, user }) {
     },
   ];
 
+  if(user) tabs.splice(3,0,{path:'/alimentacao',label:'Alimentação'},{path:'/avisos',label:'Lembretes'});
   const role = normalizeRole(user?.role);
   if (role === ROLE_FUNCIONARIO && user?.grupoId) tabs.push({ path: '/meus-comprovantes', label: 'Comprovantes' });
   if (cuidadosDisponiveis && (role === ROLE_ADMIN || role === ROLE_FUNCIONARIO)) {
-    tabs.splice(3, 0, { path: '/lembretes', label: 'Lembretes', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8" /><path d="M10 21h4" /></svg> });
+    tabs.splice(3, 0, { path: '/lembretes', label: 'Cuidados', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8" /><path d="M10 21h4" /></svg> });
   }
   const tabsVisiveis = role === ROLE_FUNCIONARIO
-    ? tabs.filter((tab) => tab.path === "/ponto" || tab.path === "/lista-compras" || tab.path === '/lembretes' || tab.path === '/meus-comprovantes')
+    ? tabs.filter((tab) => tab.path === "/ponto" || tab.path === '/alimentacao' || tab.path === "/lista-compras" || tab.path === '/avisos' || tab.path === '/lembretes' || tab.path === '/meus-comprovantes')
     : role === ROLE_ADMIN
       ? tabs
       : tabs.filter((tab) => tab.path !== "/ponto" && (tab.path !== '/admin' || !user || canConsultSystem(user)));
 
   return (
     <nav className={`bottom-nav ${themeClass}`} aria-label="Navegação principal">
+      <div className="sidebar-identidade"><BrandMark/><SessionIdentity user={user} sidebar/></div>
       {tabsVisiveis.map((tab) => (
         <button
           key={tab.path}
           type="button"
-          className={`nav-item ${(activePath === tab.path || tab.path === "/admin" && activePath?.startsWith("/admin/")) ? "active" : ""}`}
-          aria-current={(activePath === tab.path || tab.path === "/admin" && activePath?.startsWith("/admin/")) ? "page" : undefined}
+          className={`nav-item ${tab.path==='/avisos'&&novos>0?'nav-avisos-novos':''} ${(activePath === tab.path || tab.path === "/lista-compras" && activePath?.startsWith("/lista-compras/") || tab.path === "/admin" && activePath?.startsWith("/admin/")) ? "active" : ""}`}
+          aria-label={tab.path==='/avisos'&&novos>0?`Lembretes, ${novos} novos`:undefined}
+          aria-current={(activePath === tab.path || tab.path === "/lista-compras" && activePath?.startsWith("/lista-compras/") || tab.path === "/admin" && activePath?.startsWith("/admin/")) ? "page" : undefined}
           onClick={() => onNavigate && onNavigate(tab.path)}
         >
-          <span className="nav-icon">{<Icon name={{"/ponto":"clock","/lista-compras":"cart","/tarefas":"tasks","/lembretes":"bell","/admin":"chart","/meus-comprovantes":"tasks"}[tab.path]} />}</span>
-          <span className="nav-label">{tab.label}</span>
+          <span className="nav-icon">{<Icon name={{"/ponto":"clock","/alimentacao":"meal","/lista-compras":"cart","/tarefas":"tasks","/avisos":"bell","/lembretes":"care","/admin":"chart","/meus-comprovantes":"tasks"}[tab.path]} />}</span>
+          <span className="nav-label">{tab.label}</span>{tab.path==='/avisos'&&novos>0&&<span className="nav-avisos-badge" role="status">{novos>99?'99+':novos}<span className="sr-only"> novos lembretes</span></span>}
         </button>
       ))}
     </nav>

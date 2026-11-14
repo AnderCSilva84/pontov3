@@ -1,3 +1,4 @@
+import { cargaNaData } from '../../functions/jornada.mjs';
 export function somarBancoHoras(registros,funcionario,mesYYYYMM,inicioContagem=''){
  const inicio=mesYYYYMM+'-01',fim=mesYYYYMM+'-31';
  const normalizarMinutos=v=>Number.isFinite(Number(String(v??0).replace(',','.')))?Number(String(v??0).replace(',','.')):0;
@@ -22,10 +23,7 @@ export function somarBancoHoras(registros,funcionario,mesYYYYMM,inicioContagem='
       const saidaMin = horaParaMinutos(data.saida);
       const dataLocal = new Date(`${dataKey}T12:00:00`);
       const diaSemana = dataLocal.getDay();
-      const chavesDia = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
-      const cargaEscala = Number(funcionario?.escala?.[chavesDia[diaSemana]]?.cargaMin);
-      const cargaPadrao = diaSemana === 6 ? Number(funcionario.cargaSabadoMin) : Number(funcionario.cargaSegSexMin);
-      const cargaPrevista = Number.isFinite(cargaEscala) ? cargaEscala : (Number.isFinite(cargaPadrao) ? cargaPadrao : (diaSemana === 0 ? 0 : 480));
+      const cargaPrevista = cargaNaData(funcionario, dataKey);
       const intervalo = diaSemana === 6 ? 0 : (Number.isFinite(Number(funcionario.intervaloPrevistoMin)) ? Number(funcionario.intervaloPrevistoMin) : 60);
       return total + (Math.max(0, saidaMin - entradaMin - intervalo) - cargaPrevista);
     }

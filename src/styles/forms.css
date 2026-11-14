@@ -1,3 +1,12 @@
+.compras-form {display:grid;gap:16px;}
+.compras-form p {margin:0;}
+:root .compras-dialog {
+ position:fixed; top:calc(var(--dialog-topo-visivel, 0px) + 12px); bottom:auto;
+ margin:0 auto; max-height:calc(var(--dialog-altura-visivel, 100dvh) - 24px);
+ scroll-padding-block:16px;
+}
+:root .compras-dialog.compras-dialog-editando > header {position:static;}
+:root .compras-dialog :is(input,select,textarea) {scroll-margin-block:16px;}
 /* Acabamento compartilhado entre WebView e PWA; sem trocar seletores nativos. */
 :root :is(.page-shell,.compras-dialog) fieldset {
   min-inline-size:0; margin:0; padding:16px; border:1px solid var(--border-strong);
@@ -114,3 +123,5 @@
 .gastos-mes h4::first-letter { text-transform:uppercase; }
 .compras-historico-filtros { background:var(--bg-panel); border:1px solid var(--border); border-radius:16px; padding:16px; }
 @media(min-width:375px) { .compras-historico-filtros { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; } .compras-historico-filtros > label:last-child { grid-column:1/-1; } }
+
+.senha-controle{display:flex;align-items:center;gap:8px;min-width:0;width:100%}.senha-controle input{flex:1;min-width:0;width:0}.senha-controle .btn{flex:0 0 auto;width:auto;min-height:44px;padding:8px 12px}

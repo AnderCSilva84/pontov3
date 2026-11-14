@@ -2,6 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { validarLembrete, proximoDisparo, cuidadoraAtiva, destinatarioAtivo, dentroExpediente } = require('../functions/lembretes-dominio.cjs');
 const base = { titulo: 'Cuidado de teste', tipo: 'remedio', medicamento: 'Medicamento fictício', posologia: 'Orientação fictícia', horario: '12:00', dataInicio: '2026-10-19', repeticao: 'uma_vez' };
+test('consulta separa compromisso e aviso, preservando o disparo cadastrado',()=>{
+ const agora=Date.parse('2026-10-19T10:00:00Z'),d={...base,tipo:'consulta',dataCompromisso:'2026-10-20',horarioCompromisso:'13:30'};
+ const r=validarLembrete(d,agora);assert.equal(r.proximoMs,Date.parse('2026-10-19T15:00:00Z'));assert.equal(r.horarioCompromisso,'13:30');
+ assert.throws(()=>validarLembrete({...d,horarioCompromisso:'25:00'},agora),/compromisso/);assert.throws(()=>validarLembrete({...d,dataCompromisso:'2026-02-30'},agora),/compromisso/);
+});
 test('lembretes para pets e consultas validam identificação e mantêm a lógica de doses', () => {
   const agora = Date.parse('2026-10-19T10:00:00Z');
   const pet = validarLembrete({ ...base, destinatarioCuidado: 'gato', nomeCuidado: 'Pet fictício', horarios: ['08:00', '20:00'] }, agora);

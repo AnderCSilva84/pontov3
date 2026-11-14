@@ -7,7 +7,7 @@ test('cache vazio não encerra sessão nem assume legado antes do servidor; aus�
  const source=readFileSync('src/services/auth.js','utf8').replace(/^import[\s\S]*?from\s+["'][^"']+["'];?\r?\n/gm,'').replace(/export /g,'');
  const listeners=[],estados=[],grupos=[];let iniciarAuth,paradas=0;
  const auth={currentUser:{uid:'ficticia-a'}};
- const c={auth,db:{},firebaseConfig:{projectId:'demo-perfil'},criarCadastroTitular:()=>({}),doc:(_db,...partes)=>partes.join('/'),definirGrupoAtual:g=>grupos.push(g),onAuthStateChanged:(_auth,fn)=>{iniciarAuth=fn;return()=>paradas++;},onSnapshot:(ref,fn,erro)=>{listeners.push({ref,fn,erro});return()=>paradas++;},console:{error:()=>{}}};
+ const c={window:{dispatchEvent:()=>{}},Event:class Event{},auth,db:{},firebaseConfig:{projectId:'demo-perfil'},criarCadastroTitular:()=>({}),doc:(_db,...partes)=>partes.join('/'),definirGrupoAtual:g=>grupos.push(g),onAuthStateChanged:(_auth,fn)=>{iniciarAuth=fn;return()=>paradas++;},onSnapshot:(ref,fn,erro)=>{listeners.push({ref,fn,erro});return()=>paradas++;},console:{error:()=>{}}};
  runInNewContext(source,c);const parar=c.observeAuth(u=>estados.push(u));iniciarAuth(auth.currentUser);
  const snap=(exists,data={},fromCache=false)=>({exists:()=>exists,data:()=>data,metadata:{fromCache}});
  assert.equal(estados.at(-1),undefined);

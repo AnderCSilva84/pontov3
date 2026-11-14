@@ -17,7 +17,10 @@ let arquivoEmUso, acaoEmUso;
 export function nomePdfSeguro(nome) {
   return String(nome || 'Documento.pdf').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 100).replace(/\.pdf$/i, '') + '.pdf';
 }
-export async function entregarPdf(arquivo, acao = 'abrir') {
+export function entregarPdf(arquivo,acao='abrir'){return entregarArquivo(arquivo,acao,false);}
+export function entregarAnexo(arquivo,acao='escolher'){return entregarArquivo(arquivo,acao,true);}
+function nomeAnexoSeguro(arquivo){const ext=({'application/pdf':'pdf','image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[arquivo.type];if(!ext)throw new Error('Tipo de anexo inválido.');return (arquivo.name.replace(/\.[^.]+$/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_.-]/g,'_').replace(/^\.+/,'').slice(0,100)||'Anexo')+'.'+ext;}
+async function entregarArquivo(arquivo, acao = 'abrir', anexo=false) {
   if (!['abrir', 'compartilhar', 'salvar', 'escolher'].includes(acao)) throw new Error('Ação de PDF inválida.');
   if (operacao) {
     if (arquivoEmUso === arquivo && acaoEmUso === acao) return operacao;
@@ -31,10 +34,11 @@ export async function entregarPdf(arquivo, acao = 'abrir') {
     const contextoId = contexto();
     if (!escrito) {
       const bytes = new Uint8Array(await arquivo.arrayBuffer());
+      if (anexo && bytes.length > 5 * 1024 * 1024) throw new Error('Anexo maior que 5 MB.');
       if (bytes.length > 20 * 1024 * 1024) throw new Error('PDF muito grande para abrir no aparelho.');
       let texto = ''; for (let i = 0; i < bytes.length; i += 8192) texto += String.fromCharCode(...bytes.subarray(i, i + 8192));
       validarPdf(arquivo);
-      escrito = await ponte.escrever({ base64: btoa(texto), nome: nomePdfSeguro('AP1303.pdf'), contexto: contextoId });
+      escrito = anexo ? await ponte.escreverAnexo({base64:btoa(texto),nome:nomeAnexoSeguro(arquivo),mime:arquivo.type,contexto:contextoId}) : await ponte.escrever({ base64: btoa(texto), nome: nomePdfSeguro('Tá no Ponto.pdf'), contexto: contextoId });
       validarPdf(arquivo);
       escritos.set(arquivo, escrito);
     }

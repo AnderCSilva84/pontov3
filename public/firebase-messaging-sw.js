@@ -29,7 +29,7 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
 self.addEventListener('fetch',event=>{
   if(!shell||event.request.method!=='GET')return;
   const url=new URL(event.request.url);if(url.origin!==self.location.origin)return;
-  const pagina=event.request.mode==='navigate'&&/^\/(?:ponto|admin(?:\/financeiro)?|lista-compras(?:\/.*)?|tarefas|lembretes|cadastro|conta|recuperar-senha|meus-comprovantes|integracoes\/no-bolso)?\/?$/.test(url.pathname);
+  const pagina=event.request.mode==='navigate'&&/^\/(?:ponto|alimentacao|admin(?:\/financeiro)?|lista-compras(?:\/.*)?|tarefas|avisos|lembretes|cadastro|conta|recuperar-senha|meus-comprovantes|integracoes\/no-bolso)?\/?$/.test(url.pathname);
   if(pagina){event.respondWith(fetch(event.request).catch(()=>caches.open(cacheShell).then(c=>c.match('/index.html'))));return;}
   if(!url.search&&(shell.assets.includes(url.pathname)||url.pathname.startsWith('/assets/')))event.respondWith((async()=>{
     for(const key of [cacheShell,...(await caches.keys()).filter(k=>k.startsWith(prefixoShell)&&k!==cacheShell)]){
@@ -68,7 +68,7 @@ if (config) {
     const data = payload.data || {};
     if (data.uid !== parametros.get("uid")) return;
     if ((data.grupoId||'') !== (parametros.get('grupoId')||'')) return;
-    return self.registration.showNotification(data.title || "App Ponto", {
+    return self.registration.showNotification(data.title || "Tá no Ponto", {
       body: data.body || "Há uma atualização no app.", icon: "/icon-192.png",
       tag: data.tag, data: { url: data.url || "/ponto" },
       actions: data.url?.startsWith('/lembretes?') ? [{action:'ver-concluir',title:'Ver e concluir'}] : [],

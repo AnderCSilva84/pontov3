@@ -5,7 +5,7 @@ test('Script11: classificação, fechamento, autorização e contratos supermerc
  const {comprasOperacao,comprasRelatorio}=require('../functions/compras.cjs');
  const gid='grupo11';await db.doc('grupos/'+gid).set({ativo:true});
  for(const [u,role,g]of [['adm','admin',gid],['func','funcionario',gid],['outro','admin','outro11']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+u).set({grupoId:g,ativo:true});await db.doc(`grupos/${g}/users/${u}`).set({nome:'Autoria confiável',ativo:true,role});}
- const p='grupos/'+gid+'/';await db.doc(p+'catalogoCompras/produto').set({nome:'Produto demo',categoriaId:'farmacia',apresentacao:'Caixa',unidadeCompra:'un',ativo:true});await db.doc(p+'supermercados/loja').set({nome:'Estabelecimento demo',filial:'Demo',cidade:'Demo',ativo:true});
+ const p='grupos/'+gid+'/';await db.doc(p+'catalogoCompras/produto').set({tiposCompra:['farmacia','supermercado'],nome:'Produto demo',categoriaId:'farmacia',apresentacao:'Caixa',unidadeCompra:'un',ativo:true});await db.doc(p+'supermercados/loja').set({nome:'Estabelecimento demo',filial:'Demo',cidade:'Demo',ativo:true});
  const op=(operacao,dados={},uid='adm')=>comprasOperacao.run({auth:{uid},data:{operacao,...dados}});
  await op('criar',{listaId:'farmacia',titulo:'Farmácia demo',tipoCompra:'farmacia',criadaPor:'forjado',criadaPorNome:'Forjado'});
  let l=(await db.doc(p+'comprasListas/farmacia').get()).data();assert.equal(l.tipoCompra,'farmacia');assert.equal(l.criadaPor,'adm');assert.equal(l.criadaPorNome,'Autoria confiável');

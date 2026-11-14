@@ -23,9 +23,9 @@ function WebConnection({ user, onNavigate }) {
         <main className="page-shell">
           <section className="card">
             <h1>Conectar ao No Bolso</h1>
-            <p role="status">Conferindo a conta conectada ao AP1303…</p>
+            <p role="status">Conferindo a conta conectada ao Tá no Ponto…</p>
             <button className="btn" onClick={() => onNavigate('/ponto')}>
-              Voltar ao AP1303
+              Voltar ao Tá no Ponto
             </button>
           </section>
         </main>
@@ -80,7 +80,7 @@ function ConnectionForm({ user, session, onNavigate }) {
           {user ? (
             <>
               <p>
-                Conta conectada ao AP1303:{' '}
+                Conta conectada ao Tá no Ponto:{' '}
                 <strong>{session.email || 'E-mail não disponível'}</strong>.
               </p>
               <p>
@@ -90,7 +90,7 @@ function ConnectionForm({ user, session, onNavigate }) {
                   className="btn"
                   onClick={() => onNavigate('/ponto')}
                 >
-                  Voltar ao AP1303
+                  Voltar ao Tá no Ponto
                 </button>
               </p>
               <p>
@@ -151,9 +151,9 @@ function ConnectionForm({ user, session, onNavigate }) {
             </>
           ) : (
             <>
-              <p>Entre na sua conta AP1303 e depois reabra esta página pelo No Bolso.</p>
+              <p>Entre na sua conta Tá no Ponto e depois reabra esta página pelo No Bolso.</p>
               <button className="btn btn-primary" onClick={() => onNavigate('/ponto')}>
-                Entrar no AP1303
+                Entrar no Tá no Ponto
               </button>
             </>
           )}

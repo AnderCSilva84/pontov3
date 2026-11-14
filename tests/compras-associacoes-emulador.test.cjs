@@ -5,7 +5,7 @@ test('associações: quatro preços, reversão, correção isolada, concorrênci
  for(const[u,g,role]of [['adm','a','admin'],['func','a','funcionario'],['outro','b','admin']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+u).set({grupoId:g,ativo:true});await db.doc(`grupos/${g}/users/${u}`).set({role,ativo:true,nome:u});}
  const base='grupos/a/',cat=db.collection(base+'catalogoCompras'),precos=db.collection(base+'comprasPrecos');
  const nomes=['Leite integral fictício 1 L','LEITE INTEG FICTICIO 1000ML','Leite integral ficticio 1 litro','Leite integral fictício 1000 ml'];
- for(let i=1;i<=5;i++)await cat.doc('p'+i).set({nome:nomes[i-1]||'Leite fictício alternativa',marca:'Marca Demo',apresentacao:i%2?'Garrafa de 1 L':'Garrafa de 1000 ml',unidadeCompra:'un',categoriaId:'mercearia',ativo:true});
+ for(let i=1;i<=5;i++)await cat.doc('p'+i).set({tiposCompra:['supermercado'],nome:nomes[i-1]||'Leite fictício alternativa',marca:'Marca Demo',apresentacao:i%2?'Garrafa de 1 L':'Garrafa de 1000 ml',unidadeCompra:'un',categoriaId:'mercearia',ativo:true});
  for(let i=1;i<=4;i++)await precos.doc('r'+i).set({produtoId:'p'+i,nomeSnapshot:nomes[i-1],nomeOriginalFiscal:nomes[i-1],apresentacao:i%2?'Garrafa de 1 L':'Garrafa de 1000 ml',marca:'Marca Demo',unidadeCompra:'un',supermercadoId:'loja',supermercadoNome:'Loja Demo',listaId:'lista'+i,itemId:'item'+i,quantidadeComprada:1,precoUnitarioCentavos:500+i,compradoEm:admin.firestore.Timestamp.fromMillis(Date.now()-i*1000),valido:true});
  const originais=await precos.get(),op=(operacao,dados={},uid='adm')=>api.comprasOperacao.run({auth:{uid},data:{operacao,...dados}}),consulta=()=>api.comprasRelatorio.run({auth:{uid:'adm'},data:{inicioMs:Date.now()-86400000,fimMs:Date.now()+10000}});
  await assert.rejects(op('mesclaPrevia',{produtoIds:['p1','p2'],principalId:'p1'},'func'),{code:'permission-denied'});
@@ -31,5 +31,25 @@ test('associações: quatro preços, reversão, correção isolada, concorrênci
  await op('corrigirAliasProduto',{operacaoId:randomUUID(),versao:versaoAlias,precoId:'r2',produtoId:'p5',confirmado:true,justificativa:'Corrigir somente futuras entradas fictícias'});
  const nova=await op('cupomPreparar',{link:fiscal.link,texto:fiscal.texto});assert.equal(nova.nota.itens[0].produtoId,'p5');assert.equal(nova.nota.itens[0].reconhecido,true);
  assert.equal((await precos.doc('r2').get()).data().produtoId,'p2');
+ // Mesclagem manual de variações exige consentimento e prévia ainda atual.
+ for(const [id,nome,apresentacao,unidadeCompra]of [['v1','BATATA PRINGLES CHURRASCO','109G','un'],['v2','BATATA PRINGLES ORIGINAL','104G','un'],['vkg','BATATA PRINGLES','109G','kg']])await cat.doc(id).set({nome,apresentacao,unidadeCompra,ativo:true,tiposCompra:['supermercado']});
+ const pv=await op('mesclaPrevia',{produtoIds:['v1','v2'],principalId:'v1'});assert.ok(pv.conflitos.length);assert.equal(pv.podeReunirVariacoes,true);
+ const variacoes={operacaoId:randomUUID(),produtoIds:pv.produtoIds,principalId:'v1',versao:pv.versao,confirmado:true,assinatura:pv.assinatura};
+ await assert.rejects(op('mesclarProdutos',variacoes),{code:'failed-precondition'});
+ await assert.rejects(op('mesclarProdutos',{...variacoes,aceitarVariacoes:true,assinatura:'errada'}),{code:'aborted'});
+ await assert.rejects(op('mesclarProdutos',{...variacoes,aceitarVariacoes:true},'func'),{code:'permission-denied'});
+ await cat.doc('v2').update({nome:'BATATA PRINGLES ORIGINAL EDITADA'});
+ await assert.rejects(op('mesclarProdutos',{...variacoes,aceitarVariacoes:true}),{code:'aborted'});
+ const novaPrevia=await op('mesclaPrevia',{produtoIds:['v1','v2'],principalId:'v1'}),pedidoVariacoes={...variacoes,aceitarVariacoes:true,assinatura:novaPrevia.assinatura};
+ const salvo=await op('mesclarProdutos',pedidoVariacoes);assert.equal(salvo.catalogoAtualizado.length,2);assert.equal(salvo.associacoes.vinculos.v2,'v1');
+ assert.equal((await op('mesclarProdutos',pedidoVariacoes)).versao,salvo.versao);
+ assert.equal((await cat.doc('v2').get()).data().apresentacao,'104G');
+ assert.equal((await db.doc(base+'comprasAssociacoesOperacoes/'+variacoes.operacaoId).get()).data().aceitarVariacoes,true);
+ const desfeito=await op('desfazerMescla',{operacaoId:randomUUID(),mesclaId:variacoes.operacaoId,versao:salvo.versao,confirmado:true});assert.equal(desfeito.catalogoAtualizado.length,2);assert.equal(desfeito.associacoes.vinculos.v2,undefined);
+ const unidades=await op('mesclaPrevia',{produtoIds:['v1','vkg'],principalId:'v1'});assert.equal(unidades.podeReunirVariacoes,false);
+ await assert.rejects(op('mesclarProdutos',{...variacoes,operacaoId:randomUUID(),produtoIds:unidades.produtoIds,versao:unidades.versao,assinatura:unidades.assinatura,aceitarVariacoes:true}),{code:'failed-precondition'});
+ for(const [id,dosagem]of [['med1','10mg'],['med2','20mg']])await cat.doc(id).set({nome:'MEDICAMENTO DEMO',dosagem,unidadeCompra:'un',ativo:true,tiposCompra:['farmacia']});
+ const med=await op('mesclaPrevia',{tipoCompra:'farmacia',produtoIds:['med1','med2'],principalId:'med1'});assert.equal(med.podeReunirVariacoes,false);
+ await assert.rejects(op('mesclarProdutos',{tipoCompra:'farmacia',operacaoId:randomUUID(),produtoIds:med.produtoIds,principalId:'med1',versao:med.versao,assinatura:med.assinatura,confirmado:true,aceitarVariacoes:true}),{code:'failed-precondition'});
  const audit=await op('mesclasListar');assert.ok(audit.itens.some(r=>r.desfeitaPor==='adm'));assert.equal((await precos.get()).size,4);
 });

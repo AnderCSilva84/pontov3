@@ -1,3 +1,4 @@
+import {Icon} from '../components/ui';
 import "../styles/admin.css";
 
 function formatValor(valor) {
@@ -30,11 +31,11 @@ export default function AdminDashboard({
       <main className="admin-shell">
         <header className="admin-header">
           <button className="icon-btn" type="button" aria-label="Menu">
-            ☰
+            <Icon name="tasks" />
           </button>
           <h1>Dashboard Admin</h1>
           <button className="icon-btn" type="button" aria-label="Perfil">
-            ◉
+            <Icon name="users" />
           </button>
         </header>
 

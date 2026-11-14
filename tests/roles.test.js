@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canAccessPonto, canCreateTasks, canManageUsers, normalizeRole } from "../src/utils/roles.js";
 import { resolverRotaUsuario } from '../src/utils/rotas.js';
+
+test('alimentação é uma rota da própria conta sem exigir vínculo de ponto',()=>{
+ for(const role of ['admin','funcionario','consulta'])assert.equal(resolverRotaUsuario({role,uid:'pessoa-sem-vinculo'},'/alimentacao'),'/alimentacao');
+ assert.equal(resolverRotaUsuario(null,'/alimentacao'),'/ponto');
+});
 test('funcionária sem perfil de cuidadora acessa receitas, sem habilitar cuidados',()=>{
  assert.equal(resolverRotaUsuario({role:'funcionario',babaCuidadora:false},'/lembretes'),'/lembretes');
  assert.equal(resolverRotaUsuario({role:'consulta'},'/lembretes'),'/ponto');

@@ -10,26 +10,24 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --bg-page: #f7f5ef;
-  --bg-page-alt: #fcfaf6;
-  --bg-panel: rgba(255, 250, 242, 0.92);
-  --bg-panel-strong: #ffffff;
-  --bg-soft: #f2ecdf;
-  --bg-soft-2: #ebe4d5;
-  --border: rgba(108, 84, 46, 0.12);
-  --border-strong: rgba(108, 84, 46, 0.2);
-  --shadow-soft: 0 14px 32px rgba(117, 92, 55, 0.09);
-  --shadow-strong: 0 22px 46px rgba(117, 92, 55, 0.14);
-  --text-main: #2f2417;
-  --text-muted: #73624c;
-  --text-soft: #8e7b63;
-  --accent: #2b529d;
-  --accent-strong: #203e77;
-  --accent-soft: #edf2fc;
-  --success: #2f9e6b;
-  --warning: #c87b1f;
-  --danger: #c85647;
-  --danger-soft: rgba(200, 86, 71, 0.12);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 * {
@@ -48,9 +46,7 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(255, 214, 153, 0.32) 0%, transparent 28%),
-    radial-gradient(circle at top right, rgba(111, 171, 149, 0.18) 0%, transparent 24%),
-    linear-gradient(180deg, #fefbf5 0%, #f7f2e7 52%, #f3ede1 100%);
+    var(--bg-panel);
   color: var(--text-main);
 }
 
@@ -130,8 +126,7 @@ textarea:focus-visible {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.42), transparent 34%),
-    radial-gradient(circle at 50% 0%, rgba(232, 213, 180, 0.18), transparent 45%);
+    var(--bg-panel);
   pointer-events: none;
 }
 
@@ -207,10 +202,10 @@ textarea:focus-visible {
   border-radius: 24px;
   padding: 18px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(251, 247, 239, 0.96));
+    var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
 }
 
 .text-muted {
@@ -251,7 +246,7 @@ textarea:focus-visible {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #2f7b5f 0%, #4f9d81 100%);
+  background: var(--accent);
   color: #f6fff8;
   box-shadow: 0 14px 28px rgba(47, 123, 95, 0.18);
 }
@@ -263,7 +258,7 @@ textarea:focus-visible {
 }
 
 .btn-success {
-  background: linear-gradient(135deg, #4b8f67 0%, #78b58f 100%);
+  background: var(--accent);
   color: #f9fffb;
   box-shadow: 0 14px 28px rgba(75, 143, 103, 0.18);
 }
@@ -275,7 +270,7 @@ textarea:focus-visible {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #ba5e4d 0%, #d98370 100%);
+  background: var(--accent);
   color: #fff9f7;
   box-shadow: 0 14px 28px rgba(186, 94, 77, 0.16);
 }

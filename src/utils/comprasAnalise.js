@@ -1,6 +1,7 @@
+import { dataExibicao } from './datasExibicao.js';
 import {chaveApresentacao} from '../../functions/produtos-identidade.mjs';
 export const moeda = centavos => (Number(centavos || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-export const dataPreco = ms => new Date(ms).toLocaleDateString('pt-BR', { timeZone: 'America/Fortaleza' });
+export const dataPreco = ms => dataExibicao(new Date(ms), { timeZone: 'America/Fortaleza' });
 export const numeroCompras = valor => Number(valor).toLocaleString('pt-BR', { maximumFractionDigits: 4 });
 export const chaveProdutoPreco = r => JSON.stringify([r.produtoId, (r.marca || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' '), chaveApresentacao({apresentacao:r.apresentacao,nome:r.nomeOriginal||r.nomeSnapshot}), r.unidadeCompra]);
 export function lerPreco(texto) {

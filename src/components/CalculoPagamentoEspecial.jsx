@@ -1,3 +1,4 @@
+import { dataExibicao } from '../utils/datasExibicao.js';
 export default function CalculoPagamentoEspecial({ tipo, dados, onChange, calculo, erro }) {
   const editar = (campo, valor) => onChange({ ...dados, [campo]: valor, ...(campo === 'dataDesligamento' && valor ? { diasSaldo: Math.min(30, Number(valor.slice(-2))) } : {}) });
   const campo = (id, label, type = 'number', max) => <label className="field" key={id}><span>{label}</span><input type={type} min={type === 'number' ? 0 : undefined} max={max} step={type === 'number' ? '0.01' : undefined} value={dados[id]} onChange={e => editar(id, e.target.value)} /></label>;
@@ -24,7 +25,7 @@ export default function CalculoPagamentoEspecial({ tipo, dados, onChange, calcul
       {campo('irrf','IRRF conferido no eSocial')}{campo('outrosDescontos','Outros descontos')}
     </div>
     {erro && <p role="alert" className="mensagem erro">{erro}</p>}
-    {calculo && <><h3>Verbas calculadas</h3>{calculo.linhas.map((l,i) => <div className="folha-resumo-linha" key={i}><span>{l.descricao}</span><strong>{(l.desconto ? -l.valor : l.valor).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div>)}{calculo.dataProjetada && <p>Projeção do aviso: {calculo.dataProjetada.split('-').reverse().join('/')}</p>}<div className="folha-resumo-linha"><strong>Líquido estimado</strong><strong>{calculo.liquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div></>}
+    {calculo && <><h3>Verbas calculadas</h3>{calculo.linhas.map((l,i) => <div className="folha-resumo-linha" key={i}><span>{l.descricao}</span><strong>{(l.desconto ? -l.valor : l.valor).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div>)}{calculo.dataProjetada && <p>Projeção do aviso: {dataExibicao(calculo.dataProjetada)}</p>}<div className="folha-resumo-linha"><strong>Líquido estimado</strong><strong>{calculo.liquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div></>}
     <p className="text-muted">Confira incidências, médias, avos, IRRF e demais vínculos no eSocial. Estes dados afetam o valor a pagar.</p>
   </section>;
 }

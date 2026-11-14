@@ -1,3 +1,4 @@
+import { carregarLogo } from './exportarPdfListaCompras.js';
 import { entregarPdf, pdfAndroid, registrarPdf, validarPdf } from '../services/pdfArquivos';
 import { collection } from '../services/dadosGrupo';
 import jsPDF from "jspdf";
@@ -22,7 +23,7 @@ function formatarDataBr(dataIso) {
   if (!dataIso) return "-";
   const [ano, mes, dia] = String(dataIso).split("-");
   if (!ano || !mes || !dia) return dataIso;
-  return `${dia}/${mes}/${ano}`;
+  return `${dia}-${mes}-${ano.slice(-2)}`;
 }
 
 export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim) {
@@ -106,6 +107,14 @@ export async function exportarPdfPonto(funcionarioId, nome, dataInicio, dataFim)
   const saldoAjustado = saldoPeriodo;
   pdf.text(`Saldo no período: ${minutesToHHMM(saldoAjustado)}`, 14, finalY + 7);
 
+  const marca = await carregarLogo();
+  for (let pagina = 1; pagina <= pdf.getNumberOfPages(); pagina++) {
+    pdf.setPage(pagina);
+    pdf.addImage(marca, 'PNG', 174, 3, 18, 18);
+    pdf.setFontSize(8);
+    pdf.setTextColor(8, 39, 131);
+    pdf.text('Tá no Ponto | ACS Tecnologia', 14, 291);
+  }
   validarPdf(sessaoPdf);
   if (pdfAndroid()) await entregarPdf(registrarPdf(new File([pdf.output('blob')], 'Jornada.pdf', { type: 'application/pdf' })), 'escolher');
   else pdf.save(`Relatorio_${nome}_${dataInicio}_${dataFim}.pdf`);

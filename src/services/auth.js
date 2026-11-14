@@ -51,7 +51,11 @@ export function observeAuth(callback) {
   let pararPerfil;
   let pararVinculo;
   let versaoVinculo = 0;
+  let ultimaConta;
   const pararAuth = onAuthStateChanged(auth, (user) => {
+    const conta=user?.uid||null;
+    if(ultimaConta!==undefined&&ultimaConta!==conta)window.dispatchEvent(new Event('ap1303-central-sessao'));
+    ultimaConta=conta;
     const atual = ++versao;
     pararPerfil?.();
     pararVinculo?.();

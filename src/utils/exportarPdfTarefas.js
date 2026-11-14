@@ -1,3 +1,5 @@
+import { carregarLogo } from './exportarPdfListaCompras.js';
+import { dataHoraExibicao } from './datasExibicao.js';
 import { entregarPdf, pdfAndroid, registrarPdf, validarPdf } from '../services/pdfArquivos';
 import { collection } from '../services/dadosGrupo';
 import jsPDF from "jspdf";
@@ -16,7 +18,7 @@ function dataParaDate(valor) {
 function formatarDataHora(valor) {
   const data = dataParaDate(valor);
   if (!data) return "-";
-  return data.toLocaleString("pt-BR");
+  return dataHoraExibicao(data);
 }
 
 function labelDiaSemana(valor) {
@@ -36,7 +38,7 @@ function formatarDataBr(dataIso) {
   if (!dataIso) return "-";
   const [ano, mes, dia] = String(dataIso).split("-");
   if (!ano || !mes || !dia) return dataIso;
-  return `${dia}/${mes}/${ano}`;
+  return `${dia}-${mes}-${ano.slice(-2)}`;
 }
 
 function ordenarTarefas(lista) {
@@ -82,7 +84,7 @@ export async function exportarPdfTarefas(tarefas) {
   pdf.text("Tarefas", 14, 20);
 
   pdf.setFontSize(11);
-  pdf.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 28);
+  pdf.text(`Gerado em: ${dataHoraExibicao(new Date())}`, 14, 28);
 
   autoTable(pdf, {
     startY: 36,
@@ -106,6 +108,14 @@ export async function exportarPdfTarefas(tarefas) {
     ]),
   });
 
+  const marca = await carregarLogo();
+  for (let pagina = 1; pagina <= pdf.getNumberOfPages(); pagina++) {
+    pdf.setPage(pagina);
+    pdf.addImage(marca, 'PNG', 174, 3, 18, 18);
+    pdf.setFontSize(8);
+    pdf.setTextColor(8, 39, 131);
+    pdf.text('Tá no Ponto | ACS Tecnologia', 14, 291);
+  }
   validarPdf(sessaoPdf);
   if (pdfAndroid()) await entregarPdf(registrarPdf(new File([pdf.output('blob')], 'Tarefas.pdf', { type: 'application/pdf' })), 'escolher');
   else pdf.save("Tarefas.pdf");

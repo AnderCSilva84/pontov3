@@ -1,0 +1,53 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+test('catálogo contextual: cinco tipos, múltiplos vínculos, legado, importação, alias e mesclagem',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);
+ const admin=require('../functions/node_modules/firebase-admin'),app=admin.initializeApp({projectId:process.env.GCLOUD_PROJECT+'-catalogotipo'}),db=app.firestore();t.after(()=>app.delete());
+ const {comprasOperacao}=require('../functions/compras.cjs'),{TIPOS}=require('../functions/compras-tipo.cjs');
+ for(const [uid,role,g]of [['adm','admin','a'],['func','funcionario','a'],['consulta','consulta','a'],['outro','admin','b']]){await db.doc('grupos/'+g).set({ativo:true});await db.doc('vinculosUsuarios/'+uid).set({grupoId:g,ativo:true});await db.doc(`grupos/${g}/users/${uid}`).set({role,ativo:true,nome:'Pessoa fictícia'});}
+ const op=(operacao,d={},uid='adm')=>comprasOperacao.run({auth:{uid},data:{operacao,...d}}),p='grupos/a/';
+ await op('salvarCategoriasCompras',{habilitadas:Object.keys(TIPOS),versao:0});
+ await db.doc(p+'categoriasCompras/outros').set({ativo:true,nome:'Outros'});await db.doc(p+'supermercados/loja').set({ativo:true,nome:'Loja',filial:'Fictícia',cidade:'Teste'});
+ const base={nome:'PRODUTO A 500ML',categoriaId:'outros',apresentacao:'Embalagem',unidadeCompra:'un',ativo:true};
+ for(const tipo of Object.keys(TIPOS))await db.doc(p+'catalogoCompras/'+tipo).set({...base,tiposCompra:[tipo]});
+ await db.doc(p+'catalogoCompras/multi').set({...base,tiposCompra:['supermercado','pet']});
+ await db.doc(p+'catalogoCompras/incerto').set(base);await db.doc(p+'catalogoCompras/historico').set(base);
+ await db.doc(p+'comprasPrecos/prova').set({produtoId:'historico',tipoCompra:'pet',valido:true,precoUnitarioCentavos:400});
+ await db.doc('grupos/b/catalogoCompras/privado').set({...base,tiposCompra:['pet']});
+ for(const tipo of Object.keys(TIPOS)){
+  const r=await op('catalogoPorTipo',{tipoCompra:tipo},'func'),ids=r.produtos.map(p=>p.id);
+  assert.ok(ids.includes(tipo));assert.ok(!ids.includes('incerto'));assert.ok(!ids.includes('privado'));
+  for(const outro of Object.keys(TIPOS).filter(t=>t!==tipo))assert.ok(!ids.includes(outro));
+  assert.equal(ids.includes('multi'),['supermercado','pet'].includes(tipo));assert.equal(ids.includes('historico'),tipo==='pet');
+ }
+ assert.deepEqual((await op('catalogoPorTipo',{tipoCompra:'pet',grupoId:'a'},'outro')).produtos.map(p=>p.id),['privado']);
+ await op('criar',{listaId:'lista',titulo:'Lista',tipoCompra:'supermercado'});
+ await assert.rejects(op('adicionar',{listaId:'lista',produtoId:'pet',quantidadePlanejada:1},'func'),{code:'failed-precondition'});
+ await assert.rejects(op('adicionar',{listaId:'lista',produtoId:'incerto',quantidadePlanejada:1}),{code:'failed-precondition'});
+ await assert.rejects(op('produtoCategorias',{produtoId:'incerto',tiposCompra:['pet']},'func'),{code:'permission-denied'});
+ await assert.rejects(op('catalogoRevisar',{},'consulta'),{code:'permission-denied'});
+ assert.ok((await op('catalogoRevisar')).produtos.some(p=>p.id==='incerto'));
+ await op('produtoCategorias',{produtoId:'incerto',tiposCompra:['pet','oficina']});
+ for(const tipo of ['pet','oficina'])assert.ok((await op('catalogoPorTipo',{tipoCompra:tipo})).produtos.some(p=>p.id==='incerto'));
+ assert.equal((await db.collection(p+'catalogoCompras').where('nome','==',base.nome).get()).size,8);
+ const novo=await op('produto',{...base,nome:'NOME INÉDITO SEM SUGESTÃO',tipoCompra:'oficina'});
+ assert.deepEqual((await db.doc(p+'catalogoCompras/'+novo.produtoId).get()).data().tiposCompra,['oficina']);
+ assert.equal((await db.collection(p+'comprasPrecos').get()).size,1);
+ await assert.rejects(op('mesclaPrevia',{tipoCompra:'supermercado',produtoIds:['supermercado','pet'],principalId:'supermercado'}),{code:'failed-precondition'});
+ await assert.rejects(op('aliasCatalogo',{tipoCompra:'supermercado',produtoId:'pet',descricao:'PRODUTO A 500ML',confirmado:true,operacaoId:randomUUID()}),{code:'failed-precondition'});
+ const previa=await op('mesclaPrevia',{tipoCompra:'supermercado',produtoIds:['supermercado','multi'],principalId:'supermercado'});
+ const mesclaId=randomUUID();await op('mesclarProdutos',{tipoCompra:'supermercado',produtoIds:previa.produtoIds,principalId:previa.principalId,versao:previa.versao,confirmado:true,operacaoId:mesclaId});
+ await op('desfazerMescla',{mesclaId,versao:1,confirmado:true,operacaoId:randomUUID()});
+ assert.deepEqual((await db.doc(p+'catalogoCompras/multi').get()).data().tiposCompra,['supermercado','pet']);
+ const fixture=require('./fixtures/cupom-pa.cjs')('000000961'),{lerTextoNota,chaveAlias}=require('../functions/cupom-dominio.cjs'),nota=lerTextoNota(fixture.link,fixture.texto),alias=chaveAlias(nota.cnpj,nota.itens[0]);
+ await db.doc(p+'comprasAliases/'+alias).set({produtoId:'pet',unidadeCompra:'un'});
+ const mercado=await op('cupomPreparar',{...fixture,tipoCompra:'supermercado'});assert.equal(mercado.nota.itens[0].reconhecido,false);
+ const itens=mercado.nota.itens.map((i,n)=>({linha:i.linha,descartar:n!==0,produtoId:'pet',nome:i.nome,categoriaId:'outros',apresentacao:'Embalagem',unidadeConfirmada:true}));
+ await assert.rejects(op('cupomConfirmar',{rascunhoId:mercado.rascunhoId,supermercadoId:'loja',itens}),{code:'failed-precondition'});
+ const pet=await op('cupomPreparar',{...fixture,tipoCompra:'pet'});assert.equal(pet.nota.itens[0].produtoId,'pet');
+ const escolhas=pet.nota.itens.map(i=>({linha:i.linha,descartar:false,produtoId:i.codigo==='123'?'pet':'',novoConfirmado:true,nome:i.nome,categoriaId:'outros',apresentacao:i.codigo==='123'?'Embalagem':'A granel',unidadeConfirmada:true}));
+ await op('cupomConfirmar',{rascunhoId:pet.rascunhoId,supermercadoId:'loja',itens:escolhas,versaoIdentidade:1});
+ assert.ok((await db.doc(p+'comprasAliases/pet_'+alias).get()).exists);assert.equal((await db.doc(p+'comprasAliases/'+alias).get()).data().produtoId,'pet');
+ for(let n=0;n<27;n++)await db.doc(p+'catalogoCompras/pagina'+String(n).padStart(2,'0')).set({...base,tiposCompra:['oficina']});
+ const pag=await op('catalogoPorTipo',{tipoCompra:'oficina'});assert.ok(pag.cursor);
+ const seguinte=await op('catalogoPorTipo',{tipoCompra:'oficina',cursor:pag.cursor,fimHistorico:true});assert.ok(seguinte.produtos.length);assert.ok(!seguinte.produtos.some(p=>pag.produtos.some(a=>a.id===p.id)));
+});

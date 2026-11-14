@@ -1,9 +1,10 @@
-﻿import {gastosUltimosTresMeses} from '../utils/comprasConsulta';
+import { dataExibicao } from '../utils/datasExibicao.js';
+import {gastosUltimosTresMeses} from '../utils/comprasConsulta';
 import {moeda} from '../utils/comprasAnalise';
-import {tipoCompra,gastosSeparados} from '../utils/comprasTipo';
+import {tipoCompra,gastosSeparados,TIPOS_COMPRAS} from '../utils/comprasTipo';
 
-const tipos=[['supermercado','Supermercado'],['farmacia','Farmácia']];
-const dataBr=valor=>/^\d{4}-\d{2}-\d{2}$/.test(valor||'') ? valor.split('-').reverse().join('/') : valor;
+const tipos=Object.entries(TIPOS_COMPRAS);
+const dataBr=valor=>/^\d{4}-\d{2}-\d{2}$/.test(valor||'') ? dataExibicao(valor) : valor;
 export default function GastosCompras({listas,inicio,fim,tipoFiltro='todos'}) {
  const gastos=gastosSeparados(listas),meses=gastosUltimosTresMeses(listas);
  const series=Object.fromEntries(tipos.map(([tipo])=>[tipo,new Map(gastosUltimosTresMeses(listas.filter(l=>tipoCompra(l)===tipo)).map(m=>[m.chave,m.totalCentavos]))]));

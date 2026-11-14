@@ -59,8 +59,8 @@
 .compras-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; position: sticky; top: 0; background: #fffdf8; z-index: 2; padding-block: 6px; }
 .compras-dialog h2 { margin: 0; font-size: 1.2rem; }
 .compras-dialog > header .btn { width: auto; min-width: 44px; min-height: 44px; flex-shrink: 0; font-size: 1.5rem; }
-.compras-form { display: grid; gap: 16px; }
-.compras-form p { margin: 0; }
+
+
 .compras-icones { border: 1px solid var(--border); padding: 12px; border-radius: 14px; min-width: 0; }
 .compras-icones legend { padding: 0 6px; font-weight: 700; }
 .compras-icones > div { display: grid; grid-template-columns: repeat(auto-fit,minmax(76px,1fr)); gap: 8px; max-height: 280px; overflow-y: auto; padding: 4px; }
@@ -117,6 +117,38 @@
 .cupom-resumo dl { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; }
 .cupom-resumo dd { margin: 0; }
 .cupom-linhas { display: grid; gap: 12px; }
+.cupom-triagem { display:grid; gap:12px; padding:18px; border:1px solid var(--border); border-left:4px solid #082783; border-radius:12px; background:#f4f6fc; }
+.cupom-triagem h3,.cupom-triagem p { margin:0; }
+.cupom-triagem .compras-acoes-principais { flex-wrap:wrap; }
+.cupom-triagem .btn { min-height:44px; white-space:normal; }
+.cupom-linha { scroll-margin-top:24px; }
+.cupom-etapas { display: flex; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.cupom-etapas li { flex: 1; padding: 10px 12px; border-radius: 8px; background: #edf1f7; color: #45546c; font-weight: 600; }
+.cupom-etapas [aria-current="step"] { background: #163e70; color: #fff; }
+.cupom-produto-identidade { display: grid; gap: 6px; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.cupom-produto-identidade strong { font-size: 1.1rem; }
+.cupom-numero-linha { justify-self:start; padding:4px 9px; border-radius:6px; background:#e9eefb; color:#082783; font-size:.85rem; font-weight:750; }
+.cupom-produto-identidade small { color: var(--text-muted); }
+.cupom-situacao { font-size: .85rem; font-weight: 600; color: #294d78; }
+.cupom-total { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 1.2rem; }
+.cupom-importar summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+.cupom-editar { border-top: 1px solid var(--border); }
+.cupom-editar .cupom-campos { margin-top: 10px; }
+.cupom-linha { min-width: 0; border: 1px solid var(--border); }
+.cupom-linha.cupom-atencao { border: 2px solid #966000; }
+.cupom-unidade-alerta { display: grid; gap: 10px; padding: 14px; border-radius: 8px; background: #fff4d7; color: #633d00; }
+.cupom-unidade-alerta p { margin: 0; }
+.page-shell article.entrada-concluida,.cupom-linha.entrada-concluida,.compras-produto.entrada-concluida { background:#edf8f0!important; border-color:#91bd9f!important; border-left:4px solid #247346!important; color:#172f24; }
+.entrada-concluida .cupom-produto-identidade strong,.entrada-concluida > div > strong { font-weight:600; }
+.compra-conclusao { display:inline-flex; align-items:center; gap:6px; width:fit-content; padding:4px 8px; margin:6px 0; border-radius:6px; font-size:.85rem; font-weight:650; color:#17582f; background:#dbefdf; }
+.compra-conclusao .ui-icon { width:18px; height:18px; flex:none; }
+.compra-conclusao.aguardando { background:#fff4d7; color:#694100; }
+.compra-conclusao-texto { display:grid; gap:4px; }
+.compra-conclusao-texto small { color:#3c5948; }
+.cupom-confirmacao-item { display:grid; gap:8px; margin-top:12px; }
+.cupom-confirmacao-item small { color:var(--text-muted); }
+.compras-produto.comprado:not(.entrada-concluida) { background:var(--bg-panel); }
+@media (max-width: 480px) { .cupom-etapas li { font-size: .85rem; padding: 10px 8px; } .cupom-linha > header { flex-direction: column; } .cupom-produto-identidade { flex-basis: auto; width: 100%; } }
 .cupom-linha > header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; }
 .cupom-linha > header strong { flex: 1 1 220px; overflow-wrap: anywhere; }
 .cupom-campos { display: grid; gap: 12px; }
@@ -125,7 +157,7 @@
 .cupom-comparacao ul { list-style: none; padding: 0; margin: 0; }
 .cupom-comparacao li { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .cupom-comparacao li:last-child { border-bottom: 0; }
-.compras-estimativa { display: grid; gap: 14px; border: 1px solid #bdd9ce; background: linear-gradient(135deg, #f5fbf7, #fffdf8); }
+.compras-estimativa { display: grid; gap: 14px; border: 1px solid #bdd9ce; background: var(--bg-panel); }
 .compras-estimativa-cabecalho { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
 .compras-estimativa h3 { margin: 7px 0 0; }
 .compras-estimativa p { margin: 0; }

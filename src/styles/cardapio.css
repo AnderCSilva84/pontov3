@@ -1,0 +1,22 @@
+.pratos-dia > summary {display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;}
+.cardapio-cabecalho {display:grid;gap:4px;flex:1;min-width:0;}
+.cardapio-cabecalho strong {font-size:1.15rem;color:var(--text-main);}
+.cardapio-cabecalho small {font-size:.85rem;font-weight:400;color:var(--text-muted);}
+.cardapio-simbolo {display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border-radius:var(--radius-control);background:var(--bg-soft-2);font-size:1.4rem;}
+.pratos-dia .prato-cartao {border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius-card);padding:16px;margin:16px 0;background:var(--bg-panel);}
+.pratos-dia .prato-cartao > summary {display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;}
+.pratos-dia .prato-cartao > summary::-webkit-details-marker,.pratos-dia > summary::-webkit-details-marker {display:none;}
+.prato-identidade {display:grid;gap:8px;flex:1;min-width:0;}
+.prato-identidade strong {display:block;font-size:1.15rem;line-height:1.4;overflow-wrap:anywhere;}
+.prato-identidade small {display:block;color:var(--text-muted);font-size:.88rem;line-height:1.5;overflow-wrap:anywhere;}
+.prato-programacao {font-size:.8rem;color:var(--accent);font-weight:600;}
+.prato-expandir {flex-shrink:0;font-size:1.3rem;color:var(--text-muted);transition:transform .15s;}
+.prato-cartao[open] > summary .prato-expandir {transform:rotate(180deg);}
+.prato-conteudo {display:grid;gap:12px;min-width:0;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+.prato-receita p {white-space:pre-wrap;}
+.prato-acoes {display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+.page-shell .prato-acoes .btn,.page-shell .pratos-dia > .btn {width:auto;flex:none;}
+.prato-cartao .prato-expandir {display:none;}
+.pratos-dia > .prato-acoes {border-bottom:1px solid var(--border);padding-bottom:12px;}
+@media(max-width:767px){.page-shell .prato-acoes .btn {flex:1;}}
+.prato-cartao > summary:focus-visible,.pratos-dia > summary:focus-visible {outline:2px solid var(--accent);outline-offset:4px;}

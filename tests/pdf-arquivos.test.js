@@ -6,16 +6,23 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 function preparar({ android = true, escrever, executar } = {}) {
  const auth = {currentUser:{uid:'ficticio-a'}};let grupo='grupo-a';const eventos={};const chamadas=[];
- const ponte={escrever: escrever || (async p=>{chamadas.push(['escrever',p]);return{id:'arquivo'};}), executar:executar || (async p=>{chamadas.push(['executar',p]);}),invalidar:async()=>{}};
+ const ponte={escreverAnexo:async p=>{chamadas.push(['escreverAnexo',p]);return{id:'anexo'};},escrever: escrever || (async p=>{chamadas.push(['escrever',p]);return{id:'arquivo'};}), executar:executar || (async p=>{chamadas.push(['executar',p]);}),invalidar:async()=>{}};
  const fonte=readFileSync('src/services/pdfArquivos.js','utf8').trimStart().replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
  const ctx=vm.createContext({Capacitor:{isNativePlatform:()=>android,getPlatform:()=>android?'android':'web'},registerPlugin:()=>ponte,auth,obterGrupoAtual:()=>grupo,window:{addEventListener:(n,f)=>eventos[n]=f},Uint8Array,btoa:s=>Buffer.from(s,'binary').toString('base64')});
- vm.runInContext(fonte+'\nglobalThis.api={registrarPdf,validarPdf,entregarPdf,nomePdfSeguro,pdfAndroid};',ctx);
+ vm.runInContext(fonte+'\nglobalThis.api={registrarPdf,validarPdf,entregarPdf,entregarAnexo,nomePdfSeguro,pdfAndroid};',ctx);
  return {...ctx.api,auth,chamadas,trocar:()=>{grupo='grupo-b';eventos['ap1303-contexto-alterado']();}};
 }
 const arquivo=()=>({name:'nome pessoal.pdf',arrayBuffer:async()=>new TextEncoder().encode('%PDF-1.7 ficticio').buffer});
+test('anexos Android: MIME e nome seguro mantêm bytes originais e reutilizam arquivo privado',async()=>{
+ for(const [type,name,ext]of [['application/pdf','Assinado GOV.pdf','pdf'],['image/jpeg','Imagem impressão.jpeg','jpg'],['image/png','Imagem.png','png'],['image/webp','Imagem.webp','webp']]){
+  const a=preparar(),bytes=new TextEncoder().encode('conteúdo binário sem conversão'),f=a.registrarPdf({name,type,arrayBuffer:async()=>bytes.buffer});
+  await a.entregarAnexo(f,'salvar');await a.entregarAnexo(f,'compartilhar');assert.equal(a.chamadas.filter(c=>c[0]==='escreverAnexo').length,1);
+  const d=a.chamadas[0][1];assert.equal(d.mime,type);assert.ok(d.nome.endsWith('.'+ext));assert.deepEqual(Buffer.from(d.base64,'base64'),Buffer.from(bytes));
+ }
+});
 test('Android: escreve PDF privado, nome sem dados pessoais, MIME tratado nativamente e deduplica toques',async()=>{
  const a=preparar();const f=a.registrarPdf(arquivo());await Promise.all([a.entregarPdf(f,'compartilhar'),a.entregarPdf(f,'compartilhar')]);
- assert.equal(a.chamadas.length,2);assert.equal(a.chamadas[0][1].nome,'AP1303.pdf');assert.equal(a.chamadas[1][1].acao,'compartilhar');
+ assert.equal(a.chamadas.length,2);assert.equal(a.chamadas[0][1].nome,'Ta_no_Ponto.pdf');assert.equal(a.chamadas[1][1].acao,'compartilhar');
  const java=readFileSync('android/app/src/main/java/br/dev/acstech/ap1303/dev/PdfArquivosPlugin.java','utf8');assert.match(java,/application\/pdf/);assert.match(java,/FLAG_GRANT_READ_URI_PERMISSION/);
 });
 test('PWA não invoca ponte ou backend e mantém fallback',async()=>{const a=preparar({android:false});assert.equal(await a.entregarPdf(a.registrarPdf(arquivo())),false);assert.equal(a.chamadas.length,0);});

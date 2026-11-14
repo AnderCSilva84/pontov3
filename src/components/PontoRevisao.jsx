@@ -1,9 +1,10 @@
+import { dataHoraExibicao } from '../utils/datasExibicao.js';
 import {useRef,useState,useEffect} from 'react';
 import {revisarPendencia} from '../services/pontoRevisao';
 import {dataOperacional} from '../utils/dataPonto';
 const estados={aguardando_analise:'Aguardando análise',aprovada:'Aprovada',rejeitada:'Rejeitada'};
 const tipos={ENTRADA:'Entrada',SAIDA:'Saída',SAIDA_INTERVALO:'Saída para intervalo',ENTRADA_INTERVALO:'Retorno do intervalo'};
-const dataHora=ms=>ms?new Date(ms).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'}):'Não informado';
+const dataHora=ms=>ms?dataHoraExibicao(new Date(ms), {timeZone:'America/Fortaleza'}):'Não informado';
 export default function PontoRevisao({user}){
   const adm=user.role==='admin',hoje=dataOperacional(),mes=hoje.slice(0,7);
   const [aberta,setAberta]=useState(false),[inicio,setInicio]=useState(mes+'-01'),[fim,setFim]=useState(hoje);
@@ -20,7 +21,7 @@ export default function PontoRevisao({user}){
       if(!window.confirm(`${resultado==='aprovada'?'Aprovar':'Rejeitar'}: ${detalhe.funcionarioNome} · ${tipos[detalhe.payload.tipo]} · ${detalhe.payload.jornadaData} às ${hora}?`))return;
       atual={acao:'decidir',versao:1,pendenciaId:detalhe.id,decisaoId:crypto.randomUUID(),resultado,horaRevisada:hora,justificativa,revisaoDia:detalhe.revisaoDia};setPedido(atual);
     }
-    try{const r=await revisarPendencia(atual);if(viva.current){setDetalhe(d=>({...d,status:r.status==='confirmado'?'aprovada':'rejeitada',decisao:{resultado:r,justificativa:r.justificativa}}));setPedido(null);setAviso('Decisão confirmada no servidor. Atualize a lista para consultar.');}}
+    try{const r=await revisarPendencia(atual);if(viva.current){setDetalhe(d=>({...d,status:r.status==='confirmado'?'aprovada':'rejeitada',decisao:{resultado:r,justificativa:r.justificativa}}));setPedido(null);setAviso('Decisão salva. Atualize a lista para consultar.');}}
     catch(e){if(viva.current&&!['functions/unavailable','functions/deadline-exceeded','functions/internal'].includes(e.code))setPedido(null);throw e;}
   }
   return <section className="card ponto-operacoes" aria-label="Revisão de capturas offline">
@@ -36,7 +37,7 @@ export default function PontoRevisao({user}){
       {pagina.itens.map(item=><article key={item.id}><strong>{item.payload.jornadaData} · {tipos[item.payload.tipo]}</strong><p>{estados[item.status]} · {item.funcionarioId}</p><button type="button" className="btn btn-secondary" disabled={ocupado||Boolean(pedido)} onClick={()=>executar(()=>abrir(item))}>Examinar captura</button></article>)}
       {pagina.cursor&&<button type="button" className="btn btn-secondary" disabled={ocupado||Boolean(pedido)} onClick={()=>executar(()=>listar(pagina.cursor))}>Próxima página</button>}
       {detalhe&&<article className="card"><h3>{detalhe.funcionarioNome} · {tipos[detalhe.payload.tipo]}</h3><p>{estados[detalhe.status]}</p>
-        <p>Horário informado pelo dispositivo — sujeito à revisão: {dataHora(detalhe.payload.capturadoEmMs)}</p><p>Recebido no servidor: {dataHora(detalhe.recebidoEm)}</p>
+        <p>Horário informado pelo dispositivo — sujeito à revisão: {dataHora(detalhe.payload.capturadoEmMs)}</p><p>Recebido pelo Tá no Ponto: {dataHora(detalhe.recebidoEm)}</p>
         <p>Localização declarada: {detalhe.payload.amostra.latitude}, {detalhe.payload.amostra.longitude} · precisão: {detalhe.payload.amostra.precisaoMetros??'não informada'} m. Não constitui prova incontestável de presença.</p>
         <h4>Jornada oficial atual</h4>{[['entrada','Entrada'],['saidaIntervalo','Saída para intervalo'],['entradaIntervalo','Retorno'],['saida','Saída']].map(([k,n])=><p key={k}>{n}: {detalhe.dia?.[k]||'—'}</p>)}
         {detalhe.alerta&&<p role="alert">{detalhe.alerta} Não há resolução automática pelo ajuste existente; mantenha a captura para análise ou rejeite justificadamente.</p>}

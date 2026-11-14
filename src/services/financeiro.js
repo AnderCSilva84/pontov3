@@ -20,3 +20,4 @@ export async function excluirLancamentoFinanceiro(id) {
   const chamada = httpsCallable(functions, "excluirLancamentoFinanceiro");
   return chamada({ id });
 }
+export async function cancelarParcelasAdiantamento(dados){return (await httpsCallable(functions,'cancelarParcelasAdiantamento')(dados)).data;}

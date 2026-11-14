@@ -11,7 +11,7 @@ test('montagem colaborativa: todos adicionam na preparação com autoria protegi
   const store=app.firestore();const prefix='colaboracao-';
   for(const role of ['admin','funcionario','consulta']) await store.doc(`users/${prefix+role}`).set({role,ativo:true,nome:'Pessoa '+role});
   await store.doc('users/colaboracao-bloqueado').set({role:'consulta',ativo:false});
-  await store.doc('catalogoCompras/colaboracao-produto').set({nome:'Produto teste',apresentacao:'1 kg',unidadeCompra:'un',categoriaId:'mercearia',ativo:true});
+  await store.doc('catalogoCompras/colaboracao-produto').set({tiposCompra:['supermercado'],nome:'Produto teste',apresentacao:'1 kg',unidadeCompra:'un',categoriaId:'mercearia',ativo:true});
   const op=(operacao,dados={},role='admin')=>comprasOperacao.run({auth:{uid:prefix+role},data:{operacao,...dados}});
   const listaId='colaboracao-lista';await op('criar',{listaId,titulo:'Preparação coletiva'},'consulta');
   await op('adicionar',{listaId,produtoId:'colaboracao-produto',quantidadePlanejada:2,solicitadaPorNome:'Forjado'},'funcionario');
@@ -108,7 +108,7 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     assert.equal((await db.doc('comprasListas/legado-v1/itens/arroz').get()).data().solicitadaPor, uid);
     assert.equal((await db.doc('listaCompras/antigo').get()).data().comprado, true);
   });
-  await op('produto', { produtoId: 'arroz', nome: 'Arroz marca A', apresentacao: 'Pacote de 1 kg', categoriaId: 'mercearia', unidadeCompra: 'un' });
+  await op('produto', { tipoCompra:'supermercado', produtoId: 'arroz', nome: 'Arroz marca A', apresentacao: 'Pacote de 1 kg', categoriaId: 'mercearia', unidadeCompra: 'un' });
   await t.test('categorias novas são preservadas, protegidas e aceitas no catálogo', async () => {
     for (const chave of ['pet', 'geladeira', 'despensa', 'jardinagem']) assert.equal((await db.doc(`categoriasCompras/${chave}`).get()).exists, true);
     await assert.rejects(op('categoria', { nome: 'Escritório', icone: '📦' }, uid), /administrador/);
@@ -203,7 +203,7 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     assert.equal((await db.collection('comprasPrecos').get()).size, 1);
     await assert.rejects(op('item', { listaId: 'teste', itemId: 'arroz', versao: 2, estado: 'pendente' }), /fechada/);
     await op('produto', { produtoId: 'arroz', nome: 'Nome novo', apresentacao: 'Pacote de 1 kg', categoriaId: 'mercearia', unidadeCompra: 'un' });
-    assert.equal((await db.doc('comprasPrecos/teste_arroz').get()).data().nomeSnapshot, 'Arroz marca A');
+    assert.equal((await db.doc('comprasPrecos/teste_arroz').get()).data().nomeSnapshot, 'ARROZ MARCA A');
     assert.equal((await db.doc('comprasListas/teste/itens/banana').get()).data().estado, 'nao_comprado');
     await assert.rejects(op('produto', { produtoId: 'arroz', nome: 'Arroz', apresentacao: 'Pacote de 5 kg', categoriaId: 'mercearia', unidadeCompra: 'un' }), /novo produto/);
   });
@@ -268,11 +268,11 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     assert.equal((await db.collection('comprasPrecos').get()).size, antes);
     assert.equal(revisao.nota.itens[0].reconhecido, false);
     await assert.rejects(getDoc(doc(client, 'comprasCuponsRascunhos', revisao.rascunhoId)), /permission/i);
-    const escolhas = revisao.nota.itens.map(i => ({ linha: i.linha, descartar: i.linha === 2, nome: i.linha < 3 ? 'Nome normalizado' : 'Produto por quilo', marca: 'Marca do cupom', apresentacao: i.linha < 3 ? 'Frasco de 500 mL' : 'Venda por kg', categoriaId: 'diversos', produtoId: '' }));
+    const escolhas = revisao.nota.itens.map(i => ({ linha: i.linha, novoConfirmado:true, descartar: i.linha === 2, nome: i.linha < 3 ? 'Nome normalizado' : 'Produto por quilo', marca: 'Marca do cupom', apresentacao: i.linha < 3 ? 'Frasco de 500 mL' : 'Venda por kg', categoriaId: 'diversos', produtoId: '' }));
     await assert.rejects(op('cupomConfirmar', { rascunhoId: revisao.rascunhoId, supermercadoId: mercado.supermercadoId, itens: escolhas.map(i => ({ ...i, marca: 'x'.repeat(81) })) }), /marca/);
     await db.doc('users/outro-admin').set({ role: 'admin', nome: 'Outra pessoa' });
     await assert.rejects(op('cupomConfirmar', { rascunhoId: revisao.rascunhoId, supermercadoId: mercado.supermercadoId, itens: escolhas }, 'outro-admin'), /não encontrada/);
-    await assert.rejects(op('cupomConfirmar', { rascunhoId: revisao.rascunhoId, supermercadoId: mercado.supermercadoId, itens: escolhas.map(i => i.linha === 3 ? { ...i, produtoId: 'arroz' } : i) }), /unidade/);
+    await assert.rejects(op('cupomConfirmar', { rascunhoId: revisao.rascunhoId, supermercadoId: mercado.supermercadoId, itens: escolhas.map(i => i.linha === 3 ? { ...i, produtoId: 'arroz' } : i) }), e=>e.code==='failed-precondition'&&e.details?.linhas?.some(l=>l.linha===3&&/unidade/i.test(l.mensagem)));
     await assert.rejects(op('cupomConfirmar', { rascunhoId: revisao.rascunhoId, supermercadoId: mercado.supermercadoId, itens: escolhas.map(i => ({ ...i, categoriaId: 'inexistente' })) }), /Categoria/);
     assert.equal((await db.collection('comprasPrecos').get()).size, antes);
     const dados = { rascunhoId: revisao.rascunhoId, supermercadoId: mercado.supermercadoId, itens: escolhas, totalPagoCentavos: 1, totalOriginalCentavos: 1 };
@@ -293,7 +293,7 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     await assert.rejects(op('cupomPreparar', { link: f.link, texto: f.texto }), /já foi importado/);
     await assert.rejects(op('cupomPreparar', { texto: f.texto }), /já foi importado/);
     const outra = fixture('000000002'), proxima = await op('cupomPreparar', { link: outra.link, texto: outra.texto });
-    assert.equal(proxima.nota.itens[0].nome, 'Nome normalizado'); assert.equal(proxima.nota.itens[1].reconhecido, true);
+    assert.equal(proxima.nota.itens[0].nome, 'NOME NORMALIZADO'); assert.equal(proxima.nota.itens[1].reconhecido, true);
     await db.doc(`comprasCuponsRascunhos/${proxima.rascunhoId}`).update({ expiraEm: admin.firestore.Timestamp.fromMillis(1) });
     await assert.rejects(op('cupomConfirmar', { ...dados, rascunhoId: proxima.rascunhoId }), /expirou/);
     const { criarHandlerComprasApi } = require('../functions/compras-api.cjs');
@@ -313,7 +313,7 @@ test('compras: integração real com Firestore, autenticação e regras no emula
     const criarRevisao = () => op('cupomPreparar', { ...f, listaDestinoId: 'planejada-cupom' });
     const r = await criarRevisao();
     assert.equal(r.destino.itens.length, 2);
-    const escolhas = r.nota.itens.map(i => ({ ...i, descartar: false, ...(i.linha < 3 ? { produtoId: 'arroz', itemPlanejadoId: 'arroz' } : { itemPlanejadoId: '' }) }));
+    const escolhas = r.nota.itens.map(i => ({ ...i, novoConfirmado:true, categoriaId:'diversos', apresentacao:i.unidadeCompra==='kg'?'Venda por kg':'Embalagem conforme nota', descartar: false, ...(i.linha < 3 ? { produtoId: 'arroz', itemPlanejadoId: 'arroz' } : { itemPlanejadoId: '' }) }));
     const dados = { rascunhoId: r.rascunhoId, titulo: 'Compras de outubro', supermercadoId: mercado.supermercadoId, itens: escolhas };
     await assert.rejects(op('cupomConfirmar', { ...dados, titulo: ' ' }), /nome para a lista/);
     await assert.rejects(op('cupomConfirmar', { ...dados, itens: escolhas.map(i => i.linha === 3 ? { ...i, itemPlanejadoId: 'arroz' } : i) }), /incompatível/);

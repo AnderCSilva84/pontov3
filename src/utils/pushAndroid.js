@@ -3,12 +3,12 @@ const id=v=>typeof v==='string'&&/^[\w-]{1,128}$/.test(v);
 export function destinoAviso(d,user,agora=Date.now()) {
  if(!cuidadosDisponiveis && (d?.canal==='cuidados'||d?.tipo==='lembrete'||d?.rota?.startsWith('/lembretes')))return null;
  if(!d||d.versao!=='1'||!user||user.ativo===false||d.uid!==user.uid||(d.grupoId||'')!==(user.grupoId||'')||!Number.isFinite(Number(d.expiraEm))||Number(d.expiraEm)<=agora||Number(d.expiraEm)>agora+86460000||!/^[a-f0-9]{64}$/.test(d.eventId||''))return null;
- const rotas=['/ponto','/lista-compras','/lembretes','/admin'];if(!rotas.includes(d.rota))return null;
+ const rotas=['/alimentacao','/avisos','/ponto','/tarefas','/lista-compras','/lembretes','/admin'];if(!rotas.includes(d.rota))return null;
  if(d.rota==='/admin'&&user.role!=='admin')return null;
  if(d.rota==='/lembretes'&&!(user.role==='admin'||user.role==='funcionario'&&user.babaCuidadora))return null;
  if(d.tipo&&!['lembrete','tarefa','tarefa_fixa'].includes(d.tipo))return null;
  if(d.tipo&&(!id(d.itemId)||d.tipo==='lembrete'&&!id(d.ocorrenciaId)))return null;
- return d.rota;
+ return d.conteudo==='alimentacao'&&d.rota==='/tarefas'?'/alimentacao':d.rota;
 }
 export function criarControlePushAndroid({ponte,chamar,contexto,armazenamento}) {
  let geracao=0,pendente=null,ultimo=null;

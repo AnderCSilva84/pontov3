@@ -1,0 +1,22 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+test('20 associações incompatíveis são informadas juntas sem gravação parcial; correção aprende aliases',{skip:!process.env.FIRESTORE_EMULATOR_HOST},async t=>{
+ assert.match(process.env.GCLOUD_PROJECT,/^demo-/);
+ const admin=require('../functions/node_modules/firebase-admin'),app=admin.initializeApp({projectId:process.env.GCLOUD_PROJECT+'-fluido'},'cupom-fluido');t.after(()=>app.delete());
+ const db=app.firestore(),{operarCupom}=require('../functions/cupom-operacoes.cjs');
+ await db.doc('users/admin').set({role:'admin',ativo:true,nome:'Teste fictício'});
+ await db.doc('categoriasCompras/teste').set({ativo:true,nome:'Teste'});
+ await db.doc('supermercados/demo').set({ativo:true,nome:'Loja fictícia',filial:'Teste',cidade:'Teste'});
+ for(const unidadeCompra of ['un','kg'])for(const [id,peso]of [['errado','800 g'],['certo','1600 g']])await db.doc('catalogoCompras/'+id+'_'+unidadeCompra).set({nome:'PRODUTO DEMO',apresentacao:'Embalagem '+peso,categoriaId:'teste',unidadeCompra,tiposCompra:['supermercado'],ativo:true});
+ const op=(operacao,d)=>operarCupom(db,{auth:{uid:'admin'},data:{operacao,...d}}),f=require('./fixtures/cupom-precisao-139.cjs')();
+ const texto=f.texto.replace(/PRODUTO FICTÍCIO (\d+) /g,(_,n)=>'PRODUTO FICTÍCIO '+n+(Number(n)<=20?' 1,6KG ':' '));
+ const r=await op('cupomPreparar',{texto});
+ const dados={rascunhoId:r.rascunhoId,supermercadoId:'demo',versaoIdentidade:1,itens:r.nota.itens.map((i,n)=>({...i,descartar:false,novoConfirmado:true,categoriaId:'teste',apresentacao:'Exemplo fictício',...(n<20?{produtoId:'errado_'+i.unidadeCompra}: {})}))};
+ await assert.rejects(op('cupomConfirmar',dados),e=>{assert.equal(e.details.linhas.length,20);assert.deepEqual(e.details.linhas.map(i=>i.linha),Array.from({length:20},(_,n)=>n+1));assert.match(e.details.linhas[0].mensagem,/800 g/);return true;});
+ for(const c of ['comprasCupons','comprasListas','comprasPrecos','comprasAliases'])assert.equal((await db.collection(c).get()).size,0);
+ dados.itens=dados.itens.map((i,n)=>n<20?{...i,produtoId:'certo_'+i.unidadeCompra}:i);
+ const a=await op('cupomConfirmar',dados);assert.equal((await db.doc('comprasListas/'+a.listaId).get()).data().totalCentavos,107748);
+ assert.equal((await db.collection('comprasPrecos').get()).size,139);assert.equal((await op('cupomConfirmar',dados)).listaId,a.listaId);
+ const outra=require('./fixtures/cupom-pa.cjs')('000000946');
+ const nota=outra.texto.replaceAll('PRODUTO A 500ML','PRODUTO FICTÍCIO 1 1,6KG').replaceAll('(Código: 123)','(Código: 1)').replaceAll('UN: FR','UN: UN');
+ const proxima=await op('cupomPreparar',{texto:nota});assert.equal(proxima.nota.itens[0].produtoId,'certo_un');assert.equal(proxima.nota.itens[0].reconhecido,true);
+});

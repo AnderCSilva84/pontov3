@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
-import logoUrl from "../assets/ap1303.jpeg";
+import logoUrl from "../assets/ta-no-ponto.png";
 
 const PAGANTE = "Aline Lopes Gonçalves Porto e Silva";
 const RECEBEDORA = "Joseane Almeida dos Santos";
@@ -10,7 +10,7 @@ const moeda = (valor) => numero(valor).toLocaleString("pt-BR", { style: "currenc
 
 function dataBr(valor) {
   const [ano, mes, dia] = String(valor || "").split("-");
-  return ano && mes && dia ? `${dia}/${mes}/${ano}` : "";
+  return ano && mes && dia ? `${dia}-${mes}-${ano.slice(-2)}` : "";
 }
 
 function mesPorExtenso(valor) {
@@ -23,7 +23,7 @@ function referenciaPagamento(item) {
   if (item.tipo === "transporte") {
     return item.periodoInicio && item.periodoFim ? `transporte do período de ${dataBr(item.periodoInicio)} a ${dataBr(item.periodoFim)}` : (item.descricao || "transporte");
   }
-  if (item.tipo === "vale") return item.competenciaMes ? `vale referente ao mês de ${mesPorExtenso(item.competenciaMes)}` : (item.descricao || "vale");
+  if (['vale','adiantamento'].includes(item.tipo)) return item.competenciaMes ? `${item.tipo==='adiantamento'?'adiantamento de salário':'vale'} referente ao mês de ${mesPorExtenso(item.competenciaMes)}` : (item.descricao || "vale / adiantamento");
   if (['decimo_terceiro','ferias','rescisao'].includes(item.tipo)) return `${item.tipoLabel} · ${mesPorExtenso(item.competenciaMes)}`;
   return item.descricao || "pagamento informado";
 }
@@ -39,7 +39,7 @@ function carregarImagem(url) {
 
 async function adicionarLogo(pdf) {
   try {
-    pdf.addImage(await carregarImagem(logoUrl), "JPEG", 14, 10, 28, 28);
+    pdf.addImage(await carregarImagem(logoUrl), "PNG", 14, 10, 28, 28);
   } catch {
     // O documento continua válido caso a imagem não seja carregada.
   }
@@ -65,7 +65,8 @@ async function gerarContracheque(item) {
     if (valor) itens.push(linha(codigo, descricao, campo === "descontoHoras" && item.horasDevidas ? `${item.horasDevidas} h` : "", provento ? valor : 0, provento ? 0 : valor));
   });
   if (numero(item.valeTransportePago)) itens.push(["VT", "Vale-transporte antecipado - PAGO", moeda(item.valeTransportePago), "", ""]);
-  const descontosDetalhados = numero(item.descontoHoras) + numero(item.faltas) + numero(item.inss) + numero(item.adiantamentos) + numero(item.outrosDescontos) + numero(item.descontoValeTransporte);
+  for(const p of item.parcelasAdiantamentos||[])itens.push(linha('131',p.descricao||'Vale / adiantamento',`Parcela ${p.numero}/${p.quantidade}`,0,p.valor));
+  const descontosDetalhados = numero(item.descontoHoras) + numero(item.faltas) + numero(item.inss) + numero(item.adiantamentos) + numero(item.adiantamentosAutomaticos) + numero(item.outrosDescontos) + numero(item.descontoValeTransporte);
   if (!descontosDetalhados && totalDescontos) itens.push(linha("199", "Descontos", "", 0, totalDescontos));
 
   pdf.setTextColor(35, 54, 47);
@@ -91,7 +92,8 @@ async function gerarContracheque(item) {
     headStyles: { fillColor: [47, 123, 95], textColor: 255 }, footStyles: { fillColor: [238, 247, 242], textColor: [35, 54, 47], fontStyle: "bold" },
     columnStyles: { 0: { cellWidth: 14 }, 1: { cellWidth: 71 }, 2: { cellWidth: 28 }, 3: { halign: "right" }, 4: { halign: "right" } },
   });
-  const y = pdf.lastAutoTable.finalY;
+  let y = pdf.lastAutoTable.finalY;
+  if(y>205){pdf.addPage();y=20;}
   pdf.setFillColor(47, 123, 95);
   pdf.roundedRect(120, y + 7, 76, 18, 2, 2, "F");
   pdf.setTextColor(255);
@@ -133,6 +135,7 @@ async function gerarReciboComum(item) {
   const texto = `Declaro que recebi de ${PAGANTE} a quantia de ${moeda(item.valorLiquido ?? item.valor)}, referente a ${referenciaPagamento(item)}${complemento}, dando plena quitação do valor recebido.`;
   pdf.text(pdf.splitTextToSize(texto, 154), 28, 100, { lineHeightFactor: 1.55 });
   pdf.text(`Data do pagamento: ${dataBr(item.dataPagamento)}`, 28, 137);
+  if(item.parcelamento?.versao===1){pdf.setFontSize(9);pdf.text(pdf.splitTextToSize(`Desconto em folha: ${item.parcelamento.quantidade} parcelas, a cada ${item.parcelamento.intervaloMeses} mês(es), iniciando em ${mesPorExtenso(item.parcelamento.primeiraCompetencia)}. Pagamento original registrado uma única vez.`,154),28,148);}
   pdf.line(52, 181, 158, 181);
   pdf.setFont("helvetica", "bold");
   pdf.text(item.funcionarioNome || RECEBEDORA, 105, 188, { align: "center" });

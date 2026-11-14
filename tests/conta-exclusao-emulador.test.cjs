@@ -10,6 +10,8 @@ test('Script09: exclusão efetiva, recuperação e isolamento nos emuladores',{s
  async function conta(gid,role='funcionario') {const uid='e09_'+randomUUID();await auth.createUser({uid,email:uid+'@example.test',password:'Ficticia-09-123'});if(gid){await db.doc('vinculosUsuarios/'+uid).set({ativo:true,grupoId:gid});await db.doc(`grupos/${gid}/users/${uid}`).set({ativo:true,role,funcionarioId:role==='funcionario'?uid:null,nome:'Ficticio'});if(role==='funcionario')await db.doc(`grupos/${gid}/funcionarios/${uid}`).set({nome:'Ficticio',ativo:true});}return uid;}
  await t.test('Auth removido, dados pessoais e integrações revogados; terceiros e histórico preservados',async()=>{
   const g='a',uid=await conta(g),adminUid=await conta(g,'admin');await db.doc('grupos/'+g).set({ativo:true,titularUid:adminUid});
+  await db.doc(`grupos/${g}/fotosPerfis/${uid}`).set({bytes:Buffer.from('miniatura fictícia')});
+  await db.doc(`grupos/${g}/funcionarios/${uid}`).set({fotoPerfilUid:uid,temFotoPerfil:true},{merge:true});
   await db.doc(`grupos/${g}/financeiro/historia`).set({funcionarioId:uid,valor:50});await db.doc(`grupos/${g}/comprasPrecos/preco`).set({criadoPor:uid,valor:10});
   await db.doc(`grupos/${g}/pontoPendencias/remota`).set({uid,status:'aguardando_analise'});
   for(let i=0;i<27;i++)await db.doc(`grupos/${g}/pushDispositivos/d${i}`).set({uid,token:'ficticio'});
@@ -17,6 +19,8 @@ test('Script09: exclusão efetiva, recuperação e isolamento nos emuladores',{s
   await db.doc('noBolsoOwners/'+uid).set({noBolsoUids:['bolso']});await db.doc('noBolsoLinks/bolso').set({apUids:[uid,adminUid],createdAt:new Date()});await db.doc('noBolsoGrants/'+uid).set({hash:'ficticio'});
   await solicitar(uid);const r=await concluir(uid);assert.equal(r.solicitacao.status,'concluida');
   await assert.rejects(auth.getUser(uid),{code:'auth/user-not-found'});
+  assert.equal((await db.doc(`grupos/${g}/fotosPerfis/${uid}`).get()).exists,false);
+  assert.equal((await db.doc(`grupos/${g}/funcionarios/${uid}`).get()).data().fotoPerfilUid,undefined);
   for(const path of [`grupos/${g}/users/${uid}`,'vinculosUsuarios/'+uid,'pushInstalacoes/reserva','pushTokensNativos/reserva','noBolsoOwners/'+uid,'noBolsoGrants/'+uid])assert.equal((await db.doc(path).get()).exists,false,path);
   assert.equal((await db.collection(`grupos/${g}/pushDispositivos`).where('uid','==',uid).get()).size,0);
   assert.equal((await db.doc('pushTokensNativos/alheio').get()).data().uid,adminUid);assert.deepEqual((await db.doc('noBolsoLinks/bolso').get()).data().apUids,[adminUid]);

@@ -131,7 +131,7 @@ export async function observarPush(uid) {
   return onMessage(getMessaging(app), async (payload) => {
     if (payload.data?.uid !== uid || (payload.data?.grupoId||'') !== (obterGrupoAtual()||'') || auth.currentUser?.uid !== uid || Notification.permission !== "granted") return;
     const registro = registroAtual || await navigator.serviceWorker.getRegistration();
-    await registro?.showNotification(payload.data.title || "App Ponto", {
+    await registro?.showNotification(payload.data.title || "Tá no Ponto", {
       body: payload.data.body || "Há uma atualização no app.", icon: "/icon-192.png",
       tag: payload.data.tag, data: { url: payload.data.url || "/ponto" },
       actions: payload.data.url?.startsWith('/lembretes?') ? [{action:'ver-concluir',title:'Ver e concluir'}] : [],

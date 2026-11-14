@@ -1,7 +1,12 @@
+import {atorDoLembrete,listarAtoresCuidados} from '../utils/cuidadosPorAtor';
+import PessoaInteracao from '../components/PessoaInteracao';
+import ConclusoesCuidados from '../components/ConclusoesCuidados';
+import {PessoasInteracoesContext} from '../context/PessoasInteracoesContext';
+import { dataExibicao } from '../utils/datasExibicao.js';
 import { registrarPdf, validarPdf } from '../services/pdfArquivos';
 import { PdfAcoes } from '../components/PdfAcoes';
 import LembreteNotificacao from '../components/LembreteNotificacao';
-import PratosDia from '../components/PratosDia';
+
 import { collection } from '../services/dadosGrupo';
 import { PageHeader, Segmented, Icon } from '../components/ui';
 import { acoesPendentesDoDia } from '../utils/lembretesSequencia';
@@ -16,7 +21,7 @@ import '../styles/lembretes.css';
 import '../styles/nav.css';
 
 const TIPOS = { remedio: 'Remédio', passeio: 'Passeio', fisioterapia: 'Fisioterapia', consulta: 'Consulta', cuidado: 'Cuidado', outro: 'Outro' };
-const ICONES = { remedio: '💊', passeio: '🌳', fisioterapia: '🧘', consulta: '🩺', cuidado: '🤲', outro: '🔔' };
+
 const CUIDADOS = { crianca: 'Criança', idoso: 'Idoso', adulto: 'Adulto', cao: 'Cão', gato: 'Gato' };
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const hojeLocal = () => new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
@@ -31,18 +36,19 @@ function FormLembrete({ lembrete, salvar, cancelar, ocupado, cuidados, cuidadoIn
   const [destinatarioCuidado, setDestinatarioCuidado] = useState(lembrete?.destinatarioCuidado || 'crianca');
   return <form className="card lembrete-form" onSubmit={e => {
     e.preventDefault(); const f = new FormData(e.currentTarget);
-    salvar({ destinatarios: destino === 'todos' ? 'todos' : 'usuario', usuarioId: destino, cuidadoId, titulo: f.get('titulo'), tipo, destinatarioCuidado, nomeCuidado: f.get('nomeCuidado') || '', horarios: f.getAll('horarios'), dataInicio: f.get('dataInicio'), repeticao, diasSemana: dias, medicamento: f.get('medicamento') || '', posologia: f.get('posologia') || '', observacao: f.get('observacao') || '' });
+    salvar({ destinatarios: destino === 'todos' ? 'todos' : 'usuario', usuarioId: destino, cuidadoId, titulo: f.get('titulo'), tipo, dataCompromisso:f.get('dataCompromisso')||'', horarioCompromisso:f.get('horarioCompromisso')||'', destinatarioCuidado, nomeCuidado: f.get('nomeCuidado') || '', horarios: f.getAll('horarios'), dataInicio: f.get('dataInicio'), repeticao, diasSemana: dias, medicamento: f.get('medicamento') || '', posologia: f.get('posologia') || '', observacao: f.get('observacao') || '' });
   }}>
     <h2>{lembrete ? 'Editar lembrete' : 'Novo lembrete'}</h2>
     <fieldset disabled={ocupado} className="lembrete-form-campos">
       <label className="field"><span>Quem recebe este lembrete</span><select required value={destino} onChange={e => setDestino(e.target.value)}><option value="todos">Global · todos os usuários habilitados</option>{pessoas.map(p => <option key={p.id} value={p.id}>{p.nome || p.email}</option>)}</select></label>
-      <label className="field"><span>Tipo de cuidado</span><select value={tipo} onChange={e => setTipo(e.target.value)}>{Object.entries(TIPOS).map(([id, nome]) => <option key={id} value={id}>{ICONES[id]} {nome}</option>)}</select></label>
+      <label className="field"><span>Tipo de cuidado</span><select value={tipo} onChange={e => setTipo(e.target.value)}>{Object.entries(TIPOS).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>
       <label className="field"><span>Pessoa ou pet cadastrado</span><select value={cuidadoId} onChange={e => setCuidadoId(e.target.value)}><option value="">Cadastro anterior por usuário</option>{cuidados.map(c => <option key={c.id} value={c.id}>{c.nome} · {CUIDADOS[c.tipo]}</option>)}</select></label>
       {!cuidadoId && <div className="lembrete-dupla"><label className="field"><span>Quem recebe o cuidado</span><select value={destinatarioCuidado} onChange={e => setDestinatarioCuidado(e.target.value)}>{Object.entries(CUIDADOS).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label><label className="field"><span>{['cao', 'gato'].includes(destinatarioCuidado) ? 'Nome do pet' : 'Nome da pessoa (opcional)'}</span><input name="nomeCuidado" required={['cao', 'gato'].includes(destinatarioCuidado)} maxLength={100} defaultValue={lembrete?.nomeCuidado || ''} /></label></div>}
       <label className="field"><span>Título do lembrete</span><input name="titulo" required maxLength={120} defaultValue={lembrete?.titulo || ''} placeholder="Ex.: Remédio da manhã, passeio da tarde" /></label>
       {tipo === 'remedio' && <><label className="field"><span>Nome do remédio</span><input name="medicamento" required maxLength={120} defaultValue={lembrete?.medicamento || ''} /></label><label className="field"><span>Posologia</span><textarea name="posologia" required maxLength={200} rows={2} defaultValue={lembrete?.posologia || ''} placeholder="Registre a dose e as orientações conforme informado para esse cuidado" /></label></>}
-      <div className="lembrete-dupla"><label className="field"><span>{repeticao === 'uma_vez' ? 'Data' : 'Começar em'}</span><input type="date" name="dataInicio" required defaultValue={lembrete?.dataInicio || hojeLocal()} /></label>{tipo === 'remedio' && <label className="field"><span>Vezes por dia</span><select value={horarios.length} onChange={e => { const quantidade = Number(e.target.value); setHorarios(antes => Array.from({ length: quantidade }, (_, i) => antes[i] || '')); }}>{Array.from({ length: 24 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} {i ? 'vezes' : 'vez'}</option>)}</select></label>}</div>
-      <div className="lembrete-dupla">{(tipo === 'remedio' ? horarios : horarios.slice(0, 1)).map((horario, i) => <label className="field" key={i}><span>{tipo === 'remedio' ? `Horário da dose ${i + 1}` : 'Horário'}</span><input type="time" name="horarios" required defaultValue={horario} /></label>)}</div>
+      {tipo==='consulta'&&<fieldset className="lembrete-dupla"><legend>Data e hora do compromisso</legend><label className="field"><span>Data do compromisso</span><input type="date" name="dataCompromisso" required defaultValue={lembrete?.dataCompromisso||''}/></label><label className="field"><span>Hora do compromisso</span><input type="time" name="horarioCompromisso" required defaultValue={lembrete?.horarioCompromisso||''}/></label><p>O aviso abaixo pode ser programado antes da consulta. Esses campos aparecerão primeiro no PDF.</p></fieldset>}
+      <div className="lembrete-dupla"><label className="field"><span>{tipo === 'consulta' ? 'Data do aviso' : repeticao === 'uma_vez' ? 'Data' : 'Começar em'}</span><input type="date" name="dataInicio" required defaultValue={lembrete?.dataInicio || hojeLocal()} /></label>{tipo === 'remedio' && <label className="field"><span>Vezes por dia</span><select value={horarios.length} onChange={e => { const quantidade = Number(e.target.value); setHorarios(antes => Array.from({ length: quantidade }, (_, i) => antes[i] || '')); }}>{Array.from({ length: 24 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} {i ? 'vezes' : 'vez'}</option>)}</select></label>}</div>
+      <div className="lembrete-dupla">{(tipo === 'remedio' ? horarios : horarios.slice(0, 1)).map((horario, i) => <label className="field" key={i}><span>{tipo === 'remedio' ? `Horário da dose ${i + 1}` : tipo === 'consulta' ? 'Horário do aviso' : 'Horário'}</span><input type="time" name="horarios" required defaultValue={horario} /></label>)}</div>
       <label className="field"><span>Repetir</span><select value={repeticao} onChange={e => setRepeticao(e.target.value)}><option value="uma_vez">Somente nesta data</option><option value="diario">Todos os dias</option><option value="dias">Dias da semana</option></select></label>
       {repeticao === 'dias' && <fieldset className="lembrete-dias"><legend>Dias do cuidado</legend>{DIAS.map((nome, id) => <label key={id}><input type="checkbox" checked={dias.includes(id)} onChange={e => { const marcado = e.target.checked; setDias(antes => marcado ? [...antes, id] : antes.filter(n => n !== id)); }} /><span>{nome}</span></label>)}</fieldset>}
       <label className="field"><span>Observações (opcional)</span><textarea name="observacao" rows={2} maxLength={300} defaultValue={lembrete?.observacao || ''} /></label>
@@ -67,7 +73,7 @@ function FormCuidado({ cuidado, pessoas, salvar, cancelar, ocupado }) {
 
 function LembretesCuidados({ user, onNavigate }) {
   const admin = user.role === 'admin';
-  const [filtroCuidado, setFiltroCuidado] = useState('todos');
+  const [filtroCuidado, setFiltroCuidado] = useState('todos'),[atorSelecionado,setAtorSelecionado]=useState('');
   const [cuidados, setCuidados] = useState([]), [cuidadoSelecionado, setCuidadoSelecionado] = useState(''), [edicaoCuidado, setEdicaoCuidado] = useState(null);
   const [pessoas, setPessoas] = useState([]), [selecionada, setSelecionada] = useState('');
   const [lembretes, setLembretes] = useState([]), [erro, setErro] = useState(''), [aviso, setAviso] = useState('');
@@ -76,6 +82,7 @@ function LembretesCuidados({ user, onNavigate }) {
   const [atualizacao, setAtualizacao] = useState(0), [erroConsulta, setErroConsulta] = useState('');
   const [cuidadoPdf, setCuidadoPdf] = useState('todos');
   const consultaPdf = useRef(null);
+  const [fotosPessoas,setFotosPessoas]=useState({});
   const [arquivo, setArquivo] = useState(null), [gerandoPdf, setGerandoPdf] = useState(false), [testandoAviso, setTestandoAviso] = useState(false);
   const alvo = admin && pessoas.some(p => p.id === selecionada) ? selecionada : user.uid;
   const pessoasConsulta = [{ id: user.uid, nome: user.nome || user.email, role: user.role }, ...pessoas.filter(p => p.id !== user.uid)];
@@ -97,7 +104,7 @@ function LembretesCuidados({ user, onNavigate }) {
     async function carregar() {
       if (consultando) return;
       consultando = true;
-      try { const sessao = registrarPdf({}); const parametros = cuidadoIdAtual ? { visao: 'cuidados', cuidadoId: cuidadoIdAtual } : cuidadoAtual === 'todos' || admin && !selecionada ? { visao: 'cuidados' } : { usuarioId: alvo }; const r = await operarLembrete('listar', parametros); if (ativo) { consultaPdf.current = parametros.visao === 'cuidados' ? { cuidadoId: parametros.cuidadoId || '', lembretes: r.lembretes, sessao } : null; setLembretes(r.lembretes); setErroConsulta(''); } }
+      try { const sessao = registrarPdf({}); const parametros = cuidadoIdAtual ? { visao: 'cuidados', cuidadoId: cuidadoIdAtual } : cuidadoAtual === 'todos' || admin && !selecionada ? { visao: 'cuidados' } : { usuarioId: alvo }; const r = await operarLembrete('listar', {...parametros,fotosInteracoes:true}); if (ativo) { consultaPdf.current = parametros.visao === 'cuidados' ? { cuidadoId: parametros.cuidadoId || '', lembretes: r.lembretes, sessao } : null; setFotosPessoas(r.pessoasInteracoes||{}); setLembretes(r.lembretes); setErroConsulta(''); } }
       catch (e) { if (ativo) setErroConsulta(e.message); }
       finally { consultando = false; if (ativo) setCarregando(false); }
     }
@@ -109,7 +116,7 @@ function LembretesCuidados({ user, onNavigate }) {
     if (ocupado) return;
     setOcupado(true); setErro(''); setAviso('');
     consultaPdf.current = null;
-    try { const resultado = await operarLembrete(operacao, dados); if (operacao === 'concluir') setLembretes(antes => antes.map(l => l.id === dados.id ? { ...l, ocorrencias: [...(l.ocorrencias || []).filter(o => o.id !== dados.ocorrenciaId), { id: dados.ocorrenciaId, status: 'concluido' }] } : l)); if (operacao === 'salvarCuidado') { setCuidadoSelecionado(resultado.id); setEdicaoCuidado(null); }  setArquivo(null); setAviso(mensagem); setAtualizacao(n => n + 1); if (operacao === 'salvar') { setEdicao(null); setSelecionada(''); setCuidadoSelecionado('todos'); setFiltroCuidado('todos'); } }
+    try { const resultado = await operarLembrete(operacao, dados); if (operacao === 'concluir') setLembretes(antes => antes.map(l => l.id === dados.id ? { ...l, ocorrencias: [...(l.ocorrencias || []).filter(o => o.id !== dados.ocorrenciaId), { id: dados.ocorrenciaId, status: 'concluido',concluidaPor:user.uid,concluidaPorNome:user.nome||'Você',concluidaEmMs:Date.now(),horarioMs:Date.now() }] } : l)); if (operacao === 'salvarCuidado') { setCuidadoSelecionado(resultado.id); setEdicaoCuidado(null); }  setArquivo(null); setAviso(mensagem); setAtualizacao(n => n + 1); if (operacao === 'salvar') { setEdicao(null); setSelecionada(''); setCuidadoSelecionado('todos'); setFiltroCuidado('todos'); } }
     catch (e) { setErro(e.message); }
     finally { setOcupado(false); }
   }
@@ -126,15 +133,19 @@ function LembretesCuidados({ user, onNavigate }) {
       setArquivo({ ...pdf, file: registrarPdf(new File([pdf.blob], pdf.nomeArquivo, { type: 'application/pdf' })), url: URL.createObjectURL(pdf.blob) });
     } catch (e) { setErro(e.message); } finally { setGerandoPdf(false); }
   }
-  const lista = lembretes.filter(l => (cuidadoAtual === 'todos' || cadastroAtual ? !cadastroAtual || l.cuidadoId === cadastroAtual.id : !l.cuidadoId) && (!selecionada || l.usuarioId === selecionada || l.destinatarios === 'todos')).filter(l => filtroCuidado === 'todos' || (['cao','gato'].includes(l.destinatarioCuidado) ? filtroCuidado === 'pets' : filtroCuidado === 'pessoas')).sort((a, b) => (a.proximoDisparoEmMs || Infinity) - (b.proximoDisparoEmMs || Infinity) || a.horario.localeCompare(b.horario));
+  const listaBase = lembretes.filter(l => (cuidadoAtual === 'todos' || cadastroAtual ? !cadastroAtual || l.cuidadoId === cadastroAtual.id : !l.cuidadoId) && (!selecionada || l.usuarioId === selecionada || l.destinatarios === 'todos')).sort((a, b) => (a.proximoDisparoEmMs || Infinity) - (b.proximoDisparoEmMs || Infinity) || a.horario.localeCompare(b.horario));
+  const atores=listarAtoresCuidados(cuidados,listaBase,filtroCuidado);
+  const atorAtual=atores.find(a=>a.id===atorSelecionado);
+  const lista=filtroCuidado==='todos'?listaBase:atorAtual?listaBase.filter(l=>atorDoLembrete(l,cuidados).id===atorAtual.id):[];
   const [atual, seguinte] = acoesPendentesDoDia(lista, agora);
   const cuidadosPdf = [...new Map([...cuidados.map(c => [c.id, `${CUIDADOS[c.tipo]} · ${c.nome}`]), ...lista.filter(l => l.ativo).map(l => [l.cuidadoId || `${l.destinatarioCuidado}|${l.nomeCuidado}`, `${CUIDADOS[l.destinatarioCuidado] || 'Pessoa ou pet'}${l.nomeCuidado ? ` · ${l.nomeCuidado}` : ' · Nome não informado'}`])]).entries()];
-  return <div className="page-bg"><main className="page-shell lembretes-shell">
+  return <PessoasInteracoesContext.Provider value={fotosPessoas}><div className="page-bg"><main className="page-shell lembretes-shell">
     <PageHeader title="Lembretes" subtitle={'Cuidados do dia · ' + (user.nome || user.email)} />
     <LembreteNotificacao user={user} aoConcluir={()=>setAtualizacao(n=>n+1)} />
-    <PratosDia user={user} />
-    <Segmented label="Filtrar cuidados" value={filtroCuidado} onChange={setFiltroCuidado} options={[["todos","Todos"],["pessoas","Pessoas"],["pets","Pets"]]} />
 
+    <Segmented label="Filtrar cuidados" value={filtroCuidado} onChange={v=>{setFiltroCuidado(v);setAtorSelecionado('');setEdicao(null);}} options={[["todos","Todos"],["pessoas","Pessoas"],["pets","Pets"]]} />
+
+    {filtroCuidado!=='todos'&&<section className="card cuidados-atores" aria-label={filtroCuidado==='pets'?'Pets cadastrados':'Pessoas cadastradas'}><h2>{filtroCuidado==='pets'?'Pets':'Pessoas'}</h2><div className="cuidados-atores-lista">{atores.map(a=><button type="button" className="cuidados-ator" key={a.id} aria-pressed={atorAtual?.id===a.id} onClick={()=>{setAtorSelecionado(a.id);setEdicao(null);}}><Icon name={a.grupo==='pets'?'paw':'users'}/><span><strong>{a.nome}</strong><small>{a.quantidade} {a.quantidade===1?'cuidado':'cuidados'}</small></span><Icon name="chevron"/></button>)}</div>{!atores.length&&<p>Nenhum cadastro disponível nesta categoria.</p>}{!atorAtual&&atores.length>0&&<p>Selecione um nome para consultar os cuidados.</p>}{atorAtual&&<p role="status">Cuidados de <strong>{atorAtual.nome}</strong></p>}</section>}
     {(erro || erroConsulta) && <p role="alert" className="mensagem erro">{erro || erroConsulta}</p>}{aviso && <p role="status" className="mensagem">{aviso}</p>}
     <details className="card"><summary>Responsáveis e configurações</summary><label className="field"><span>Conta conectada</span><select value={user.uid} disabled><option value={user.uid}>{user.nome || user.email}</option></select></label>
     <section><label className="field"><span>Pessoa ou pet</span><select value={cuidadoAtual} onChange={e => { setCuidadoSelecionado(e.target.value); setEdicao(null); setLembretes([]); setCarregando(true); }}><option value="todos">Todos os cuidados autorizados</option><option value="anteriores">Lembretes anteriores por usuário</option>{cuidados.map(c => <option key={c.id} value={c.id}>{c.nome} · {CUIDADOS[c.tipo]}</option>)}</select></label>{cadastroAtual && <p className="text-muted">Avisos para: {cadastroAtual.destinatarios === 'todos' ? 'Todos os usuários habilitados' : cadastroAtual.usuarioNome}</p>}{admin && <div className="lembrete-acoes"><button className="btn btn-secondary" onClick={() => setEdicaoCuidado({})}>+ Cadastrar pessoa ou pet</button>{cadastroAtual && <><button className="btn btn-secondary" onClick={() => setEdicaoCuidado(cadastroAtual)}>Editar cadastro e responsável</button><button className="btn btn-success" onClick={() => setEdicao({})}>+ Novo lembrete</button></>}</div>}</section>
@@ -144,27 +155,28 @@ function LembretesCuidados({ user, onNavigate }) {
     </details>
     {admin && edicao && <FormLembrete key={edicao.id || `novo-${alvo}`} lembrete={edicao.id ? edicao : null} cuidados={cuidados} pessoas={pessoas} cuidadoInicial={cadastroAtual?.id} ocupado={ocupado} cancelar={() => setEdicao(null)} salvar={dados => executar('salvar', { ...dados, ...(edicao.id ? { id: edicao.id, versao: edicao.versao } : {}) }, 'Lembrete salvo.')} />}
     {(alvo || cadastroAtual) && carregando && <p role="status">Carregando lembretes…</p>}
-    {(alvo || cadastroAtual) && !carregando && !lista.length && <p className="card">Nenhum lembrete encontrado neste filtro.</p>}
+    {(alvo || cadastroAtual) && !carregando && !lista.length && (filtroCuidado==='todos'||atorAtual) && <p className="card">Nenhum lembrete encontrado neste filtro.</p>}
     {!carregando && !erroConsulta && lista.length > 0 && <section aria-label="Ação do dia" aria-live="polite">
       {atual ? <article className="card lembrete-card lembrete-atual" key={atual.id + atual.lembrete.id}>
         <header><span aria-hidden="true">{<Icon name="bell" />}</span><div><small>{atual.liberada ? 'Ação pendente' : 'Próxima ação de hoje'}</small><h2>{atual.hora} · {atual.lembrete.tipo === 'remedio' ? atual.lembrete.medicamento : atual.lembrete.titulo}</h2></div></header>
         <p><strong>{atual.lembrete.nomeCuidado || CUIDADOS[atual.lembrete.destinatarioCuidado] || 'Cuidado'}</strong></p>
         {atual.lembrete.tipo === 'remedio' && <div className="lembrete-remedio"><p><b>Posologia:</b> {atual.lembrete.posologia}</p></div>}
-        <p className="text-muted">{atual.lembrete.responsavelDescricao} · Criado por {atual.lembrete.criadaPorNome}{atual.lembrete.criadaEmMs ? ` · ${new Date(atual.lembrete.criadaEmMs).toLocaleDateString('pt-BR')}` : ''}</p>
+        <p className="text-muted">{atual.lembrete.responsavelDescricao} · <PessoaInteracao uid={atual.lembrete.criadaPor} nome={atual.lembrete.criadaPorNome} rotulo="Criado por"/>{atual.lembrete.criadaEmMs ? ` · ${dataExibicao(new Date(atual.lembrete.criadaEmMs))}` : ''}</p>
         {atual.lembrete.observacao && <p>{atual.lembrete.observacao}</p>}
         <button className="btn btn-success" disabled={ocupado || !atual.liberada} onClick={() => executar('concluir', { id: atual.lembrete.id, ocorrenciaId: atual.id }, 'Cuidado concluído.')}>{ocupado ? 'Confirmando…' : atual.liberada ? `Concluir como ${user.nome || user.email}` : `Disponível às ${atual.hora}`}</button>
         <p className="text-muted lembrete-seguinte">{seguinte ? `Depois: ${seguinte.hora} · ${seguinte.lembrete.tipo === 'remedio' ? seguinte.lembrete.medicamento : seguinte.lembrete.titulo}` : 'Nenhuma outra ação prevista para hoje.'}</p>
       </article> : <p className="card lembrete-concluido">Nenhuma ação pendente para hoje.</p>}
     </section>}
-    {admin && lista.length > 0 && <details className="card"><summary>Gerenciar lembretes cadastrados ({lista.length})</summary>{lista.map(l => <article className="lembrete-card lembrete-gerenciar" key={l.id}><h2>{l.nomeCuidado ? l.nomeCuidado + ' · ' : ''}{l.titulo}</h2><p className="text-muted">{l.responsavelDescricao} · Criado por {l.criadaPorNome}{l.criadaEmMs ? ` · ${new Date(l.criadaEmMs).toLocaleDateString('pt-BR')}` : ''}</p><p>{(l.horarios || [l.horario]).join(' · ')} · {l.ativo ? 'Ativo' : 'Pausado'}</p><div className="lembrete-acoes"><button className="btn btn-secondary" disabled={ocupado} onClick={() => setEdicao(l)}>Editar</button><button className="btn btn-secondary" disabled={ocupado} onClick={() => executar('pausar', { id: l.id, versao: l.versao, ativo: !l.ativo }, l.ativo ? 'Lembrete pausado.' : 'Lembrete reativado.')}>{l.ativo ? 'Pausar' : 'Reativar'}</button><button className="compras-link" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir o lembrete “${l.titulo}”?`)) executar('excluir', { id: l.id, versao: l.versao }, 'Lembrete excluído.'); }}>Excluir</button></div></article>)}</details>}
+    <ConclusoesCuidados lembretes={lista}/>
+    {admin && lista.length > 0 && <details className="card"><summary>Gerenciar lembretes cadastrados ({lista.length})</summary>{lista.map(l => <article className="lembrete-card lembrete-gerenciar" key={l.id}><h2>{l.nomeCuidado ? l.nomeCuidado + ' · ' : ''}{l.titulo}</h2><p className="text-muted">{l.responsavelDescricao} · <PessoaInteracao uid={l.criadaPor} nome={l.criadaPorNome} rotulo="Criado por"/>{l.criadaEmMs ? ` · ${dataExibicao(new Date(l.criadaEmMs))}` : ''}</p><p>{(l.horarios || [l.horario]).join(' · ')} · {l.ativo ? 'Ativo' : 'Pausado'}</p><div className="lembrete-acoes"><button className="btn btn-secondary" disabled={ocupado} onClick={() => setEdicao(l)}>Editar</button><button className="btn btn-secondary" disabled={ocupado} onClick={() => executar('pausar', { id: l.id, versao: l.versao, ativo: !l.ativo }, l.ativo ? 'Lembrete pausado.' : 'Lembrete reativado.')}>{l.ativo ? 'Pausar' : 'Reativar'}</button><button className="compras-link" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir o lembrete “${l.titulo}”?`)) executar('excluir', { id: l.id, versao: l.versao }, 'Lembrete excluído.'); }}>Excluir</button></div></article>)}</details>}
     {admin && <button className="btn btn-primary" onClick={() => setEdicao({})}>+ Novo lembrete</button>}
     {(alvo || cuidados.length > 0) && <details className="card"><summary>Escala de remédios e cuidados · PDF</summary><label className="field"><span>Pessoa ou pet no PDF</span><select value={cuidadoPdf} onChange={e => { setCuidadoPdf(e.target.value); setArquivo(null); }}><option value="todos">Todos, separados por pessoa ou pet</option>{cuidadosPdf.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label><button className="btn btn-secondary" disabled={gerandoPdf} onClick={gerarRelatorio}>{gerandoPdf ? 'Gerando PDF…' : 'Gerar PDF da escala'}</button>{arquivo && <div className="lembrete-acoes"><PdfAcoes arquivo={arquivo.file} url={arquivo.url} nome={arquivo.nomeArquivo} onErro={setErro} /><button className="btn btn-success" onClick={async () => { try { if (!await compartilharPdfNativo(arquivo.file)) setErro('Baixe o PDF e anexe ao WhatsApp.'); } catch (e) { if (e.name !== 'AbortError') setErro(e.message); } }}>Compartilhar PDF</button></div>}</details>}
-  </main><BottomNav user={user} activePath="/lembretes" onNavigate={onNavigate} /></div>;
+  </main><BottomNav user={user} activePath="/lembretes" onNavigate={onNavigate} /></div></PessoasInteracoesContext.Provider>;
 }
 
 
 
 export default function Lembretes({user,onNavigate}) {
-  if(user.role === 'funcionario' && user.babaCuidadora !== true) return <div className="page-bg"><main className="page-shell"><PageHeader title="Lembretes" subtitle="Prato do dia e receitas" /><PratosDia user={user} /></main><BottomNav user={user} activePath="/lembretes" onNavigate={onNavigate} /></div>;
+  if(user.role === 'funcionario' && user.babaCuidadora !== true) return <div className="page-bg"><main className="page-shell"><PageHeader title="Lembretes" subtitle="Seus avisos" /><p>Consulte o cardápio em Tarefas.</p></main><BottomNav user={user} activePath="/lembretes" onNavigate={onNavigate} /></div>;
   return <LembretesCuidados user={user} onNavigate={onNavigate} />;
 }

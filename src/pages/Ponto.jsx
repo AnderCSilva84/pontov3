@@ -1,3 +1,9 @@
+import { jornadaNaData, cargaNaData } from '../../functions/jornada.mjs';
+import PontoAcompanhamento from '../components/PontoAcompanhamento';
+import AvatarPerfil from '../components/AvatarPerfil';
+import PainelNotificacoes from '../components/PainelNotificacoes';
+import { dataExibicao } from '../utils/datasExibicao.js';
+import SenhaInput from '../components/SenhaInput';
 import useResumoPonto from '../components/useResumoPonto';
 import PontoAjuste from '../components/PontoAjuste';
 import RelogioPonto from '../components/RelogioPonto';
@@ -60,13 +66,13 @@ function formatarDataBr(dataIso) {
   if (!dataIso) return "";
   const [ano, mes, dia] = String(dataIso).split("-");
   if (!ano || !mes || !dia) return dataIso;
-  return `${dia}/${mes}/${ano}`;
+  return `${dia}-${mes}-${ano.slice(-2)}`;
 }
 
 
 
 
-function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
+function calcularCargaMensalPrevista(mes, funcionario) {
   if (!mes) return 0;
   const [anoTexto, mesTexto] = mes.split("-");
   const ano = Number(anoTexto);
@@ -77,14 +83,7 @@ function calcularCargaMensalPrevista(mes, cargaSegSexMin, cargaSabadoMin) {
   let total = 0;
 
   for (let dia = 1; dia <= ultimoDia; dia += 1) {
-    const data = new Date(ano, mesIndex, dia);
-    const diaSemana = data.getDay();
-    if (diaSemana === 0) continue;
-    if (diaSemana === 6) {
-      total += cargaSabadoMin;
-    } else {
-      total += cargaSegSexMin;
-    }
+    total += cargaNaData(funcionario, `${mes}-${String(dia).padStart(2, '0')}`);
   }
 
   return total;
@@ -256,6 +255,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [carregandoDia, setCarregandoDia] = useState(true), [erroDia,setErroDia] = useState('');
   const [tickTempoReal, setTickTempoReal] = useState(0);
   const [validandoLocalizacao, setValidandoLocalizacao] = useState(false);
+  const [jornadas, setJornadas] = useState([]);
   const [cargaSegSexMin, setCargaSegSexMin] = useState(480);
   const [cargaSabadoMin, setCargaSabadoMin] = useState(0);
   const [bancoHorasInicio, setBancoHorasInicio] = useState("");
@@ -271,8 +271,9 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   const [tarefaFixaSalvando, setTarefaFixaSalvando] = useState("");
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
-  const notificacoesWrapRef = useRef(null);
+
   const funcionarioId = !podeAcessarPonto ? '' : administrador ? funcionarioConsulta : user?.funcionarioId || '';
+  const rotinaFuncionarioId=podeRegistrar?funcionarioId:'';
   const usuarioSemLogin = !funcionarioId;
   const nomeExibicao = funcionarioNome?.id === funcionarioId ? funcionarioNome.nome : 'Funcionária';
   useEffect(() => {
@@ -285,19 +286,15 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
       });
       const opcoes = [...porId.values()];
       setFuncionariosPonto(opcoes);
-      setFuncionarioConsulta(atual => porId.has(atual) ? atual : opcoes[0]?.id || '');
+      setFuncionarioConsulta(atual => porId.has(atual) ? atual : '');
     }, () => setMensagem('Não foi possível consultar as funcionárias.'));
   }, [administrador, podeAcessarPonto]);
-  const dataHojeExibicao = agoraNoFusoPonto().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
+  const dataHojeExibicao = dataExibicao(agoraNoFusoPonto());
   const dataHojeKey = dataOperacional();
 
-  const cadastroResumo=useMemo(()=>({escala,cargaSegSexMin,cargaSabadoMin,desconsiderarIntervalo,intervaloPrevistoMin}),[escala,cargaSegSexMin,cargaSabadoMin,desconsiderarIntervalo,intervaloPrevistoMin]);
-  const {bancoHoras,horasPendentesAnterior,diasSemana,trabalhadoMin,erro:erroResumo}=useResumoPonto({funcionarioId,hoje:dataHojeKey,dia,jornadaCarregada:!carregandoDia&&!erroDia,funcionario:cadastroResumo,inicioContagem:bancoHorasInicio});
-  const resumoMes={metaMin:calcularCargaMensalPrevista(dataHojeKey.slice(0,7),cargaSegSexMin,cargaSabadoMin),trabalhadoMin};
+  const cadastroResumo=useMemo(()=>({escala,cargaSegSexMin,cargaSabadoMin,desconsiderarIntervalo,intervaloPrevistoMin,jornadas}),[escala,cargaSegSexMin,cargaSabadoMin,desconsiderarIntervalo,intervaloPrevistoMin,jornadas]);
+  const {bancoHoras,horasPendentesAnterior,diasSemana,trabalhadoMin,erro:erroResumo,carregando:carregandoResumo}=useResumoPonto({funcionarioId,hoje:dataHojeKey,dia,jornadaCarregada:!carregandoDia&&!erroDia,funcionario:cadastroResumo,inicioContagem:bancoHorasInicio});
+  const resumoMes={metaMin:calcularCargaMensalPrevista(dataHojeKey.slice(0,7),cadastroResumo),trabalhadoMin};
 
   useEffect(() => {
     setCarregandoDia(Boolean(funcionarioId)); setErroDia(''); setDia(null); setJornadaConhecida('');
@@ -318,7 +315,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
       if (snap.exists()) {
         const data = snap.data();
-        setFuncionarioNome({ id: funcionarioId, nome: data.nome || 'Funcionária' });
+        setFuncionarioNome({ id: funcionarioId, nome: data.nome || 'Funcionária', uid:data.fotoPerfilUid,temFotoPerfil:data.temFotoPerfil,fotoPerfilVersao:data.fotoPerfilVersao });
+        setJornadas(data.jornadas || []);
         setEscala(data.escala || null);
 
         const cargaSegSex = Number(data?.cargaSegSexMin);
@@ -340,7 +338,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
 
   useEffect(() => {
-    if (!funcionarioId) {
+    if (!rotinaFuncionarioId) {
       setLoadingTarefas(false);
       return undefined;
     }
@@ -398,10 +396,10 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     );
 
     return () => unsubscribe();
-  }, [funcionarioId, bancoHorasInicio]);
+  }, [rotinaFuncionarioId, bancoHorasInicio]);
 
   useEffect(() => {
-    if (!funcionarioId) return undefined;
+    if (!rotinaFuncionarioId) return undefined;
     const diaHoje = agoraNoFusoPonto().getDay();
     return onSnapshot(collection(db, "tarefasSemanais"), (snapshot) => {
       const fixas = snapshot.docs
@@ -410,13 +408,13 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         .sort((a, b) => (a.turno || "manha").localeCompare(b.turno || "manha"));
       setTarefasFixasHoje(fixas);
     }, () => setErroTarefas("Não foi possível carregar a rotina fixa."));
-  }, [funcionarioId]);
+  }, [rotinaFuncionarioId]);
 
   useEffect(() => {
-    if (!funcionarioId) return undefined;
+    if (!rotinaFuncionarioId) return undefined;
     const hojeDataKey = dataKeyDeDate(agoraNoFusoPonto());
     return onSnapshot(
-      collection(db, "funcionarios", funcionarioId, "conclusoesRotina"),
+      collection(db, "funcionarios", rotinaFuncionarioId, "conclusoesRotina"),
       (snapshot) => {
         setTarefasFixasConcluidas(new Set(
           snapshot.docs
@@ -427,11 +425,11 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
       },
       () => setErroTarefas("Não foi possível carregar as conclusões da rotina fixa.")
     );
-  }, [funcionarioId]);
+  }, [rotinaFuncionarioId]);
 
   useEffect(() => {
-    if (!funcionarioId) return undefined;
-    const storageKey = `notificacoesLidas:${funcionarioId}`;
+    if (!rotinaFuncionarioId) return undefined;
+    const storageKey = `notificacoesLidas:${rotinaFuncionarioId}`;
     const lidaAte = Number(localStorage.getItem(storageKey) || 0);
     return onSnapshot(collection(db, "notificacoes"), (snapshot) => {
       const itens = snapshot.docs
@@ -441,7 +439,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
       setNotificacoes(itens);
       setQuantidadeNovasTarefas(itens.length);
     });
-  }, [funcionarioId]);
+  }, [rotinaFuncionarioId]);
 
   function marcarNotificacoesComoLidas() {
     if (funcionarioId) localStorage.setItem(`notificacoesLidas:${funcionarioId}`, String(Date.now()));
@@ -557,15 +555,8 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
   }, [diasSemana, dia?.dataKey, horasTrabalhadasMin]);
 
   const diaHoje = agoraNoFusoPonto().getDay();
-  const escalaHoje = escala?.[DIAS_ORDEM[diaHoje]];
-  const cargaIndividualHoje = Number(escalaHoje?.cargaMin);
-  const metaMin = Number.isFinite(cargaIndividualHoje)
-    ? cargaIndividualHoje
-    : diaHoje === 0
-      ? 0
-      : diaHoje === 6
-        ? cargaSabadoMin
-        : cargaSegSexMin;
+  const escalaHoje = jornadaNaData(cadastroResumo, dataHojeKey).escala?.[DIAS_ORDEM[diaHoje]];
+  const metaMin = cargaNaData(cadastroResumo, dataHojeKey);
   const horarioDia = escalaHoje?.inicio && escalaHoje?.fim
     ? `${formatarHoraJornada(escalaHoje.inicio)} às ${formatarHoraJornada(escalaHoje.fim)}`
     : metaMin > 0
@@ -657,7 +648,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         <main className="page-shell">
           <header className="ponto-header page-header">
             <div className="page-title-row">
-              <BrandMark />
+              <img className="login-marca-app" src="/marca-ta-no-ponto.png" alt="Tá no Ponto"/>
             </div>
             <p className="page-subtitle">Registro de ponto</p>
           </header>
@@ -684,8 +675,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
               <label className="field">
                 <span>Senha</span>
-                <input
-                  type="password"
+                <SenhaInput
                   value={senha}
                   onChange={(event) => setSenha(event.target.value)}
                   autoComplete="current-password"
@@ -743,23 +733,22 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     );
   }
 
+  if(administrador)return <PontoAcompanhamento escala={jornadaNaData(cadastroResumo, dataHojeKey).escala} user={user} onNavigate={onNavigate} funcionarios={funcionariosPonto} funcionarioId={funcionarioId} selecionar={setFuncionarioConsulta} nome={nomeExibicao} hoje={dataHojeKey} dia={dia} diasSemana={diasSemana} bancoHoras={bancoHoras} horasHoje={horasTrabalhadasMin} horasSemana={horasSemanaMin} horasMes={trabalhadoMin-(Number(dia?.totalMin)||0)+horasTrabalhadasMin} carregando={carregandoDia||carregandoResumo||Boolean(funcionarioId&&funcionarioNome?.id!==funcionarioId)} erro={erroDia||erroResumo||mensagem}/>;
+
   return (
     <div className="page-bg page-ponto">
       <main className="page-shell">
         <header className="ui-header ponto-cabecalho"><div className="ui-header-top"><BrandMark /><AccountButton /><div className="ui-header-actions">
-          <div className="notificacoes-wrap" ref={notificacoesWrapRef}>
+          <div className="notificacoes-wrap">
             <button type="button" className="notificacoes-balao" aria-label={`${quantidadeNovasTarefas} notificações não lidas`} aria-expanded={notificacoesAbertas} onClick={() => setNotificacoesAbertas((aberta) => !aberta)}>
               <Icon name="bell" />
               {quantidadeNovasTarefas > 0 && <b>{quantidadeNovasTarefas > 9 ? "9+" : quantidadeNovasTarefas}</b>}
             </button>
-            {notificacoesAbertas && <section className="card notificacoes-painel">
-              <div className="notificacoes-cabecalho"><strong>Notificações</strong>{notificacoes.length > 0 && <button type="button" onClick={marcarNotificacoesComoLidas}>Marcar como lidas</button>}</div>
-              {notificacoes.length ? notificacoes.map((item) => <article key={item.id}><span aria-hidden="true">📌</span><div><strong>{item.titulo}</strong><p>{item.mensagem}</p></div></article>) : <p className="text-muted">Nenhuma notificação nova.</p>}
-            </section>}
+            {notificacoesAbertas && <PainelNotificacoes itens={notificacoes} fechar={() => setNotificacoesAbertas(false)} marcarLidas={marcarNotificacoesComoLidas}/>}
           </div>
-        </div></div><SessionIdentity /><section className="ponto-identidade" aria-label="Identificação da funcionária"><span className="ponto-avatar" aria-hidden="true">{nomeExibicao.trim().split(/\s+/).filter(Boolean).filter((_,i,partes)=>i===0 || i===partes.length-1).map(parte=>parte[0]).join('').toLocaleUpperCase('pt-BR')}</span><div className="ponto-identidade-nome"><span className="ponto-identidade-rotulo">Registro de ponto</span><h1>{nomeExibicao}</h1></div><div className="ponto-identidade-data"><Icon name="clock" /><span>{dataHojeExibicao}</span></div></section></header>
+        </div></div><SessionIdentity /><section className="ponto-identidade" aria-label="Identificação da funcionária"><AvatarPerfil className="ponto-avatar" usuario={user?.funcionarioId===funcionarioId && ['funcionario','funcionaria'].includes(user?.role)?{...user,nome:nomeExibicao}:{...funcionarioNome,nome:nomeExibicao}}/><div className="ponto-identidade-nome"><span className="ponto-identidade-rotulo">Registro de ponto</span><h1>{nomeExibicao}</h1></div><div className="ponto-identidade-data"><Icon name="clock" /><span>{dataHojeExibicao}</span></div></section></header>
 
-        {administrador && <section className="card"><p>As batidas são feitas pela funcionária. Para revisar horários, use “Corrigir e justificar ponto” abaixo.</p><label className="field"><span>Funcionária</span><select value={funcionarioConsulta} onChange={e => setFuncionarioConsulta(e.target.value)}><option value="">Selecione</option>{funcionariosPonto.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label></section>}
+        {administrador && <section className="card"><label className="field"><span>Funcionária</span><select value={funcionarioConsulta} onChange={e => setFuncionarioConsulta(e.target.value)}><option value="">Selecione</option>{funcionariosPonto.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label></section>}
         {administrador&&funcionarioId&&<PontoAjuste key={funcionarioId} funcionarioId={funcionarioId} nome={nomeExibicao}/>}
         {erroResumo&&<p role="alert">{erroResumo}</p>}
         <div className="ponto-painel">
@@ -784,13 +773,13 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
         </div>
         {podeRegistrar && <PontoOperacoes fila={filaPonto} />}
         {podeRegistrar && <PontoRevisao key={`${user.uid}:${user.grupoId||''}`} user={user} />}
-        {['admin','funcionario'].includes(user.role) && <PratosDia user={user} apenasHoje />}
+        {['admin','funcionario','consulta'].includes(user.role) && <PratosDia user={user} apenasHoje />}
         <ResumoTarefas titulo="Tarefas fixas" concluidas={tarefasFixasHoje.filter(t => tarefasFixasConcluidas.has(t.id)).length} total={tarefasFixasHoje.length}>
           <p className="text-muted">{dataHojeExibicao}</p>
           {!tarefasFixasHoje.length && <p>Nenhuma tarefa fixa para hoje.</p>}
           <div className="tarefas-fixas-lista">{tarefasFixasHoje.map((tarefa) => {
             const concluida = tarefasFixasConcluidas.has(tarefa.id);
-            return <button type="button" className={`tarefa-fixa-destaque ${concluida ? "concluida" : "pendente"}`} key={tarefa.id} disabled={concluida || tarefaFixaSalvando === tarefa.id || usuarioSemLogin} onClick={() => handleConcluirTarefaFixa(tarefa.id)} aria-label={concluida ? `${tarefa.titulo}: realizada` : `Marcar ${tarefa.titulo} como realizada`}><span className="tarefa-pin" aria-hidden="true">{concluida ? "✓" : "•"}</span><strong>{tarefa.titulo}</strong><span className={`tarefas-status ${concluida ? "concluida" : "pendente"}`}>{concluida ? "Realizada" : tarefaFixaSalvando === tarefa.id ? "Salvando..." : "Pendente"}</span><span className={`tarefa-periodo ${tarefa.turno === "tarde" ? "tarde" : "manha"}`}>{tarefa.turno === "tarde" ? "☀️ Tarde" : "🌤️ Manhã"}{tarefa.horario ? ` · ${tarefa.horario}` : ""}</span></button>;
+            return <button type="button" className={`tarefa-fixa-destaque ${concluida ? "concluida" : "pendente"}`} key={tarefa.id} disabled={concluida || tarefaFixaSalvando === tarefa.id || usuarioSemLogin} onClick={() => handleConcluirTarefaFixa(tarefa.id)} aria-label={concluida ? `${tarefa.titulo}: realizada` : `Marcar ${tarefa.titulo} como realizada`}><span className="tarefa-pin" aria-hidden="true">{concluida ? "✓" : "•"}</span><strong>{tarefa.titulo}</strong><span className={`tarefas-status ${concluida ? "concluida" : "pendente"}`}>{concluida ? "Realizada" : tarefaFixaSalvando === tarefa.id ? "Salvando..." : "Pendente"}</span><span className={`tarefa-periodo ${tarefa.turno === "tarde" ? "tarde" : "manha"}`}>{tarefa.turno === "tarde" ? "Tarde" : "Manhã"}{tarefa.horario ? ` · ${tarefa.horario}` : ""}</span></button>;
           })}</div>
         </ResumoTarefas>
 
@@ -897,7 +886,7 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
 
         </details><ConnectionStatus />{erroDia && <p className="mensagem erro" role="alert">{erroDia}</p>}
         {mensagem && <p role="status" className="mensagem">{mensagem}</p>}
-        {ajusteLocalizacao && <details className="card"><summary>Como ajustar a localização</summary><p>Abra Configurações do Android → Aplicativos → AP1303 → Permissões → Localização. Selecione “Permitir durante o uso” e “Usar localização precisa”. Confira também se Localização está ligada no painel do Android. Depois volte ao app e toque novamente em registrar.</p></details>}
+        {ajusteLocalizacao && <details className="card"><summary>Como ajustar a localização</summary><p>Abra Configurações do Android → Aplicativos → Tá no Ponto → Permissões → Localização. Selecione “Permitir durante o uso” e “Usar localização precisa”. Confira também se Localização está ligada no painel do Android. Depois volte ao app e toque novamente em registrar.</p></details>}
 
         {!usuarioSemLogin && (
           <button onClick={logout} className="btn btn-muted">
@@ -910,17 +899,3 @@ export default function Ponto({ user, onNavigate, rotaAtual }) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -28,7 +28,7 @@ export default function useResumoPonto({funcionarioId,hoje,dia,jornadaCarregada,
   const segunda=new Date(hoje+'T12:00Z'),semanaDia=segunda.getUTCDay();
   segunda.setUTCDate(segunda.getUTCDate()-(semanaDia===0?6:semanaDia-1));
   const inicioSemana=segunda.toISOString().slice(0,10);
-  return {bancoHoras:somarBancoHoras(atuais,funcionario,mes,inicioContagem),horasPendentesAnterior:Math.max(0,-somarBancoHoras(atuais,funcionario,anterior,inicioContagem)),
+  return {carregando:Boolean(funcionarioId&&!erro&&(periodo?.funcionarioId!==funcionarioId||periodo?.mes!==mes)),bancoHoras:somarBancoHoras(atuais,funcionario,mes,inicioContagem),horasPendentesAnterior:Math.max(0,-somarBancoHoras(atuais,funcionario,anterior,inicioContagem)),
    trabalhadoMin:atuais.filter(r=>r.dataKey?.startsWith(mes)&&r.dataKey<=hoje).reduce((n,r)=>n+(Number(r.totalMin)||0),0),
    diasSemana:semanaDia===0?[]:atuais.filter(r=>r.dataKey>=inicioSemana&&r.dataKey<=hoje),erro};
  },[periodo,funcionarioId,mes,anterior,hoje,dia,jornadaCarregada,funcionario,inicioContagem,erro]);

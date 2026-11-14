@@ -1,16 +1,19 @@
-import logo from '../../assets/ponto1303.jpeg';
+import AvatarPerfil from '../AvatarPerfil';
+import logo from '../../assets/ta-no-ponto.png';
 import { useContext, useEffect, useState } from 'react';
 import {SessaoContext} from './SessaoContext';
 
 export function Icon({ name, ...props }) {
-  const paths = { clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>, bell: <><path d="M5 17h14l-2-4V9a5 5 0 0 0-10 0v4zM10 21h4"/></>, tasks: <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></>, cart: <><path d="M3 4h3l3 12h10l2-9H7"/><circle cx="10" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></>, chart: <><path d="M4 21V11h4v10m2 0V7h4v14m2 0V3h4v18"/></>, plus: <path d="M12 4v16M4 12h16"/>, check: <path d="m5 12 4 4L19 6"/>, arrow: <path d="m14 5-7 7 7 7M7 12h14"/>, chevron: <path d="m9 5 7 7-7 7"/>, more: <><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>, file: <><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6"/></>, users: <><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m1-16a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></> };
+  const paths = { link:<><path d="m10 14 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m0 2 1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/></>,image:<><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></>, care:<><path d="M20 5c-3-4-8-1-8 2C12 4 7 1 4 5c-4 6 8 15 8 15S24 11 20 5Z"/><path d="M8 11h8m-4-4v8"/></>, refresh:<><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-2l2 3M4 16l2 3a7 7 0 0 0 12-2"/></>, box:<><path d="m3 7 9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4m-9 4v10"/></>,folder:<><path d="M3 6h7l2 3h9v11H3z"/></>,tool:<><path d="m14 7 3 3 4-4a6 6 0 0 1-8 8l-7 7-3-3 7-7a6 6 0 0 1 8-8z"/></>,paw:<><ellipse cx="12" cy="16" rx="6" ry="4"/><ellipse cx="4" cy="10" rx="2" ry="3"/><ellipse cx="9" cy="5" rx="2" ry="3"/><ellipse cx="15" cy="5" rx="2" ry="3"/><ellipse cx="20" cy="10" rx="2" ry="3"/></>,fish:<><path d="M3 12c6-9 12-9 16 0-4 9-10 9-16 0zm0 0 1-5m-1 5 1 5m15-5 3-4v8z"/><circle cx="14" cy="10" r=".5"/></>, meal:<><path d="M4 3v6m3-6v6m-3-3h3m-1.5 3v12M17 3c-3 4-3 9 0 9h2V3h-2zm2 9v9"/></>,calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/></>,health:<><path d="M12 21s-9-5-9-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-9 11-9 11zM8 12h8m-4-4v8"/></>,home:<><path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/></>,clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>, bell: <><path d="M5 17h14l-2-4V9a5 5 0 0 0-10 0v4zM10 21h4"/></>, tasks: <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></>, cart: <><path d="M3 4h3l3 12h10l2-9H7"/><circle cx="10" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></>, chart: <><path d="M4 21V11h4v10m2 0V7h4v14m2 0V3h4v18"/></>, plus: <path d="M12 4v16M4 12h16"/>, check: <path d="m5 12 4 4L19 6"/>, arrow: <path d="m14 5-7 7 7 7M7 12h14"/>, chevron: <path d="m9 5 7 7-7 7"/>, more: <><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>, file: <><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6"/></>, users: <><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m1-16a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></> };
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] || paths.file}</svg>;
 }
-export function BrandMark() { return <span className="brand-mark"><img src={logo} alt="AP1303" /></span>; }
+export function BrandMark() { return <span className="brand-mark"><img src={logo} alt="Tá no Ponto" /></span>; }
 export function AccountButton() { return <button type="button" className="icon-button conta-acesso" aria-label="Minha conta" title="Minha conta" onClick={()=>{window.history.pushState({},'','/conta');window.dispatchEvent(new PopStateEvent('popstate'));}}><Icon name="users" /></button>; }
-export function SessionIdentity() {
-  const sessao=useContext(SessaoContext);
-  return sessao?.uid ? <p className="sessao-identidade">Conectado como <strong>{sessao.nome?.trim() || 'Nome não informado'}</strong></p> : null;
+export function SessionIdentity({user,sidebar=false}) {
+  const contexto=useContext(SessaoContext),sessao=user||contexto;
+  if(!sessao?.uid)return null;
+  const nome=sessao.nome?.trim()||'Nome não informado';
+  return <div className={`sessao-identidade${sidebar?' sessao-sidebar':''}`} aria-label={'Conectado como '+nome}><AvatarPerfil usuario={sessao}/><span className="sessao-dados"><strong>{nome}</strong><small>{({admin:'Administrador',funcionario:'Funcionário',consulta:'Consulta'})[sessao.role]||'Conta'}</small></span></div>;
 }
 export function PageHeader({ title, subtitle, children, back }) { return <header className="ui-header"><div className="ui-header-top">{back && <button className="icon-button" onClick={back} aria-label="Voltar"><Icon name="arrow" /></button>}<BrandMark /><AccountButton />{children && <div className="ui-header-actions">{children}</div>}</div><SessionIdentity /><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</header>; }
 export function Badge({ children, tone = 'success' }) { return <span className={`ui-badge ${tone}`}>{children}</span>; }
@@ -21,5 +24,5 @@ export function FinancialSummary({ totais, moeda, label = 'Líquido previsto' })
 export function ConnectionStatus() {
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => { const atualizar = () => setOnline(navigator.onLine); window.addEventListener('online', atualizar); window.addEventListener('offline', atualizar); return () => { window.removeEventListener('online', atualizar); window.removeEventListener('offline', atualizar); }; }, []);
-  return <p className={`ui-connection ${online ? '' : 'offline'}`} role="status">{online ? 'Conexão disponível · registros dependem da confirmação do servidor' : 'Sem conexão · capturas pendentes não são ponto confirmado'}</p>;
+  return <p className={`ui-connection ${online ? '' : 'offline'}`} role="status">{online ? 'Conectado · aguarde a confirmação de cada registro' : 'Sem conexão · capturas pendentes não são ponto confirmado'}</p>;
 }

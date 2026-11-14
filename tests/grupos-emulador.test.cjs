@@ -38,7 +38,7 @@ test('grupos: identidades independentes, dados isolados e permissões no cliente
    await op(uid,'criar',{listaId:'jantar',titulo:'Jantar '+nome});
   }
   await op(empregado.uid,'adicionar',{listaId:'jantar',produtoId:'arroz',quantidadePlanejada:2,grupoId:B});
-  assert.equal((await ba.doc('comprasListas/jantar/itens/arroz').get()).data().nomeSnapshot,'Arroz A');
+  assert.equal((await ba.doc('comprasListas/jantar/itens/arroz').get()).data().nomeSnapshot,'ARROZ A');
   assert.equal((await bb.doc('comprasListas/jantar/itens/arroz').get()).exists,false);
   assert.equal((await db.doc('comprasListas/jantar').get()).exists,false);
   await assert.rejects(op(empregado.uid,'iniciar',{listaId:'jantar'}),/administrador/);

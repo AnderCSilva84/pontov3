@@ -1,0 +1,1 @@
+import {procurarParesCatalogo} from '../utils/catalogoParecidos.js';self.onmessage=e=>{try{const resultado=procurarParesCatalogo(e.data.produtos,progresso=>self.postMessage({tipo:'progresso',...progresso}));self.postMessage({tipo:'resultado',resultado});}catch{self.postMessage({tipo:'erro',mensagem:'Não foi possível analisar os nomes. Tente novamente.'});}};

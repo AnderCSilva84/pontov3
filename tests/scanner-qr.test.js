@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { criarScannerQr, permitirCamera, normalizarLeituraQr, conectarCicloScanner } from '../src/utils/scannerQr.js';
+import { criarDiagnosticoQr, criarScannerQr, permitirCamera, normalizarLeituraQr, conectarCicloScanner } from '../src/utils/scannerQr.js';
 import { normalizarQrCupom } from '../src/utils/cupomQr.js';
 import fixture from './fixtures/cupom-pa.cjs';
 import { setImmediate } from 'node:timers';
@@ -71,7 +71,8 @@ test('adapter mantém PWA sem permissão nativa, seleciona Android e encerra ins
   const c = { Capacitor: { getPlatform: () => plataforma }, registerPlugin: () => ({}), auth: { currentUser: { uid: 'a' } }, obterGrupoAtual: () => grupo,
     criarScannerQr: o => { configuracoes.push(o); return { parar: () => paradas++ }; }, permitirCamera: async () => {}, lerImagemQr: () => {}, navigator: {}, document: {} };
   vm.createContext(c);
-  vm.runInContext(readFileSync('src/services/scannerQr.js', 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/export /g, ''), c);
+  vm.runInContext(readFileSync('src/services/scannerQrCamera.js', 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export \{.*\};\r?\n/gm, '').replace(/export /g, ''), c);
+  vm.runInContext(readFileSync('src/services/scannerQr.js', 'utf8').replace(/^export \{.*\} from .*;\r?\n/gm, '').replace(/^import .*;\r?\n/gm, '').replace(/export /g, ''), c);
   c.iniciarScannerQr({}); assert.equal(configuracoes[0].origem, 'web'); assert.equal(configuracoes[0].permitir, undefined);
   plataforma = 'android'; c.iniciarScannerQr({}); assert.equal(paradas, 1); assert.equal(configuracoes[1].origem, 'android-webview'); assert.equal(typeof configuracoes[1].permitir, 'function');
   assert.equal(configuracoes[1].contextoValido(), true); grupo = 'g2'; assert.equal(configuracoes[1].contextoValido(), false);
@@ -82,4 +83,70 @@ test('cancelamento durante checkPermissions não pede permissão posteriormente'
   let resolver, ativo = true, pedidos = 0;
   const p = permitirCamera({ checkPermissions: () => new Promise(r => { resolver = r; }), requestPermissions: () => pedidos++ }, () => ativo);
   ativo = false; resolver({ camera: 'prompt' }); await p; assert.equal(pedidos, 0);
+});
+
+
+test('diagnóstico filtra identificadores, mede duração e avanço sem guardar conteúdo', async () => {
+  let tempo = 0, tick; const saidas = [], video = { currentTime: 0, videoWidth: 1080, videoHeight: 1920 };
+  const track = { readyState: 'live', getSettings: () => ({ width: 1080, height: 1920, frameRate: 30, deviceId: 'SEGREDO' }), getCapabilities: () => ({ focusMode: ['continuous', 'SEGREDO'], zoom: { min: 1, max: 4 }, groupId: 'SEGREDO' }) };
+  const d = criarDiagnosticoQr({ video, track: () => track, publicar: x => saidas.push(x), agora: () => tempo, agendar: fn => { tick=fn; return fn; }, desagendar: () => {} });
+  assert.equal(d.medir('zxing', () => { tempo=7; return 'TEXTO_FISCAL'; }), 'TEXTO_FISCAL');
+  await d.medir('fallback', async () => { tempo=12; return 'TEXTO_FISCAL'; });
+  video.currentTime=1; tick();
+  const atual=saidas.at(-1);
+  assert.deepEqual(atual.zxing, { tentativas: 1, ms: 7 });
+  assert.deepEqual(atual.fallback, { tentativas: 1, ms: 5 });
+  assert.equal(atual.avancando, true); assert.equal(atual.fps, 30);
+  assert.deepEqual(atual.foco, ['continuous']); assert.deepEqual(atual.zoom, { min: 1, max: 4 });
+  assert.doesNotMatch(JSON.stringify(saidas), /SEGREDO|TEXTO_FISCAL|deviceId|groupId/);
+  d.parar(); const n=saidas.length; tick(); assert.equal(saidas.length,n);
+});
+
+test('diagnóstico tolera APIs ausentes, callback e relógio com falha', () => {
+  const d=criarDiagnosticoQr({ video: {}, track: () => ({}), publicar: () => { throw Error('painel'); }, agora: () => { throw Error('relógio'); }, agendar: () => 1, desagendar: () => { throw Error('timer'); } });
+  assert.equal(d.medir('zxing', () => 42), 42);
+  assert.throws(() => d.medir('zxing', () => { throw Error('decoder'); }), /decoder/);
+  assert.doesNotThrow(() => d.parar());
+});
+
+test('diagnóstico desligado usa leitor original e não agenda medições', async () => {
+  let classe, settings=0;
+  const b=ambiente({ carregarLeitor: async () => class Original {
+    async decodeFromStream(s,v,cb) { classe=this.constructor.name; b.estado.frame=cb; v.srcObject=s; return { stop() {} }; }
+  } });
+  b.stream.getVideoTracks=()=>[{ getSettings:()=>{ settings++; return {}; }, getCapabilities:()=>({}) }];
+  const scanner=criarScannerQr(b.opcoes); await scanner.pronto;
+  assert.equal(classe,'Original'); assert.equal(settings,1); assert.equal(b.estado.agenda.length,1);
+  scanner.parar();
+});
+
+test('scanner mede tentativas ZXing sem alterar retorno e cancela diagnóstico ao parar', async () => {
+  const snapshots=[]; let leitor;
+  const b=ambiente({ aoDiagnostico:d=>snapshots.push(d), carregarLeitor:async()=>class {
+    decodeFromCanvas() { return 9; }
+    async decodeFromStream(s,v,cb) { leitor=this; b.estado.frame=cb; v.srcObject=s; return { stop() {} }; }
+  } });
+  const scanner=criarScannerQr(b.opcoes); await scanner.pronto;
+  assert.equal(leitor.decodeFromCanvas({}),9);
+  b.estado.agenda[0](); assert.equal(snapshots.at(-1).zxing.tentativas,1);
+  scanner.parar(); const n=snapshots.length;
+  for(const tick of [...b.estado.agenda]) tick();
+  assert.equal(snapshots.length,n); assert.ok(b.estado.canceladas.length>=2);
+});
+
+test('promessa de medição encerrada não publica nem contabiliza após cancelamento', async () => {
+  let resolver; const snapshots=[];
+  const d=criarDiagnosticoQr({ video:{}, track:()=>null, publicar:x=>snapshots.push(x), agendar:()=>1, desagendar:()=>{} });
+  const p=d.medir('fallback',()=>new Promise(r=>{resolver=r;}));
+  d.parar(); const n=snapshots.length; resolver('privado'); assert.equal(await p,'privado');
+  assert.equal(snapshots.length,n); assert.equal(snapshots.at(-1).fallback.tentativas,0);
+});
+
+test('nova sessão não herda contadores nem aceita amostras da câmera anterior', async () => {
+  const antigas=[], novas=[]; const a=ambiente({aoDiagnostico:d=>antigas.push(d)});
+  const primeiro=criarScannerQr(a.opcoes); await primeiro.pronto; primeiro.parar();
+  const n=antigas.length; const b=ambiente({aoDiagnostico:d=>novas.push(d)});
+  const segundo=criarScannerQr(b.opcoes); await segundo.pronto;
+  a.estado.agenda[0](); assert.equal(antigas.length,n); assert.equal(novas.at(-1).zxing.tentativas,0);
+  segundo.parar();
 });

@@ -1,12 +1,12 @@
 {
-  "name": "AP1303",
-  "short_name": "AP1303",
+  "name": "Tá no Ponto",
+  "short_name": "Tá no Ponto",
   "id": "/",
   "scope": "/",
   "start_url": "/ponto",
   "display": "standalone",
-  "background_color": "#f5f7fb",
-  "theme_color": "#2b529d",
+  "background_color": "#082783",
+  "theme_color": "#082783",
   "orientation": "portrait",
   "icons": [
     {
@@ -33,5 +33,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "description": "Ponto, tarefas e compras do seu grupo. Desenvolvido pela ACS Tecnologia."
 }

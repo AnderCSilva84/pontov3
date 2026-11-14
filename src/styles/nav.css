@@ -1,100 +1,17 @@
-.bottom-nav {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  justify-content: space-around;
-  gap: 8px;
-  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(255, 250, 242, 0.92);
-  border: 1px solid rgba(108, 84, 46, 0.12);
-  border-radius: 26px;
-  box-shadow: 0 18px 36px rgba(107, 84, 46, 0.14);
-  backdrop-filter: blur(14px);
-  z-index: 50;
-  --nav-accent: #2f7b5f;
+/* Navegação única: mobile inferior / desktop lateral, sem leituras adicionais. */
+.bottom-nav{position:fixed;z-index:50;left:0;right:0;bottom:0;display:flex;align-items:stretch;gap:0;background:white;border:0;border-top:1px solid var(--border);box-shadow:none;border-radius:0;padding:6px 4px calc(6px + env(safe-area-inset-bottom));width:100%;max-width:none}
+.bottom-nav::before,.bottom-nav::after{display:none}.sidebar-identidade{display:none}.bottom-nav .nav-item{flex:1 1 0;min-width:0;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:6px 1px;border:0;border-radius:6px;color:var(--text-muted);background:transparent;font-weight:600;cursor:pointer;line-height:1.25}.nav-icon{display:grid;place-items:center;width:24px;height:24px;flex:none}.nav-icon svg{width:24px;height:24px;fill:none;stroke:currentColor}.nav-label{font-size:11px;overflow-wrap:anywhere;text-align:center}.bottom-nav .nav-item.active{color:var(--brand-blue);background:var(--accent-soft)}.bottom-nav .nav-item:hover{background:var(--accent-soft)}.bottom-nav .nav-item.active::after{display:none}
+@media(min-width:1024px){
+ .bottom-nav{top:0;bottom:0;right:auto;width:var(--sidebar-width);flex-direction:column;justify-content:flex-start;padding:28px 12px;background:var(--sidebar);border:0;overflow-y:auto;gap:5px}
+ .sidebar-identidade{display:grid;gap:24px;padding:0 12px 26px;margin-bottom:8px;border-bottom:1px solid #ffffff21}.sidebar-identidade .brand-mark{width:132px;height:132px}.sessao-sidebar{padding:0;color:white}.sessao-sidebar .sessao-avatar{background:#eaf2ff;color:#062342}.sessao-sidebar .sessao-dados strong{color:white;font-size:14px;font-weight:600}.sessao-sidebar .sessao-dados small{color:#c6d5e7;font-size:12px}
+ .bottom-nav .nav-item{flex:none;flex-direction:row;justify-content:flex-start;gap:14px;padding:12px 14px;min-height:48px;color:#e8eff8;border-left:3px solid transparent;border-radius:5px}.bottom-nav .nav-item.active{color:white;background:#ffffff18;border-left-color:var(--brand-red)}.bottom-nav .nav-item.active .nav-icon{color:#fff}.bottom-nav .nav-item:hover{background:#123b68}.nav-label{font-size:14px;text-align:left}.bottom-nav .nav-icon{background:none;box-shadow:none}
 }
-
-.bottom-nav::before {
-  content: "";
-  position: absolute;
-  top: 8px;
-  left: 18px;
-  right: 18px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--nav-accent), transparent);
-  opacity: 0.6;
-}
-
-.bottom-nav.theme-ponto {
-  --nav-accent: #2f7b5f;
-}
-
-.bottom-nav.theme-compras {
-  --nav-accent: #1d8f77;
-}
-
-.bottom-nav.theme-admin {
-  --nav-accent: #8d6f4f;
-}
-
-.bottom-nav.theme-tarefas {
-  --nav-accent: #c87b1f;
-}
-
-.nav-item {
-  background: transparent;
-  border: none;
-  color: #8c7a64;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
-  border-radius: 16px;
-  padding: 8px 10px;
-  min-width: 0;
-  flex: 1 1 0;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.nav-item svg {
-  width: 22px;
-  height: 22px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.8px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.nav-item.active {
-  color: var(--nav-accent);
-  background: color-mix(in srgb, var(--nav-accent) 10%, white);
-}
-
-.nav-item.active svg {
-  filter: drop-shadow(0 6px 12px rgba(108, 84, 46, 0.12));
-}
-
-.nav-label {
-  letter-spacing: 0.02em;
-}
-
-@media (min-width: 900px) {
-  .bottom-nav {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: min(100%, 720px);
-  }
-}
-@media (max-width: 420px) {
-  .bottom-nav { gap: 2px; padding-left: 6px; padding-right: 6px; }
-  .nav-item { padding-inline: 4px; font-size: .69rem; }
-  .nav-label { overflow-wrap: anywhere; }
-}
+@media(max-width:389px){.nav-label{font-size:10px}.bottom-nav .nav-item{gap:4px}.nav-icon svg{width:22px;height:22px}}
+.nav-item.nav-avisos-novos{position:relative;animation:avisos-novos-pulso 1.6s ease-in-out infinite;color:#8a5000}
+.nav-avisos-badge{position:absolute;right:8px;top:1px;display:grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:12px;background:#a74300;color:#fff;font-size:11px;font-weight:800;border:2px solid #fff}
+@keyframes avisos-novos-pulso{0%,100%{background-color:#fff5ce}50%{background-color:#ffe08a}}
+@media(min-width:1024px){.nav-avisos-badge{top:8px}.bottom-nav .nav-item.nav-avisos-novos{color:#653d00}.bottom-nav .nav-avisos-badge{border-color:var(--sidebar)}}
+@media(prefers-reduced-motion:reduce){.nav-item.nav-avisos-novos{animation:none;background:#fff5ce;outline:2px solid #a74300;outline-offset:-2px}}
+.nav-avisos-badge .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Mantém os rótulos legíveis quando a conta possui mais atalhos no celular. */
+@media(max-width:1023px){.bottom-nav{overflow-x:auto}.bottom-nav .nav-item{flex:1 0 64px}.bottom-nav .nav-label{white-space:nowrap;overflow-wrap:normal;font-size:10px}}

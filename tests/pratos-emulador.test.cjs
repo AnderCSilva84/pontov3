@@ -8,12 +8,13 @@ test('pratos: autoria, programação, fotos, permissões e isolamento entre grup
   for(const [uid,role]of[[adm,'admin'],[f,'funcionario'],[colega,'funcionario']]){await db.doc('vinculosUsuarios/'+uid).set({grupoId:g,ativo:true});await db.doc(`grupos/${g}/users/${uid}`).set({role,ativo:true,nome:uid,babaCuidadora:false});}
  }
  const op=(uid,operacao,d={})=>api.lembretesOperacao.run({auth:{uid},data:{operacao,...d}});
- const base={titulo:'Prato fictício',usuarioId:'func-a',modo:'data',data:'2026-10-22',receita:'Preparação de teste',linkReceita:'https://example.test/receita',foto:'data:image/jpeg;base64,AA==',criadaPorNome:'Forjado'};
+ const hoje=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza'}).format(new Date()),amanha=new Date(Date.parse(hoje+'T12:00Z')+86400000).toISOString().slice(0,10);
+ const base={titulo:'Prato fictício',usuarioId:'func-a',modo:'data',data:hoje,receita:'Preparação de teste',linkReceita:'https://example.test/receita',foto:'data:image/jpeg;base64,AA==',criadaPorNome:'Forjado'};
  const {id}=await op('adm-a','salvarPrato',base);
  let gravado=(await db.doc(`grupos/a/pratosDia/${id}`).get()).data();assert.equal(gravado.criadaPorNome,'adm-a');assert.equal(gravado.versao,1);
  assert.equal((await db.doc('pratosDia/'+id).get()).exists,false);
- assert.equal((await op('func-a','listarPratos',{dia:'2026-10-22'})).pratos.length,1);
- assert.equal((await op('func-a','listarPratos',{dia:'2026-10-23'})).pratos.length,0);
+ assert.equal((await op('func-a','listarPratos',{dia:hoje})).pratos.length,1);
+ assert.equal((await op('func-a','listarPratos',{dia:amanha})).pratos.length,0);
  assert.equal((await op('colega-a','listarPratos')).pratos.length,0);
  assert.equal((await op('adm-a','listarPratos')).pratos[0].temFoto,true);
  assert.equal((await op('adm-a','listarPratos')).pratos[0].foto,undefined);
@@ -35,4 +36,21 @@ test('pratos: autoria, programação, fotos, permissões e isolamento entre grup
  await op('adm-a','salvarPrato',{...base,id,versao:4,imagemUrl:'',foto:''});
  assert.equal((await db.doc(`grupos/a/pratosDia/${id}`).get()).data().imagemUrl,'');
  await op('adm-a','arquivarPrato',{id,versao:5});assert.equal((await op('adm-a','listarPratos')).pratos.length,0);
+ const ontem=new Date(Date.parse(hoje+'T12:00Z')-86400000).toISOString().slice(0,10);
+ const velho=await op('adm-a','salvarPrato',{...base,data:ontem});
+ const futuro=await op('adm-a','salvarPrato',{...base,data:amanha,foto:''});
+ const semanal=await op('adm-a','salvarPrato',{...base,modo:'semanal',diasSemana:[0,1,2,3,4,5,6],foto:''});
+ let ativos=(await op('adm-a','listarPratos')).pratos;assert.ok(!ativos.some(p=>p.id===velho.id));assert.ok(ativos.some(p=>p.id===futuro.id));assert.ok(ativos.some(p=>p.id===semanal.id));
+ const arquivado=(await db.doc(`grupos/a/pratosDia/${velho.id}`).get()).data();assert.equal(arquivado.ativo,false);assert.equal(arquivado.arquivamentoAutomatico,true);assert.equal(arquivado.versao,2);assert.equal(arquivado.receita,base.receita);assert.equal(arquivado.foto,base.foto);
+ await op('adm-a','listarPratos');assert.equal((await db.doc(`grupos/a/pratosDia/${velho.id}`).get()).data().versao,2);
+ assert.ok((await op('adm-a','listarPratos',{arquivados:true})).pratos.some(p=>p.id===velho.id));
+ assert.equal((await op('colega-a','listarPratos',{arquivados:true})).pratos.length,0);
+ assert.equal((await op('adm-b','listarPratos',{arquivados:true,grupoId:'a'})).pratos.length,0);
+ assert.equal((await op('func-a','obterPrato',{id:velho.id})).foto,base.foto);
+ await assert.rejects(op('colega-a','obterPrato',{id:velho.id}),/outra/);
+ const direto=await op('adm-a','salvarPrato',{...base,data:ontem});const arquivoDireto=(await op('adm-a','listarPratos',{arquivados:true})).pratos;assert.ok(arquivoDireto.some(p=>p.id===direto.id&&p.versao===2));
+ for(let n=0;n<27;n++)await db.doc(`grupos/a/pratosDia/arquivo_${String(n).padStart(2,'0')}`).set({...arquivado,usuarioId:'func-a'});
+ const pagina=await op('adm-a','listarPratos',{arquivados:true});assert.equal(pagina.pratos.length,25);assert.ok(pagina.cursor);
+ const proxima=await op('adm-a','listarPratos',{arquivados:true,cursor:pagina.cursor});assert.ok(proxima.pratos.length);assert.ok(!proxima.pratos.some(x=>pagina.pratos.some(y=>x.id===y.id)));
+
 });

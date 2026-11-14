@@ -15,7 +15,7 @@ test('logout offline cancela ou preserva fila; callback tardio não encerra outr
 });
 test('perfil/vínculo tardios da sessão anterior não atualizam a nova sessão',()=>{
   let observar;const snaps=[],resultados=[];
-  const c={auth:{currentUser:{uid:'a'}},onAuthStateChanged:(_a,f)=>{observar=f;return()=>{};},onSnapshot:(_d,ok)=>{snaps.push(ok);return()=>{};},doc:(...a)=>a,db:{},definirGrupoAtual:()=>{},criarCadastroTitular:()=>({}),firebaseConfig:{projectId:'demo-ap1303'},console};vm.createContext(c);vm.runInContext(fonte('src/services/auth.js'),c);
+  const c={window:{dispatchEvent:()=>{}},Event,auth:{currentUser:{uid:'a'}},onAuthStateChanged:(_a,f)=>{observar=f;return()=>{};},onSnapshot:(_d,ok)=>{snaps.push(ok);return()=>{};},doc:(...a)=>a,db:{},definirGrupoAtual:()=>{},criarCadastroTitular:()=>({}),firebaseConfig:{projectId:'demo-ap1303'},console};vm.createContext(c);vm.runInContext(fonte('src/services/auth.js'),c);
   const parar=c.observeAuth(u=>resultados.push(u));observar({uid:'a'});snaps[0]({exists:()=>true,data:()=>({ativo:true,grupoId:'g-a'})});const velho=snaps[1];
   c.auth.currentUser={uid:'b'};observar({uid:'b'});const antes=resultados.length;velho({exists:()=>true,data:()=>({ativo:true,role:'admin'})});assert.equal(resultados.length,antes);parar();
 });

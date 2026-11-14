@@ -1,6 +1,10 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import {criarControlePushAndroid,destinoAviso} from '../src/utils/pushAndroid.js';
+test('aviso alimentar abre ambiente próprio, inclusive ao tocar em aviso antigo',()=>{
+ const user={uid:'a',grupoId:'g',role:'admin'},aviso={versao:'1',uid:'a',grupoId:'g',eventId:'a'.repeat(64),expiraEm:String(Date.now()+60000),rota:'/alimentacao',canal:'tarefas',conteudo:'alimentacao'};
+ assert.equal(destinoAviso(aviso,user),'/alimentacao');assert.equal(destinoAviso({...aviso,rota:'/tarefas'},user),'/alimentacao');assert.equal(destinoAviso({...aviso,uid:'outra'},user),null);
+});
 function fixture(opcoes={}){
  let user={uid:'pessoa-a',grupoId:'grupo-a'},registro={token:'token-ficticio',instalacaoId:'instalacao-a',registrado:false},configurado=true,permitido=true;
  const chamadas=[],store=new Map();const ponte={estado:async()=>({configurado,permitido,permissao:permitido?'granted':'denied'}),contexto:async()=>{},token:async()=>({...registro}),confirmarCadastro:async()=>{registro.registrado=true;},ativar:async()=>{chamadas.push('local-ativar');},suspender:async()=>({instalacaoId:registro.instalacaoId}),confirmarRevogacao:async()=>{},permissao:async()=>{chamadas.push('permissao');return{permitido:true};},...opcoes.ponte};

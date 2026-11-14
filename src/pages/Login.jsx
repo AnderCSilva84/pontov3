@@ -1,3 +1,5 @@
+
+import SenhaInput from '../components/SenhaInput';
 import { useState } from "react";
 import { login } from "../services/auth";
 import "../styles/login.css";
@@ -25,7 +27,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>APP PONTO</h1>
+        <img className="login-marca-app" src="/marca-ta-no-ponto.png" alt="Tá no Ponto"/><h1>Entrar no Tá no Ponto</h1>
         <p className="login-subtitle">Painel Administrativo</p>
 
         <form onSubmit={handleLogin} className="login-form">
@@ -44,9 +46,8 @@ export default function Login() {
 
           <div className="field-group">
             <label htmlFor="senha">Senha</label>
-            <input
+            <SenhaInput
               id="senha"
-              type="password"
               placeholder="Digite sua senha"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}

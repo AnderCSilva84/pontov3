@@ -8,7 +8,7 @@ test('classificação legada, autoria sem inferência e reconciliação de gasto
  assert.equal(nomeAutorLista({criadaPor:'anterior'}),'Autor não informado');
  assert.equal(nomeAutorLista({criadaPor:'a',criadaPorNome:'Anderson'}),'Criado por: Anderson');
  assert.equal(nomeAutorLista({origem:'listaCompras',criadaPor:'importador',criadaPorNome:'Importador'}),'Autor não informado');
- assert.deepEqual(gastosSeparados([{status:'finalizada',totalCentavos:100},{tipoCompra:'farmacia',status:'finalizada',totalCentavos:250},{tipoCompra:'farmacia',status:'anulada',totalCentavos:999},{status:'rascunho',totalCentavos:10000}]),{supermercado:100,farmacia:250,total:350});
+ assert.deepEqual(gastosSeparados([{status:'finalizada',totalCentavos:100},{tipoCompra:'farmacia',status:'finalizada',totalCentavos:250},{tipoCompra:'farmacia',status:'anulada',totalCentavos:999},{status:'rascunho',totalCentavos:10000}]),{supermercado:100,farmacia:250,material_construcao:0,oficina:0,pet:0,total:350});
 });
 test('PDF de gastos inclui classificações e somente valores realizados',async()=>{
  const logoData='data:image/png;base64,'+readFileSync('public/icon-192.png').toString('base64');

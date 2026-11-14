@@ -1,0 +1,43 @@
+const test = require('node:test'), assert = require('node:assert/strict');
+test('conclusão visual acompanha entradas manuais e notas nas cinco categorias sem status extra', {skip:!process.env.FIRESTORE_EMULATOR_HOST}, async t => {
+  const admin = require('../functions/node_modules/firebase-admin');
+  const app = admin.initializeApp({projectId:'demo-visual-'+Date.now()}), db=app.firestore();
+  t.after(()=>app.delete());
+  const {comprasOperacao}=require('../functions/compras.cjs');
+  const {compraConcluida}=await import('../src/utils/conclusaoCompra.js');
+  await db.doc('grupos/visual').set({ativo:true});
+  await db.doc('vinculosUsuarios/visual-admin').set({grupoId:'visual',ativo:true});
+  const p='grupos/visual/';
+  await db.doc(p+'users/visual-admin').set({role:'admin',ativo:true,nome:'Pessoa fictícia'});
+  await db.doc(p+'categoriasCompras/outros').set({ativo:true,nome:'Outros',ordem:1});
+  await db.doc(p+'supermercados/loja').set({ativo:true,nome:'Loja fictícia',filial:'Teste',cidade:'Teste'});
+  const op=(operacao,d)=>comprasOperacao.run({auth:{uid:'visual-admin'},data:{operacao,...d}});
+  const tipos=['supermercado','farmacia','material_construcao','oficina','pet'];
+  await op('salvarCategoriasCompras',{habilitadas:tipos,versao:0});
+  for(const [n,tipo] of tipos.entries()) {
+    await db.doc(p+'catalogoCompras/'+tipo).set({tiposCompra:[tipo],ativo:true,nome:'PRODUTO FICTÍCIO',categoriaId:'outros',apresentacao:'Embalagem',unidadeCompra:'un'});
+    await op('criar',{listaId:tipo,titulo:'Fictícia '+tipo,tipoCompra:tipo});
+    await op('adicionar',{listaId:tipo,produtoId:tipo,quantidadePlanejada:1});
+    await op('iniciar',{listaId:tipo});
+    const dados={listaId:tipo,itemId:tipo,versao:1,estado:'comprado',quantidadeComprada:1,precoUnitarioCentavos:100,supermercadoId:'loja'};
+    await assert.rejects(op('item',{...dados,precoUnitarioCentavos:0}));
+    const ref=db.doc(p+`comprasListas/${tipo}/itens/${tipo}`);
+    assert.equal(compraConcluida((await ref.get()).data()),false);
+    await op('item',dados);
+    const salvo=(await ref.get()).data();
+    assert.equal(compraConcluida(salvo,true),false);
+    assert.equal(compraConcluida(salvo),true);
+    assert.equal(Object.hasOwn(salvo,'concluidoVisual'),false);
+    await op('item',{...dados,versao:2,estado:'pendente'});
+    assert.equal(compraConcluida((await ref.get()).data()),false);
+    const f=require('./fixtures/cupom-pa.cjs')(String(980+n).padStart(9,'0'));
+    const r=await op('cupomPreparar',{tipoCompra:tipo,texto:f.texto.replaceAll('PRODUTO A',tipo.toUpperCase()+' PRODUTO A').replaceAll('PRODUTO B',tipo.toUpperCase()+' PRODUTO B')});
+    const itens=r.nota.itens.map(i=>({...i,descartar:false,novoConfirmado:true,nome:i.nome,categoriaId:'outros',apresentacao:i.unidadeCompra==='kg'?'A granel':'Embalagem'}));
+    await assert.rejects(op('cupomConfirmar',{rascunhoId:r.rascunhoId,supermercadoId:'loja',versaoIdentidade:1,itens:itens.map(i=>({...i,categoriaId:'ausente'}))}));
+    assert.equal((await db.doc(p+'comprasCupons/'+f.chave).get()).exists,false);
+    const result=await op('cupomConfirmar',{rascunhoId:r.rascunhoId,supermercadoId:'loja',versaoIdentidade:1,itens});
+    const importados=await db.collection(p+'comprasListas/'+result.listaId+'/itens').get();
+    assert.equal(importados.size,3);
+    assert.ok(importados.docs.every(d=>compraConcluida(d.data())));
+  }
+});

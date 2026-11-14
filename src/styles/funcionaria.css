@@ -89,23 +89,23 @@
 }
 
 .btn-verde {
-  background: linear-gradient(135deg, #4b8f67 0%, #78b58f 100%);
+  background: var(--accent);
 }
 
 .btn-laranja {
-  background: linear-gradient(135deg, #d18b38 0%, #ebb067 100%);
+  background: var(--accent);
 }
 
 .btn-azul {
-  background: linear-gradient(135deg, #447a93 0%, #71a6be 100%);
+  background: var(--accent);
 }
 
 .btn-roxo {
-  background: linear-gradient(135deg, #7c6f9c 0%, #aa98c6 100%);
+  background: var(--accent);
 }
 
 .btn-cinza {
-  background: linear-gradient(135deg, #7b807a 0%, #9ea39d 100%);
+  background: var(--accent);
 }
 
 .status-card,
@@ -125,7 +125,7 @@
   right: 18px;
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-page, var(--accent)), rgba(255, 255, 255, 0.9));
+  background: var(--bg-panel);
   opacity: 0.7;
 }
 
@@ -252,7 +252,7 @@
 .progresso-barra span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-page, #4f86ff) 0%, #8cc0ab 100%);
+  background: var(--accent);
   border-radius: 999px;
 }
 

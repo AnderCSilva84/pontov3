@@ -1,7 +1,8 @@
+import AvisosNovosProvider from './components/AvisosNovosProvider';
 import {SessaoContext} from './components/ui/SessaoContext';
 import NotificacoesAndroid from './components/NotificacoesAndroid';
 import RotaCarregamento from './components/RotaCarregamento';
-import {androidPush} from './services/pushNativo';
+import {androidPush as androidPushDisponivel} from './services/pushNativo';
 import { lazy, Suspense, useEffect, useState } from "react";
 import { observeAuth } from "./services/auth";
 import Ponto from "./pages/Ponto";
@@ -16,6 +17,8 @@ import {conectarCicloMobile} from './services/cicloMobile';
 import {ambiente} from './services/firebase';
 import {App as AppNativo} from '@capacitor/app';
 
+const androidPush = () => !ambiente.emuladores && androidPushDisponivel();
+
 const NoBolsoConnection=lazy(()=>import('./pages/NoBolsoConnection'));
 const CadastroGrupo=lazy(()=>import('./pages/CadastroGrupo'));
 const Conta=lazy(()=>import('./pages/Conta'));
@@ -24,11 +27,13 @@ const RecuperarSenha=lazy(()=>import('./pages/RecuperarSenha'));
 const MeusComprovantes=lazy(()=>import('./pages/MeusComprovantes'));
 const ListaCompras=lazy(()=>import('./pages/ListaCompras'));
 const Tarefas=lazy(()=>import('./pages/Tarefas'));
+const Avisos=lazy(()=>import('./pages/Avisos'));
 const Lembretes=lazy(()=>import('./pages/Lembretes'));
 const Admin=lazy(()=>import('./pages/Admin'));
 const Financeiro=lazy(()=>import('./pages/Financeiro'));
+const Alimentacao=lazy(()=>import('./pages/Alimentacao'));
 
-const ROTAS_VALIDAS = new Set(["/ponto", "/lista-compras", "/tarefas", "/lembretes", "/admin", "/admin/financeiro"]);
+const ROTAS_VALIDAS = new Set(["/ponto", "/alimentacao", "/lista-compras", "/tarefas", "/avisos", "/lembretes", "/admin", "/admin/financeiro"]);
 
 function normalizarRota(caminho) {
   if (!caminho || caminho === "/") return "/ponto";
@@ -106,6 +111,8 @@ function AppConteudo({ user }) {
     return <Ponto user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
+  if (rotaEfetiva === '/avisos') return <Avisos key={user.uid+':'+user.grupoId} user={user} onNavigate={navegarPara} />;
+  if (rotaEfetiva === '/alimentacao') return <Alimentacao user={user} onNavigate={navegarPara}/>;
   if (rotaEfetiva === '/lembretes') return <Lembretes key={user.uid} user={user} onNavigate={navegarPara} />;
   if (ehRotaCompras(rotaEfetiva)) {
     return <ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
@@ -133,5 +140,5 @@ export default function App() {
   useEffect(() => observeAuth(setUser), []);
   const chave = `${user?.uid || 'visitante'}:${user?.grupoId || 'legado'}`;
   const demo=user?.grupoId==='demo_play_ap1303_v1';
-  return <SessaoContext.Provider value={user}>{demo&&<aside className="demo-faixa" role="status"><strong>DEMONSTRAÇÃO · Dados fictícios</strong><button className="demo-acao" onClick={()=>{window.history.pushState({}, "", "/demonstracao");window.dispatchEvent(new PopStateEvent("popstate"));}}>Simular ponto sem GPS</button></aside>}{ambiente.teste && <div className="ambiente-teste" role="status">TESTE · {ambiente.destino}{nativo()?' · Offline nativo em validação':''}</div>}{user && recursosWeb() && !ambiente.teste && <NotificacoesPush key={chave} uid={user.uid} />}{androidPush() && <NotificacoesAndroid user={user} />}<RotaCarregamento key={chave}><Suspense fallback={<CarregandoGatinho />}><AppConteudo key={chave} user={user} /></Suspense></RotaCarregamento></SessaoContext.Provider>;
+  return <SessaoContext.Provider value={user}><AvisosNovosProvider key={chave} user={user}>{demo&&<aside className="demo-faixa" role="status"><strong>DEMONSTRAÇÃO · Dados fictícios</strong><button className="demo-acao" onClick={()=>{window.history.pushState({}, "", "/demonstracao");window.dispatchEvent(new PopStateEvent("popstate"));}}>Simular ponto sem GPS</button></aside>}{ambiente.teste && <div className="ambiente-teste" role="status">TESTE · {ambiente.destino}{nativo()?' · Offline nativo em validação':''}</div>}{user && recursosWeb() && !ambiente.teste && <NotificacoesPush key={chave} uid={user.uid} />}{androidPush() && <NotificacoesAndroid user={user} />}<RotaCarregamento key={chave}><Suspense fallback={<CarregandoGatinho />}><AppConteudo key={chave} user={user} /></Suspense></RotaCarregamento></AvisosNovosProvider></SessaoContext.Provider>;
 }
