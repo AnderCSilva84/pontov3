@@ -1,5 +1,9 @@
 # Acompanhamento ágil — Tá no Ponto
 
+## Preparação de homologação — 16/11/2026
+
+Roteiro27 do ponto Free preparado: identificar conta separada e grupo, conferir titularidade/cotas/filas, preparar dois funcionários/local, ativar somente esse grupo e executar checklist físico. Identificação da conta solicitada; nenhuma ativação ou escrita remota nesta preparação. #16 consultada e definida pelo titular como próxima frente após esta rodada, sem encerrar a pendência física da #9.
+
 ## Situação para retomada — 15/11/2026
 
 Retorno após rollout26: titular confirmou Compras/Tarefas/Lembretes/Gestão abrindo normalmente no Android e sessão preservada. Carregamento básico confirmado por relato; fluxos específicos/autorização/cotas/ponto/cobrança ainda pendentes. Próximo foco: cenário autenticado no grupo dedicado, sem alterar o principal ou ativar cobrança a partir desse retorno.
