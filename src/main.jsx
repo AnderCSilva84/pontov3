@@ -1,3 +1,4 @@
+import './styles/refino.css';
 import { StrictMode, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import "./styles/index.css";

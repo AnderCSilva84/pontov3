@@ -36,7 +36,7 @@ final class PushEstado {
   if("alimentacao".equals(d.optString("conteudo"))&&"tarefas".equals(canal)&&Arrays.asList("/tarefas","/alimentacao").contains(d.optString("rota"))){
    String titulo=d.optString("title","Hora da refeição"),texto=d.optString("body","");
    titulo=titulo.substring(0,Math.min(100,titulo.length()));texto=texto.substring(0,Math.min(300,texto.length()));
-   n.setContentTitle(titulo).setContentText(texto).setStyle(new NotificationCompat.BigTextStyle().bigText(texto));
+   n.setContentTitle(titulo).setContentText(texto).setSubText("Refeições").setColor(android.graphics.Color.rgb(21,128,61)).setCategory(NotificationCompat.CATEGORY_REMINDER).setAutoCancel(true).setStyle(new NotificationCompat.BigTextStyle().setBigContentTitle(titulo).bigText(texto).setSummaryText("Toque para ver a refeição"));
   }
   n.setContentIntent(intent(c,d,false));
   if(Arrays.asList("tarefa","tarefa_fixa","lembrete").contains(d.optString("tipo"))){

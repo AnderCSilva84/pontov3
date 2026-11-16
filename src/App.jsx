@@ -1,3 +1,4 @@
+import FeedbackAcao from './components/FeedbackAcao';
 import AcessoRecurso from './components/AcessoRecurso';
 import AvisosNovosProvider from './components/AvisosNovosProvider';
 import {SessaoContext} from './components/ui/SessaoContext';
@@ -145,5 +146,5 @@ export default function App() {
   useEffect(() => observeAuth(setUser), []);
   const chave = `${user?.uid || 'visitante'}:${user?.grupoId || 'legado'}`;
   const demo=user?.grupoId==='demo_play_ap1303_v1';
-  return <SessaoContext.Provider value={user}><AvisosNovosProvider key={chave} user={user}>{demo&&<aside className="demo-faixa" role="status"><strong>DEMONSTRAÇÃO · Dados fictícios</strong><button className="demo-acao" onClick={()=>{window.history.pushState({}, "", "/demonstracao");window.dispatchEvent(new PopStateEvent("popstate"));}}>Simular ponto sem GPS</button></aside>}{ambiente.teste && <div className="ambiente-teste" role="status">TESTE · {ambiente.destino}{nativo()?' · Offline nativo em validação':''}</div>}{user && recursosWeb() && !ambiente.teste && <NotificacoesPush key={chave} uid={user.uid} />}{androidPush() && <NotificacoesAndroid user={user} />}<RotaCarregamento key={chave}><Suspense fallback={<CarregandoGatinho />}><AppConteudo key={chave} user={user} /></Suspense></RotaCarregamento></AvisosNovosProvider></SessaoContext.Provider>;
+  return <SessaoContext.Provider value={user}><FeedbackAcao key={chave}/><AvisosNovosProvider key={chave} user={user}>{demo&&<aside className="demo-faixa" role="status"><strong>DEMONSTRAÇÃO · Dados fictícios</strong><button className="demo-acao" onClick={()=>{window.history.pushState({}, "", "/demonstracao");window.dispatchEvent(new PopStateEvent("popstate"));}}>Simular ponto sem GPS</button></aside>}{ambiente.teste && <div className="ambiente-teste" role="status">TESTE · {ambiente.destino}{nativo()?' · Offline nativo em validação':''}</div>}{user && recursosWeb() && !ambiente.teste && <NotificacoesPush key={chave} uid={user.uid} />}{androidPush() && <NotificacoesAndroid user={user} />}<RotaCarregamento key={chave}><Suspense fallback={<CarregandoGatinho />}><AppConteudo key={chave} user={user} /></Suspense></RotaCarregamento></AvisosNovosProvider></SessaoContext.Provider>;
 }

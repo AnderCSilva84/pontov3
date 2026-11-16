@@ -1,3 +1,5 @@
+import { avisarAcao } from '../utils/feedbackAcao';
+import IdentidadeFuncionario from '../components/IdentidadeFuncionario';
 import { operarEscritorio } from '../services/escritorio';
 import { cadastrarFuncionario } from '../services/funcionariosCadastro';
 import {adiantamentosDaCompetencia,somarMeses} from '../../functions/adiantamentos-calculos.mjs';
@@ -92,11 +94,12 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
     const sairFuncionarios = onSnapshot(collection(db, "funcionarios"), (snap) => {
       const lista = snap.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.ativo !== false).sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
       setFuncionarios(lista);
-      const solicitado = sessionStorage.getItem("funcionarioCadastroSelecionado");
+      let destino;try{destino=JSON.parse(sessionStorage.getItem("ap1303:cadastro-escritorio"));}catch{/* Sem atalho válido. */}
+      const solicitado = destino?.uid===user.uid&&destino.grupoId===(user.grupoId||"")?destino.id:null;
       if (solicitado && lista.some((item) => item.id === solicitado)) {
         setFuncionarioId(solicitado);
         setAba("cadastro");
-        sessionStorage.removeItem("funcionarioCadastroSelecionado");
+        sessionStorage.removeItem("ap1303:cadastro-escritorio");
       } else {
         setFuncionarioId((atual) => atual && lista.some((item) => item.id === atual) ? atual : (lista[0]?.id || ""));
       }
@@ -156,7 +159,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
   async function executar(acao, mensagem) {
     if (ocupado) return;
     setOcupado(true); setErro("");
-    try { await acao(); } catch (error) { console.error(error); setErro(error.code?.startsWith("functions/") && error.code !== "functions/internal" ? error.message : mensagem); } finally { setOcupado(false); }
+    try { await acao(); avisarAcao("Alteração confirmada com sucesso."); } catch (error) { console.error(error); setErro(error.code?.startsWith("functions/") && error.code !== "functions/internal" ? error.message : mensagem); } finally { setOcupado(false); }
   }
   function pagarFolha(item) {
     if (item.status !== "pronta_pagamento") return;
@@ -253,7 +256,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
   return <div className="page-bg admin-bg"><main className="page-shell admin-shell escritorio-shell">
     <PageHeader title="Escritório contábil" subtitle="Folha, pagamentos e comprovantes" back={() => onNavigate("/admin")} />
     <div className="card escritorio-toolbar"><label className="field"><span>Funcionário</span><select value={funcionarioId} disabled={ocupado} onChange={(e) => { if (alterada && !window.confirm("Há alterações não salvas. Deseja trocar de funcionária sem salvar?")) return; setCarregandoFolha(true); setFuncionarioId(e.target.value); }}><option value="">Selecione</option>{funcionarios.map((item) => <option key={item.id} value={item.id}>{item.nome || "Funcionário sem nome"}{item.filialId ? ` · ${filiais.find((f) => f.id === item.filialId)?.nome || "Filial"}` : ""}</option>)}</select></label><button type="button" className="btn btn-secondary" onClick={novoFuncionario} disabled={ocupado}>Novo funcionário</button><a className="btn btn-secondary" href={cadastro.esocialUrl || "https://login.esocial.gov.br/login.aspx"} target="_blank" rel="noreferrer">Abrir eSocial</a></div>
-    <nav className="escritorio-tabs">{[["folha","Folha"],["pagamentos","Avulsos"],["cadastro","Cadastro"],["filiais","Filiais"],["comprovantes","Comprovantes"]].map(([id,label]) => <button key={id} type="button" className={aba === id ? "active" : ""} onClick={() => setAba(id)}>{label}</button>)}</nav>
+    {funcionario&&<div className="cadastro-proximos-passos"><IdentidadeFuncionario funcionario={funcionario}/><p>Complete o cadastro e depois configure jornada, escala e locais de ponto.</p><button type="button" className="btn btn-secondary" onClick={()=>{sessionStorage.setItem("ap1303:configurar-funcionario",JSON.stringify({uid:user.uid,grupoId:user.grupoId||"",id:funcionarioId}));onNavigate("/admin");}}>Configurar jornada e locais</button></div>}<nav className="escritorio-tabs">{[["folha","Folha"],["pagamentos","Avulsos"],["cadastro","Cadastro"],["filiais","Filiais"],["comprovantes","Comprovantes"]].map(([id,label]) => <button key={id} type="button" className={aba === id ? "active" : ""} onClick={() => setAba(id)}>{label}</button>)}</nav>
     {erro && <p role="alert" className="mensagem erro">{erro}</p>}
 
     {aba === 'folha' && <section className="admin-section">

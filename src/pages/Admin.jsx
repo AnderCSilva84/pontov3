@@ -1,7 +1,8 @@
+import { jornadasParaExibicao, removerProgramacaoFutura } from '../utils/programacaoJornada';
+import { avisarAcao } from '../utils/feedbackAcao';
+import IdentidadeFuncionario from '../components/IdentidadeFuncionario';
 import { gerirAcesso } from '../services/gestaoAcessos';
 import { criarModeloJornada, validarModeloJornada, cargaNaData, jornadaNaData } from '../../functions/jornada.mjs';
-import CentralPrecosGestao from '../components/CentralPrecosGestao';
-import CategoriasComprasConfig from '../components/CategoriasComprasConfig';
 import { dataHoraExibicao } from '../utils/datasExibicao.js';
 import SenhaInput from '../components/SenhaInput';
 import {cuidadosDisponiveis} from '../utils/edicaoBuild';
@@ -15,7 +16,7 @@ import PontoRevisao from '../components/PontoRevisao';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { criarUsuario, excluirUsuario, login, logout } from "../services/auth";
 import { listarFuncionarios, buscarDiasPorPeriodo } from "../services/ponto";
-import { addDoc, getDocs, setDoc, updateDoc, getDoc, deleteDoc, query, where, serverTimestamp, documentId, limit, orderBy, startAfter } from 'firebase/firestore';
+import { addDoc, runTransaction, getDocs, setDoc, updateDoc, getDoc, deleteDoc, query, where, serverTimestamp, documentId, limit, orderBy, startAfter } from 'firebase/firestore';
 import { db } from "../services/firebase";
 import BottomNav from "../components/BottomNav";
 import {
@@ -312,7 +313,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   const [jornadaSabadoHoras, setJornadaSabadoHoras] = useState("0");
   const [escalaForm, setEscalaForm] = useState({});
   const [modeloJornada, setModeloJornada] = useState("");
-  const [vigenciaJornada, setVigenciaJornada] = useState("2026-12-01");
+  const [vigenciaJornada, setVigenciaJornada] = useState(dataKeyHoje);
   const [jornadaSalvando, setJornadaSalvando] = useState(false);
   const [jornadaErro, setJornadaErro] = useState("");
   const [jornadaSucesso, setJornadaSucesso] = useState("");
@@ -347,7 +348,10 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         const lista = await listarFuncionarios();
         if (!ativo) return;
         setFuncionarios(lista);
-        if (lista.length > 0) setFuncionarioSelecionado(lista[0].id);
+        if (lista.length > 0) {
+          let destino;try{destino=JSON.parse(sessionStorage.getItem("ap1303:configurar-funcionario"));}catch{/* Sem atalho pendente. */}
+          if(destino?.uid===user.uid&&destino.grupoId===(user.grupoId||"")&&lista.some(f=>f.id===destino.id)){setFuncionarioSelecionado(destino.id);setMostrarAdmPonto(true);sessionStorage.removeItem("ap1303:configurar-funcionario");}else setFuncionarioSelecionado(atual=>lista.some(f=>f.id===atual)?atual:lista[0].id);
+        }
       } catch {
         if (ativo) { setFuncionarios([]); setFuncionarioSelecionado(""); setAdminErro("Não foi possível carregar os funcionários. Confira a conexão e reabra a Gestão."); }
       }
@@ -360,6 +364,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     setModeloJornada("");
     const cadastroJornada = jornadaNaData(funcionarioAtual || {}, dataKeyHoje());
     const escalaAtual = cadastroJornada.escala || {};
+    setVigenciaJornada(dataKeyHoje());
     const proximaEscala = {};
 
     DIAS_ESCALA.forEach((dia) => {
@@ -564,6 +569,12 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     carregarLocais();
   }, [carregarLocais, podeGerenciarUsuarios]);
 
+  async function removerJornadaProgramada(vigencia) {
+    if(!funcionarioAtual||vigencia<=dataKeyHoje()||!window.confirm("Excluir esta programação futura? Os registros de ponto serão preservados."))return;
+    setJornadaSalvando(true);setJornadaErro("");
+    try{const id=funcionarioSelecionado,ref=doc(db,"funcionarios",id);const jornadas=await runTransaction(db,async tx=>{const atual=await tx.get(ref);if(!atual.exists())throw Error("Funcionário não encontrado.");const restantes=removerProgramacaoFutura(atual.data().jornadas,vigencia,dataKeyHoje());tx.update(ref,{jornadas:restantes});return restantes;});setFuncionarios(itens=>itens.map(f=>f.id===id?{...f,jornadas}:f));avisarAcao("Programação futura excluída.");}catch(e){setJornadaErro(e.message||"Não foi possível excluir a programação.");}finally{setJornadaSalvando(false);}
+  }
+
   async function handleCriarUsuario(event) {
     event.preventDefault();
     if (!podeGerenciarUsuarios) return;
@@ -581,7 +592,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     setUsuarioSucesso("");
 
     try {
-      await criarUsuario({
+      const criado = await criarUsuario({
         nome,
         email,
         senha: usuarioSenha,
@@ -593,11 +604,11 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       setUsuarioEmail("");
       setUsuarioSenha("");
       setUsuarioRole(ROLE_FUNCIONARIO);
-      setUsuarioSucesso("Usuario criado com sucesso.");
+      setUsuarioSucesso("Usuário criado. Complete o cadastro e configure sua jornada."); avisarAcao("Usuário criado com sucesso.");
       await carregarUsuarios();
       if (usuarioRole === ROLE_FUNCIONARIO) {
         const lista = await listarFuncionarios();
-        setFuncionarios(lista);
+        setFuncionarios(lista); if(criado?.funcionarioId){setFuncionarioSelecionado(criado.funcionarioId);setMostrarAdmPonto(true);}
       }
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao criar usuario:", error);
@@ -619,7 +630,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
   function abrirCadastroFuncionario(item) {
     const id = item?.funcionarioId || (normalizeRole(item?.role) === ROLE_FUNCIONARIO ? item?.id : "");
     if (!id) return;
-    sessionStorage.setItem("funcionarioCadastroSelecionado", id);
+    sessionStorage.setItem("ap1303:cadastro-escritorio", JSON.stringify({uid:user.uid,grupoId:user.grupoId||"",id}));
     onNavigate?.("/admin/financeiro");
   }
 
@@ -830,7 +841,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         criadoPor: user?.uid || user?.funcionarioId || null,
       });
 
-      setAjusteSucesso("Horário excluído.");
+      setAjusteSucesso("Horário excluído."); avisarAcao("Horário excluído.");
       if (ajusteData === dataKey) {
         limparCamposAjuste();
         setAjusteExiste(false);
@@ -1177,7 +1188,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             : func
         )
       );
-      setJornadaSucesso("Jornada atualizada com sucesso.");
+      setJornadaSucesso("Jornada atualizada com sucesso."); avisarAcao("Jornada salva.");
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao salvar jornada:", error);
       setJornadaErro("Nao foi possivel salvar a jornada.");
@@ -1211,7 +1222,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             : func
         )
       );
-      setLocaisSucesso("Locais autorizados atualizados com sucesso.");
+      setLocaisSucesso("Locais autorizados atualizados com sucesso."); avisarAcao("Locais autorizados salvos.");
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao salvar locais permitidos:", error);
       setLocaisErro("Nao foi possivel salvar os locais autorizados.");
@@ -1267,7 +1278,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       setLocalLongitude("");
       setLocalRaioMetros("150");
       setLocalAtivo(true);
-      setLocaisSucesso("Local criado com sucesso.");
+      setLocaisSucesso("Local criado com sucesso."); avisarAcao("Local cadastrado.");
       await carregarLocais();
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao criar local:", error);
@@ -1416,8 +1427,6 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     <div className="page-bg admin-bg">
       <main className="page-shell admin-shell">
         <PageHeader title="Gestão" subtitle="Usuários, acessos e escritório contábil." />
-        {user.role==='admin'&&<CentralPrecosGestao key={'central:'+user.uid+':'+user.grupoId}/>}
-        {user.role==='admin'&&<CategoriasComprasConfig key={user.uid+':'+user.grupoId} user={user}/>}
         {user.role==='admin'&&<PontoRevisao key={`${user.uid}:${user.grupoId||''}`} user={user} />}
 
         <p className="admin-ola">
@@ -1501,7 +1510,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                   {usuarios.filter(item => (!filtroPerfil || normalizeRole(item.role) === filtroPerfil) && `${item.nome || ""} ${item.email || ""}`.toLowerCase().includes(buscaUsuario.toLowerCase())).map((item) => (
                     <div key={item.id} className="tarefas-item">
                       <div>
-                        <strong>{item.nome || item.email || item.id}</strong><span className="ui-badge neutral">{item.ativo === false ? "Inativo" : "Ativo"}</span>
+                        <strong><IdentidadeFuncionario perfil={{...item,uid:item.uid||item.id}}>{item.nome || item.email || item.id}</IdentidadeFuncionario></strong><span className="ui-badge neutral">{item.ativo === false ? "Inativo" : "Ativo"}</span>
                         {cuidadosDisponiveis && item.babaCuidadora === true && <span className="tarefas-por">Babá/Cuidadora · Lembretes habilitados</span>}
                         {cuidadosDisponiveis && item.role === ROLE_ADMIN && item.lembretesHabilitados === true && <span className="tarefas-por">Lembretes habilitados · 24 horas</span>}
                         <span className="tarefas-por">{item.email || "-"}</span>
@@ -1625,7 +1634,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
             <span className="section-sub">Filtros e resumo</span>
           </div>
 
-          <div className="card filtros-card">
+          {funcionarioAtual&&<div className="cadastro-proximos-passos"><IdentidadeFuncionario funcionario={funcionarioAtual}/><button type="button" className="btn btn-primary" onClick={()=>{setMostrarAdmPonto(true);requestAnimationFrame(()=>document.getElementById("configuracao-jornada")?.scrollIntoView({behavior:"smooth",block:"start"}));}}>Configurar escala e locais</button><button type="button" className="btn btn-secondary" onClick={()=>{sessionStorage.setItem("ap1303:cadastro-escritorio",JSON.stringify({uid:user.uid,grupoId:user.grupoId||"",id:funcionarioSelecionado}));onNavigate("/admin/financeiro");}}>Completar cadastro</button></div>}<div className="card filtros-card">
             <label className="field">
               <span>Funcionário</span>
               <select
@@ -1774,7 +1783,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         {mostrarAdmPonto && podeGerenciarUsuarios && funcionarioAtual && (
           <section className="admin-section">
             <div className="section-header">
-              <h2>Jornada de trabalho</h2>
+              <h2 id="configuracao-jornada">Jornada de trabalho</h2><IdentidadeFuncionario funcionario={funcionarioAtual}/>
               <span className="section-sub">Defina horários e carga individual de cada dia para {nomeFuncionario}</span>
             </div>
 
@@ -1783,15 +1792,16 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                 <select value={modeloJornada} onChange={e => {
                   const valor = e.target.value; setModeloJornada(valor);
                   if (!valor) return;
+                  if(Number(valor)===42&&vigenciaJornada<"2026-12-01")setVigenciaJornada("2026-12-01");
                   const modelo = criarModeloJornada(Number(valor));
                   setJornadaSegSexHoras(String(modelo.cargaSegSexMin / 60));
                   setJornadaSabadoHoras(String(modelo.cargaSabadoMin / 60));
                   setEscalaForm(Object.fromEntries(Object.entries(modelo.escala).map(([dia, item]) => [dia, { ...item, ativo: item.cargaMin > 0, cargaHoras: String(item.cargaMin / 60) }])));
                 }}><option value="">Jornada personalizada atual</option><option value="44">44 horas — 6 dias</option><option value="42">42 horas — 5 dias e 2 folgas</option><option value="40">40 horas — 5 dias</option></select>
               </label>
-              {modeloJornada && <label className="field"><span>Vigência da modalidade</span><input type="date" value={vigenciaJornada} min={Number(modeloJornada) === 42 ? '2026-12-01' : undefined} onChange={e => setVigenciaJornada(e.target.value)} /></label>}
+              {modeloJornada && <label className="field"><span>Início da escala</span><input type="date" value={vigenciaJornada} min={Number(modeloJornada) === 42 ? '2026-12-01' : undefined} onChange={e => setVigenciaJornada(e.target.value)} /></label>}
               <p className="text-muted">42h: 8h24 por dia em cinco dias, disponível a partir de 01/12/2026. Ajuste os dias e horários antes de salvar. O intervalo não integra a carga.</p>
-              {funcionarioAtual.jornadas?.map(j => <p key={j.vigencia}>A partir de {formatarDataBr(j.vigencia)}: {j.horasSemanais}h semanais</p>)}
+              {jornadasParaExibicao(funcionarioAtual.jornadas).map(j => <div className="jornada-programada" key={j.vigencia}><span>A partir de {formatarDataBr(j.vigencia)} · <strong>{j.horasSemanais}h semanais</strong></span>{j.vigencia>dataKeyHoje()?<button type="button" className="btn btn-secondary" disabled={jornadaSalvando} onClick={()=>removerJornadaProgramada(j.vigencia)}>Excluir programação</button>:<small>Histórico preservado</small>}</div>)}
 
               <div className="jornada-cargas">
                 <label className="field">

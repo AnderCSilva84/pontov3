@@ -2,6 +2,8 @@
 
 ## Atualização: Free habilitado somente no grupo fictício
 
+**Conferência após o titular informar concluído:** seleção salva pelo titular e confirmada pelo handler para func1/func2; ambos aguardam ENTRADA, sem jornadas abertas. Entretanto,0locais cadastrados e0referências locaisPermitidos em ambos. Foi orientado concluir Cadastro local e Salvar locais autorizados antes das marcações. Não tratar o retorno geral como prova do cadastro GPS; nenhuma escrita remota nesta conferência.
+
 O titular confirmou todos os cadastros fictícios e escolheu func1/func2. Conferidos os nomes únicos ativos Teste func1/Teste func2 no grupo da conta informada. Em transação, revalidados titular, vínculo/perfil, administrador único, ausência de exclusão/assinatura/compras/entregas, gates desligados e ausência de jornada aberta. Atualizados somente assinaturasAtivas=true e revisaoConta no grupo exato. Nenhuma assinatura paga foi criada; terceiro funcionário e quatro contas preservados.
 
 Pós-conferência somente leitura: plano resolvido Free, terminal habilitado,3funcionários/4membros preservados,0jornadas abertas, seleção ainda não confirmada e gates desligados. Consulta interna ao handler não é prova de login/teste físico. Evidências locais rodada27-ativacao-free.json e rodada27-free-depois.json. A referência histórica abaixo de nenhuma ativação descreve o estado anterior a essa confirmação.

@@ -26,7 +26,7 @@ export default function AcessoRecurso({ user, recurso, onNavigate, children }) {
     return () => { atual = false; clearTimeout(timer); document.removeEventListener('visibilitychange', aoFocar); };
   }, [chave, tentativa, user?.uid]);
   if (!user?.uid) return <p role="status">Entre na sua conta para acessar este recurso.</p>;
-  if (consulta?.chave !== chave) return <p role="status">Conferindo disponibilidade do recurso…</p>;
+  if (consulta?.chave !== chave) return <section className="recurso-carregando" role="status" aria-live="polite"><span className="recurso-spinner" aria-hidden="true"/><div><strong>Preparando seu espaço</strong><p>Conferindo os recursos do seu plano…</p></div></section>;
   if (consulta.erro) return <section className="card"><p role="alert">Não foi possível confirmar a disponibilidade.</p><button className="btn btn-secondary" onClick={() => setTentativa(v => v + 1)}>Tentar novamente</button></section>;
   const dados = consulta.dados;
   const permitido = ['legado', 'transicao'].includes(dados?.modo)

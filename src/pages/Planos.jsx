@@ -29,22 +29,10 @@ export default function Planos({ user, onNavigate }) {
   const dados = consulta.dados;
   return <div className="page-bg"><main className="page-shell planos-shell">
     <PageHeader title="Planos" back={() => onNavigate('/conta')} />
-    <section className="card planos-introducao">
-      <span className="planos-eyebrow">Famílias e pequenos empregadores</span>
-      <h2>Organização para sua família ou equipe</h2>
-      <p>O ponto está incluído em todos os planos. No Free, até dois funcionários registram no aparelho controlado pelo titular.</p>
-      <p className="planos-aviso" role="status">Contratação em preparação · nenhuma cobrança será iniciada nesta tela.</p>
-      {android && <p>{loja?.estado === 'pronto' ? 'Disponibilidade e preços consultados na Google Play. A contratação será liberada após a preparação da loja.' : loja?.estado === 'indisponivel' ? 'Os planos ainda não estão disponíveis nesta instalação da Google Play.' : 'Os preços para Android serão confirmados pela Google Play.'}</p>}
-      {!user ? <p>Entre na sua conta para consultar o plano do grupo.</p> : <>
-        {consulta.estado === 'carregando' && <p role="status">Consultando seu grupo…</p>}
-        {consulta.estado === 'erro' && <><p role="alert">Não foi possível confirmar o plano do grupo. Seus acessos não foram alterados.</p><button className="btn btn-secondary" onClick={() => { setConsulta({ estado: 'carregando' }); setTentativa(v => v + 1); }}>Tentar novamente</button></>}
-        {dados && <p>{dados.modo === 'ativo' ? `Plano atual: ${dados.assinatura.direitos.nome}.` : 'Seu grupo mantém os acessos atuais durante a preparação dos planos.'}</p>}
-        {dados?.assinatura?.validoAte && <p>Acesso confirmado até {new Date(dados.assinatura.validoAte).toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })}.</p>}
-      </>}
-    </section>
+    <section className="planos-introducao planos-status"><p className="planos-aviso" role="status">Contratação em breve · nenhuma cobrança ativa nesta tela.</p>{consulta.estado==="carregando"&&<p role="status">Consultando plano…</p>}{consulta.estado==="erro"&&<button className="btn btn-secondary" onClick={()=>{setConsulta({estado:"carregando"});setTentativa(v=>v+1);}}>Tentar novamente</button>}{dados?.modo==="ativo"&&<p>Seu plano: <strong>{dados.assinatura.direitos.nome}</strong>{dados.assinatura.validoAte&&<> · até {new Date(dados.assinatura.validoAte).toLocaleDateString("pt-BR",{timeZone:"America/Fortaleza"})}</>}</p>}</section>
     <PlanosCatalogo android={android} loja={loja} planoAtual={dados?.modo === 'ativo' ? dados.assinatura?.plano : null} />
     {android && dados?.homologacaoPlayDisponivel && <HomologacaoPlay key={`${user.uid}:${user.grupoId}`} user={user} />}
     {dados?.homologacaoPlayDisponivel && <button className="btn btn-secondary" onClick={() => { setConsulta({estado:'carregando'});setTentativa(v=>v+1); }}>Atualizar consulta do plano</button>}
-    <section className="card"><h2>Renovação e cancelamento</h2><p>A oferta prevista é mensal, com renovação automática após contratação explícita. Cancelar interrompe a próxima renovação e mantém o período já pago. O histórico é preservado após a expiração.</p><p>Ao retornar ao Free, o titular seleciona até dois funcionários para novas entradas no aparelho sob seu controle. Jornadas já abertas poderão ser concluídas.</p></section>
+    <details className="card planos-condicoes"><summary>Renovação e cancelamento</summary><p>Renovação mensal automática após contratar. Ao cancelar, o acesso continua até o fim do período pago. Seu histórico é preservado.</p><p>No Free, selecione até dois funcionários para novas entradas. Jornadas abertas podem ser concluídas.</p></details>
   </main></div>;
 }

@@ -14,7 +14,7 @@ export default function PlanosCatalogo({ android = false, loja, planoAtual }) {
       <p className="planos-descricao">{descricoes[id]}</p>
       <p className={`planos-preco${android && id !== 'free' && !oferta ? ' planos-preco-indisponivel' : ''}`}>{id === 'free' ? 'Grátis' : android ? oferta?.preco || 'Indisponível na loja' : moeda(plano.precoCentavos)}<span>{id === 'free' ? 'Sem mensalidade' : 'por mês · por grupo'}</span></p>
       <p className="planos-capacidade"><Icon name="users" /><span>Até <strong>{plano.funcionarios} funcionários</strong></span></p>
-      <ul className="planos-recursos">{recursos.map(([incluido, texto]) => <li key={texto} className={incluido ? '' : 'planos-nao-incluido'}><span className="planos-marca" aria-hidden="true">{incluido ? <Icon name="check" /> : '−'}</span><span>{texto}{!incluido && <small>Não incluído</small>}</span></li>)}</ul>
+      <ul className="planos-recursos">{recursos.filter(([incluido])=>incluido).map(([incluido, texto]) => <li key={texto} className={incluido ? '' : 'planos-nao-incluido'}><span className="planos-marca" aria-hidden="true">{incluido ? <Icon name="check" /> : '−'}</span><span>{texto}{!incluido && <small>Não incluído</small>}</span></li>)}</ul>
       <dl className="planos-cotas">{[['listas', 'Listas abertas'], ['tarefas', 'Tarefas pendentes'], ['lembretes', 'Lembretes ativos']].map(([chave, nome]) => <div key={chave}><dt>{nome}</dt><dd>{plano[chave]}</dd></div>)}</dl>
       {id === 'free' && <p className="planos-nota">Ponto no aparelho controlado pelo titular.</p>}
     </article>;

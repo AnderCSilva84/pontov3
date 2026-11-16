@@ -1,3 +1,5 @@
+import ListaHistorico from '../components/ListaHistorico';
+import IdentidadeFuncionario from '../components/IdentidadeFuncionario';
 import { PdfAcoes } from '../components/PdfAcoes';
 import { registrarPdf, validarPdf } from '../services/pdfArquivos';
 import { useEffect, useState } from 'react';
@@ -20,7 +22,7 @@ export default function HistoricoContabil({ user, onNavigate }) {
     const fontes = [['financeiro', 'competenciaMes'], ['folhasPagamento', 'competencia'], ['documentosTrabalhistas', 'mesReferencia']];
     Promise.all(fontes.map(async ([nome, campo]) => {
       const snap = await getDocs(mes === 'todas' ? collection(db, nome) : query(collection(db, nome), where(campo, '==', mes)));
-      return [nome, snap.docs.map(d => ({ ...d.data(), id: d.id }))];
+      return [nome, snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>String(b.dataPagamento||b.competencia||b.mesReferencia||"").localeCompare(String(a.dataPagamento||a.competencia||a.mesReferencia||""))||a.id.localeCompare(b.id))];
     })).then(r => { if (atual) setConsulta({ chave, dados: Object.fromEntries(r) }); })
       .catch(() => { if (atual) setConsulta({ chave, erro: true }); });
     return () => { atual = false; };
@@ -49,9 +51,9 @@ export default function HistoricoContabil({ user, onNavigate }) {
   return <div className="page-bg"><main className="page-shell"><PageHeader title="Histórico contábil" back={() => onNavigate('/admin')} />
     <section className="card"><p>Consulta dos registros existentes, sem criar ou alterar lançamentos. Disponível também após a expiração do plano.</p><label className="field">Competência<input type="month" value={mes === 'todas' ? '' : mes} onChange={e => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)) setMes(e.target.value); }} /></label><button className="btn btn-secondary" disabled={!dados || gerando} onClick={exportar}>{gerando ? 'Gerando PDF…' : 'Exportar histórico em PDF'}</button><button className="btn btn-secondary" onClick={() => setMes('todas')}>Consultar todo o histórico</button>{erroArquivo && <p role="alert">{erroArquivo}</p>}{pdf?.chave === chave && <PdfAcoes arquivo={pdf.arquivo} url={pdf.url} nome={pdf.nome} onErro={setErroArquivo} />}</section>
     {consulta?.chave === chave && consulta.erro ? <section className="card"><p role="alert">Não foi possível consultar o histórico.</p><button className="btn btn-secondary" onClick={() => setTentativa(v => v + 1)}>Tentar novamente</button></section> : !dados ? <p role="status">Consultando registros…</p> : <>
-      <section className="card"><h2>Pagamentos ({dados.financeiro.length})</h2>{dados.financeiro.map(r => <article key={r.id}><h3>{r.funcionarioNome || 'Funcionário'} · {r.tipoLabel || r.tipo}</h3><p>{r.dataPagamento} · {moeda(r.valorLiquido ?? r.valor)} · {r.descricao}</p></article>)}</section>
-      <section className="card"><h2>Folhas ({dados.folhasPagamento.length})</h2>{dados.folhasPagamento.map(r => <article key={r.id}><h3>{r.funcionarioNome || 'Funcionário'} · {r.competencia}</h3><p>{r.status} · Líquido: {moeda(r.liquido)}</p></article>)}</section>
-      <section className="card"><h2>Documentos ({dados.documentosTrabalhistas.length})</h2>{dados.documentosTrabalhistas.map(r => <article key={r.id}><h3>{r.funcionarioNome || 'Funcionário'} · {r.titulo}</h3>{urlComprovante(r.url) && <ComprovanteLink url={urlComprovante(r.url)} onErro={setErroArquivo}>Abrir documento</ComprovanteLink>}</article>)}</section>
+      <ListaHistorico key={chave+":pagamentos"} titulo="Pagamentos" registros={dados.financeiro}>{r => <article key={r.id}><h3><IdentidadeFuncionario funcionario={{nome:r.funcionarioNome||"Funcionário",fotoUrl:r.fotoUrl}}/> · {r.tipoLabel || r.tipo}</h3><p>{r.dataPagamento} · {moeda(r.valorLiquido ?? r.valor)} · {r.descricao}</p></article>}</ListaHistorico>
+      <ListaHistorico key={chave+":folhas"} titulo="Folhas" registros={dados.folhasPagamento}>{r => <article key={r.id}><h3><IdentidadeFuncionario funcionario={{nome:r.funcionarioNome||"Funcionário",fotoUrl:r.fotoUrl}}/> · {r.competencia}</h3><p>{r.status} · Líquido: {moeda(r.liquido)}</p></article>}</ListaHistorico>
+      <ListaHistorico key={chave+":documentos"} titulo="Documentos" registros={dados.documentosTrabalhistas}>{r => <article key={r.id}><h3><IdentidadeFuncionario funcionario={{nome:r.funcionarioNome||"Funcionário",fotoUrl:r.fotoUrl}}/> · {r.titulo}</h3>{urlComprovante(r.url) && <ComprovanteLink url={urlComprovante(r.url)} onErro={setErroArquivo}>Abrir documento</ComprovanteLink>}</article>}</ListaHistorico>
     </>}
   </main><BottomNav user={user} activePath="/admin" onNavigate={onNavigate} /></div>;
 }
