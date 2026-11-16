@@ -1,5 +1,15 @@
 # Homologação física do ponto Free — preparação, 16/11/2026
 
+## Atualização: Free habilitado somente no grupo fictício
+
+O titular confirmou todos os cadastros fictícios e escolheu func1/func2. Conferidos os nomes únicos ativos Teste func1/Teste func2 no grupo da conta informada. Em transação, revalidados titular, vínculo/perfil, administrador único, ausência de exclusão/assinatura/compras/entregas, gates desligados e ausência de jornada aberta. Atualizados somente assinaturasAtivas=true e revisaoConta no grupo exato. Nenhuma assinatura paga foi criada; terceiro funcionário e quatro contas preservados.
+
+Pós-conferência somente leitura: plano resolvido Free, terminal habilitado,3funcionários/4membros preservados,0jornadas abertas, seleção ainda não confirmada e gates desligados. Consulta interna ao handler não é prova de login/teste físico. Evidências locais rodada27-ativacao-free.json e rodada27-free-depois.json. A referência histórica abaixo de nenhuma ativação descreve o estado anterior a essa confirmação.
+
+**Passos no Android, pendentes:** entrar na conta separada; Gestão → Ponto, ajustes e locais; selecionar funcionário e cadastrar local fictício de teste com posição real usando Usar minha localizacao atual, raio adequado e Local ativo para validacao; autorizar esse local em Teste func1 e Teste func2 e salvar. Não publicar coordenadas no chat/Projects. No terminal do titular, abrir Funcionários autorizados para novas entradas, marcar apenas os dois e Confirmar seleção. Não arquivar Teste func3. Só então realizar sequência de marcações com intervalo e conferir resultado no backend.
+
+O excesso de cadastro é intencionalmente preservado: não cria direito de iniciar jornada para o terceiro. Seleção do terminal limita novas entradas a dois; criação de novos cadastros continua bloqueada enquanto o uso excede a cota. Os demais membros deixam de ter acesso operacional compartilhado no Free; titular permanece autorizado. Isso ocorre só na fixture confirmada pelo titular, não no grupo principal ou no antigo demo_play_ap1303_v1.
+
 Fonte: ponto-titular.cjs e PontoTitular.jsx já publicados na rodada26/Android interno7. Esta rodada prepara o cenário e os critérios; testes físicos e ativação continuam pendentes da identificação da conta separada.
 
 **Conferência da conta recebida nesta rodada:** Auth ativo, vínculo ativo, grupo próprio, titular confirmado com role admin, sem perfil legado. Inventário somente leitura:3funcionários ativos (Free permite2),4membros,0listas/tarefas/lembretes,0jornadas abertas,0locais; sem documento de assinatura, compra ou entrega de assinatura. Gates privados desligados. UID/grupo e detalhes ficam apenas em output/rodada27-conta.json e rodada27-inventario-antes.json.

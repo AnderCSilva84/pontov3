@@ -2,7 +2,7 @@
 
 Abrir `ta-no-ponto.code-workspace` na raiz. Este arquivo é o ponto de retomada atual; os roteiros datados em `mobile/` preservam a história e podem descrever estados já superados.
 
-**Preparação de16/11:** [checklist do ponto Free](mobile/27-homologacao-ponto-free.md) pronto. Conta separada identificada e conferida por leitura: titular ativo, grupo próprio,3funcionários/4membros/0locais, sem assinatura/compra/entrega e gates desligados. Aguarda confirmação de dados fictícios, escolha de dois funcionários e configuração do local; não arquivar o excedente automaticamente. Nenhuma ativação/escrita remota. Após esta rodada, o titular priorizou **#16 — Melhorar visual e fluxo**. Manter homologação física da #9 pendente até resultados reais.
+**Homologação de16/11:** [roteiro Free](mobile/27-homologacao-ponto-free.md). Titular confirmou fixture e escolheu func1/func2. Regime Free habilitado transacionalmente somente no grupo próprio da conta de teste; terminal habilitado,3funcionários/4membros preservados, gates desligados. Seleção deve ser confirmada no Android; local/GPS e marcações físicas ainda pendentes. Não arquivar o terceiro automaticamente. Após esta rodada, o titular priorizou **#16 — Melhorar visual e fluxo**. Manter homologação física da #9 pendente até resultados reais.
 
 **Rodada mais recente:** [publicação coordenada concluída](mobile/26-publicacao-functions-regras.md). **42 Functions e firestore.rules do commit681ac8a implantados**. 30 callables recusam sem autenticação; 20 Functions fora do lote preservadas. Regras remotas iguais ao arquivo versionado. Gates desligados e grupo dedicado em transição. Próximo passo: homologação autenticada/funcional no Android e grupo dedicado. Sem push, nova publicação PWA/Android ou cobrança.
 
@@ -21,7 +21,7 @@ Guardas de noBolsoConsulta/comprasEstimativa/comprasRelatorio e gestão privada 
 | Backend | **42 Functions do lote e regras comerciais implantadas**, com verificações pós-deploy aprovadas; homologação autenticada pendente |
 | Google Play | 3 produtos/planos-base em rascunho. RTDN configurado e teste pelo Console recebido pelo backend |
 | Cobrança | Contratação nativa desabilitada; backend aceita entrega controlada de compras de TESTE, sob gates ainda desligados |
-| Grupos | Preservados em transição. Grupo dedicado `demo_play_ap1303_v1` não foi ativado comercialmente |
+| Grupos | Principal e antigo `demo_play_ap1303_v1` em transição; somente o grupo próprio da conta fictícia confirmada foi habilitado no Free para homologação27 |
 | Mercado Pago | Aplicação/contas de teste preparadas; integração, segredos, checkout, webhook e ciclo completo pendentes |
 | Criador | Concessão Diamante solicitada na #14, ainda não implementada |
 
