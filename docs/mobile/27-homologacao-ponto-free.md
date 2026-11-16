@@ -2,6 +2,10 @@
 
 Fonte: ponto-titular.cjs e PontoTitular.jsx já publicados na rodada26/Android interno7. Esta rodada prepara o cenário e os critérios; testes físicos e ativação continuam pendentes da identificação da conta separada.
 
+**Conferência da conta recebida nesta rodada:** Auth ativo, vínculo ativo, grupo próprio, titular confirmado com role admin, sem perfil legado. Inventário somente leitura:3funcionários ativos (Free permite2),4membros,0listas/tarefas/lembretes,0jornadas abertas,0locais; sem documento de assinatura, compra ou entrega de assinatura. Gates privados desligados. UID/grupo e detalhes ficam apenas em output/rodada27-conta.json e rodada27-inventario-antes.json.
+
+Foi solicitado confirmar que todos os cadastros são fictícios e indicar os dois funcionários do ensaio. Não arquivar/excluir o terceiro nem modificar vínculos automaticamente para caber na cota. Até esse retorno e definição do local, nenhuma ativação/escrita remota foi executada. O excesso pode ser aproveitado em teste específico de preservação pós-redução, mas deve ser registrado explicitamente; não alegar cenário inicial sem excedentes.
+
 ## Identificação antes de qualquer alteração
 
 O titular informou que criaria uma conta separada. Foi solicitado e-mail ou UID, sem senha. Não presumir que a conta foi criada nem que pertence ao grupo demo_play_ap1303_v1. O cadastro criarGrupo usa g_UID; um usuário novo pode criar outro grupo de teste. Não transferir a titularidade do grupo antigo nem trocar vínculo para encaixar a conta em uma fixture.

@@ -2,7 +2,7 @@
 
 Abrir `ta-no-ponto.code-workspace` na raiz. Este arquivo é o ponto de retomada atual; os roteiros datados em `mobile/` preservam a história e podem descrever estados já superados.
 
-**Preparação de16/11:** [checklist do ponto Free](mobile/27-homologacao-ponto-free.md) pronto, baseado no código publicado. Aguarda identificação da conta separada (e-mail/UID, nunca senha) para conferir grupo/titular e preparar o ensaio; não houve ativação nesta preparação. Após esta rodada, o titular priorizou **#16 — Melhorar visual e fluxo**. Manter homologação física da #9 pendente até resultados reais.
+**Preparação de16/11:** [checklist do ponto Free](mobile/27-homologacao-ponto-free.md) pronto. Conta separada identificada e conferida por leitura: titular ativo, grupo próprio,3funcionários/4membros/0locais, sem assinatura/compra/entrega e gates desligados. Aguarda confirmação de dados fictícios, escolha de dois funcionários e configuração do local; não arquivar o excedente automaticamente. Nenhuma ativação/escrita remota. Após esta rodada, o titular priorizou **#16 — Melhorar visual e fluxo**. Manter homologação física da #9 pendente até resultados reais.
 
 **Rodada mais recente:** [publicação coordenada concluída](mobile/26-publicacao-functions-regras.md). **42 Functions e firestore.rules do commit681ac8a implantados**. 30 callables recusam sem autenticação; 20 Functions fora do lote preservadas. Regras remotas iguais ao arquivo versionado. Gates desligados e grupo dedicado em transição. Próximo passo: homologação autenticada/funcional no Android e grupo dedicado. Sem push, nova publicação PWA/Android ou cobrança.
 

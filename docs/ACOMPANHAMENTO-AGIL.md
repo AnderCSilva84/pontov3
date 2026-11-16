@@ -2,6 +2,8 @@
 
 ## Preparação de homologação — 16/11/2026
 
+Conta de teste posteriormente informada e conferida por leitura: ativa e titular de grupo próprio,3funcionários ativos/4membros/0locais, sem cobrança/assinatura/entrega, gates desligados. Solicitada confirmação de cadastros fictícios e seleção dos dois funcionários; excesso será preservado. Sem ativação ou escrita remota até resolver cenário/local. Detalhes de identificação apenas em evidência local ignorada.
+
 Roteiro27 do ponto Free preparado: identificar conta separada e grupo, conferir titularidade/cotas/filas, preparar dois funcionários/local, ativar somente esse grupo e executar checklist físico. Identificação da conta solicitada; nenhuma ativação ou escrita remota nesta preparação. #16 consultada e definida pelo titular como próxima frente após esta rodada, sem encerrar a pendência física da #9.
 
 ## Situação para retomada — 15/11/2026
