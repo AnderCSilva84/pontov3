@@ -4,6 +4,7 @@ const { bancoDoUsuario } = require('./grupos-contexto.cjs');
 const { calcularRelatorios } = require('./compras-dominio.cjs');
 const { compararProduto } = require('./compras-api-dominio.cjs');
 const { catalogoProdutos } = require('./no-bolso-product-catalog.cjs');
+const { exigirConsultaCompartilhada } = require('./compartilhamento.cjs');
 
 // Entrada de capacidade mínima. Nenhum comando de vínculo, compra ou financeiro é despachado aqui.
 async function consultarNoBolso(raiz, request, agora = Date.now()) {
@@ -19,6 +20,7 @@ async function consultarNoBolso(raiz, request, agora = Date.now()) {
     const perfil = (await db.doc(`users/${request.auth.uid}`).get()).data();
     if (!perfil || perfil.ativo === false) throw new HttpsError('permission-denied', 'Acesso não autorizado.');
   }
+  await exigirConsultaCompartilhada(db, request.auth.uid);
   const meta = { versao: 1, modo: 'consulta', moeda: 'BRL', consultadoEm: new Date(agora).toISOString(), periodoDias: dias, aviso: 'Histórico de preços registrados; não garante preço atual ou promoção vigente.' };
   if (dados.consulta === 'status') return { ...meta, allowed: true, consultas: ['rankings', 'produto'] };
   const snap = await db.collection('comprasPrecos').where('compradoEm', '>=', new Date(agora - dias * 86400000)).where('compradoEm', '<=', new Date(agora)).orderBy('compradoEm').limit(5001).get();
@@ -27,6 +29,7 @@ async function consultarNoBolso(raiz, request, agora = Date.now()) {
     const p = d.data();
     return { id: d.id, produtoId: p.produtoId, nomeSnapshot: p.nomeSnapshot, marca: p.marca || '', apresentacao: p.apresentacao || '', unidadeCompra: p.unidadeCompra, supermercadoId: p.supermercadoId, supermercadoNome: p.supermercadoNome, quantidadeComprada: p.quantidadeComprada, precoUnitarioCentavos: p.precoUnitarioCentavos, compradoEmMs: p.compradoEm.toMillis() };
   });
+  await exigirConsultaCompartilhada(db, request.auth.uid);
   return { ...meta, ...(dados.consulta === 'rankings' ? { produtos: catalogoProdutos(registros), rankings: calcularRelatorios(registros) } : { ofertas: compararProduto(registros, dados.produtoId) }) };
 }
 module.exports = { consultarNoBolso };

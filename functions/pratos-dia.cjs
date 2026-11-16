@@ -1,3 +1,4 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
 const {HttpsError}=require('firebase-functions/v2/https');
 const {FieldValue}=require('firebase-admin/firestore');
 const falha=(c,m)=>{throw new HttpsError(c,m);};
@@ -20,6 +21,7 @@ async function operarPratos(db,request){
  const diaAtual=diaPrato();
  const uid=request.auth?.uid,d=request.data||{};if(!uid)falha('unauthenticated','Entre no app.');
  return db.runTransaction(async tx=>{
+    await exigirOperacaoCompartilhada(tx, db, uid);
   const perfil=(await tx.get(db.doc('users/'+uid))).data();
   if(!perfil||perfil.ativo===false||!['admin','funcionario'].includes(perfil.role))falha('permission-denied','Acesso não autorizado aos pratos do dia.');
   const admin=perfil.role==='admin';

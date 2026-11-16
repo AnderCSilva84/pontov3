@@ -3,6 +3,7 @@ const { bancoDoUsuario } = require('./grupos-contexto.cjs');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { Timestamp } = require('firebase-admin/firestore');
 const { resumirPreco } = require('./compras-estimativa-dominio.cjs');
+const { exigirConsultaCompartilhada } = require('./compartilhamento.cjs');
 
 async function estimarCompras(db, request, agora = Date.now()) {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Entre no app para consultar a estimativa.');
@@ -10,6 +11,7 @@ async function estimarCompras(db, request, agora = Date.now()) {
   if (!perfil || perfil.ativo === false) throw new HttpsError('permission-denied', 'Acesso não autorizado.');
   const listaId = request.data?.listaId;
   if (typeof listaId !== 'string' || !/^[\w-]{1,128}$/.test(listaId)) throw new HttpsError('invalid-argument', 'Lista inválida.');
+  await exigirConsultaCompartilhada(db, request.auth.uid);
   const lista = db.doc(`comprasListas/${listaId}`);
   const listaSnapshot=await lista.get();
   if (!listaSnapshot.exists) throw new HttpsError('not-found', 'Lista não encontrada.');
@@ -24,6 +26,7 @@ async function estimarCompras(db, request, agora = Date.now()) {
     const snap = await consultas.get(chave);
     referencias[doc.id] = resumirPreco(snap.docs.filter(d=>tipoCompra(d.data())===tipoCompra(listaSnapshot.data())).map(d => ({ ...d.data(), id: d.id, compradoEmMs: d.data().compradoEm?.toMillis() })), item, agora);
   }));
+  await exigirConsultaCompartilhada(db, request.auth.uid);
   return { referencias, consultadoEmMs: agora };
 }
 module.exports = { estimarCompras, criarEstimativaCompras: ({ admin }) => ({ comprasEstimativa: onCall({ timeoutSeconds: 60 }, async request => estimarCompras(await bancoDoUsuario(admin.firestore(), request.auth?.uid), request)) }) };

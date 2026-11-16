@@ -14,4 +14,10 @@ As modalidades são gravadas em `funcionarios.jornadas`, com snapshots completos
 
 O módulo compartilhado `functions/jornada.mjs` resolve a carga por data para Gestão, Ponto, metas mensais, banco legado, fechamento no servidor, revisão, ajustes e lembretes. PWA e Capacitor usam a mesma implementação React. O runtime Node 24 das Functions permite carregar esse módulo ESM nos handlers CommonJS.
 
-Validação: suíte completa com 334 testes aprovados e 57 ignorados por condições de ambiente; lint dos arquivos alterados e builds web/mobile aprovados. Não foi gerado APK/AAB nem feita publicação. A distribuição exige publicar o frontend, as Functions alteradas e uma nova versão dos assets do app.
+## Revisão de encerramento técnico — 14/11/2026
+
+Oito testes dedicados aprovados: modelos 44/42/40, datas e modalidades inválidas, mudança de vigência, duas folgas, redistribuição dos dias, fechamento e saldo em folga. Corrigida validação de calendário antes da conversão ISO, evitando interromper o formulário com data inexistente. Suíte geral: 370 aprovados, 59 ignorados, nenhuma falha; lint e build web aprovados.
+
+O AAB 6 já gerado em `output/Ta-no-Ponto-6-1.0.0-Billing.aab` contém, no asset Admin, as modalidades 44/42/40 e a vigência `2026-12-01`, conferidas diretamente no ZIP. Ele está no teste interno conforme `mobile/07-aab-billing-teste-interno.md`. A correção defensiva de calendário desta revisão é posterior ao AAB 6 e deverá entrar na candidata completa. Não foi gerado outro binário nesta revisão.
+
+A publicação do PWA e das Functions compatíveis permanece pendente, vinculada à candidata completa da #7 com assinaturas (#9), conforme a decisão do titular. Não marcar a #6 concluída enquanto esse critério não tiver evidência. Não houve deploy, alteração de jornada real ou migração automática de funcionários nesta revisão. A data de dezembro é requisito configurado do produto, sem afirmar mudança legal geral.

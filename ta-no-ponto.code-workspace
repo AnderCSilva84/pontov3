@@ -1,0 +1,62 @@
+{
+  "folders": [{ "name": "Tá no Ponto", "path": "." }],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.gradle": true,
+      "android/**/build": true,
+      "ios/App/Pods": true,
+      "dist": true,
+      "dist-android-release": true,
+      "**/*.log": true,
+      "**/__pycache__": true
+    },
+    "search.exclude": {
+      "**/node_modules/**": true,
+      "**/.gradle/**": true,
+      "android/**/build/**": true,
+      "android/app/src/release/assets/**": true,
+      "ios/App/Pods/**": true,
+      "output/**": true,
+      "tmp/**": true,
+      "dist/**": true,
+      "dist-android-release/**": true
+    },
+    "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/.gradle/**": true,
+      "**/output/**": true,
+      "**/dist-android-release/**": true
+    }
+  },
+  "extensions": { "recommendations": ["dbaeumer.vscode-eslint"] },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      { "label": "Web: desenvolvimento com emuladores", "type": "npm", "script": "dev:emuladores", "isBackground": true, "problemMatcher": [] },
+      { "label": "Verificar: lint", "type": "npm", "script": "lint", "problemMatcher": [] },
+      { "label": "Verificar: testes gerais", "type": "npm", "script": "test", "problemMatcher": [] },
+      { "label": "Verificar: build web", "type": "npm", "script": "build", "group": { "kind": "build", "isDefault": true }, "problemMatcher": [] },
+      {
+        "label": "Emuladores: iniciar ambiente local",
+        "type": "shell", "command": "firebase",
+        "args": ["emulators:start", "--project", "demo-ap1303", "--config", "firebase.compras-emulator.json", "--only", "firestore,auth,functions"],
+        "isBackground": true, "problemMatcher": [],
+        "windows": { "options": { "env": {
+          "JAVA_HOME": "${env:ProgramFiles}/Android/Android Studio/jbr",
+          "PATH": "${env:ProgramFiles}/Android/Android Studio/jbr/bin;${env:PATH}"
+        } } }
+      },
+      {
+        "label": "Assinaturas: integração local",
+        "type": "shell", "command": "firebase",
+        "args": ["emulators:exec", "--project", "demo-ap1303", "--config", "firebase.compras-emulator.json", "--only", "firestore,auth", "node --test tests/assinaturas-entrega-migracao-emulador.test.cjs tests/ponto-titular-emulador.test.cjs tests/assinaturas-emulador.test.cjs tests/conta-emulador.test.cjs"],
+        "problemMatcher": [],
+        "windows": { "options": { "env": {
+          "JAVA_HOME": "${env:ProgramFiles}/Android/Android Studio/jbr",
+          "PATH": "${env:ProgramFiles}/Android/Android Studio/jbr/bin;${env:PATH}"
+        } } }
+      }
+    ]
+  }
+}

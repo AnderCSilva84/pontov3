@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(CameraQrPlugin.class);
         registerPlugin(PdfArquivosPlugin.class);
         registerPlugin(PushNativoPlugin.class);
+        registerPlugin(PlayBillingPlugin.class);
         super.onCreate(savedInstanceState);
         // Somente WebView Android. Não altera o zoom acessível do PWA nem textZoom/fontScale.
         WebSettings settings = getBridge().getWebView().getSettings();

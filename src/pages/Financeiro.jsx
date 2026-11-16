@@ -1,3 +1,5 @@
+import { operarEscritorio } from '../services/escritorio';
+import { cadastrarFuncionario } from '../services/funcionariosCadastro';
 import {adiantamentosDaCompetencia,somarMeses} from '../../functions/adiantamentos-calculos.mjs';
 import {ParcelamentoCampos,ParcelasNaFolha,PlanosAdiantamentos} from '../components/Adiantamentos';
 import { dataExibicao } from '../utils/datasExibicao.js';
@@ -10,8 +12,8 @@ import CalculoPagamentoEspecial from '../components/CalculoPagamentoEspecial';
 import { especialInicial } from '../utils/pagamentoEspecial';
 import { PageHeader, Badge, Steps, FinancialSummary, Icon } from '../components/ui';
 import { salvarFolhaPagamento } from '../services/folhaPagamento';
-import { useEffect, useMemo, useState } from "react";
-import { addDoc, deleteDoc, onSnapshot, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { onSnapshot, getDoc } from 'firebase/firestore';
 import { criarLancamentoFinanceiro, excluirLancamentoFinanceiro, observarLancamentosFinanceiros, cancelarParcelasAdiantamento } from "../services/financeiro";
 import { calcularBancoHorasMes } from "../services/ponto";
 import { db } from "../services/firebase";
@@ -20,6 +22,7 @@ import { normalizeRole, ROLE_ADMIN } from "../utils/roles";
 import { agruparComprovantes, nomeMesComprovante, urlComprovante, destinosCompartilhamento, compartilharPdfNativo } from "../utils/comprovantes";
 import "../styles/admin.css";
 import "../styles/nav.css";
+import "../styles/escritorio.css";
 
 const TIPOS = { transporte: "Transporte", salario: "Salário", vale: "Vale", adiantamento: "Adiantamento de salário", decimo_terceiro: "13º salário", ferias: "Férias", rescisao: "Rescisão" };
 const hoje = () => new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
@@ -34,6 +37,14 @@ const filialInicial = () => ({ nome: "", cnpj: "", telefone: "", endereco: "", c
 
 export default function Financeiro({ user, onNavigate, rotaAtual }) {
   const admin = normalizeRole(user?.role) === ROLE_ADMIN;
+  const novoFuncionarioId = useRef(null), tentativasEscritorio = useRef({});
+  async function criarRegistroEscritorio(operacao, dados) {
+    const chave = JSON.stringify([operacao, dados]);
+    const id = tentativasEscritorio.current[chave] ||= crypto.randomUUID();
+    const resultado = await operarEscritorio(operacao, id, dados);
+    delete tentativasEscritorio.current[chave];
+    return resultado;
+  }
   const [etapaFolha, setEtapaFolha] = useState(0);
   const [aba, setAba] = useState("folha");
   const [funcionarios, setFuncionarios] = useState([]);
@@ -168,20 +179,22 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
     event.preventDefault();
     executar(async () => {
       if (!funcionarioId) throw new Error("funcionario");
-      await updateDoc(doc(db, "funcionarios", funcionarioId), { ...cadastro, salarioBase: numero(cadastro.salarioBase), intervaloPrevistoMin: numero(cadastro.intervaloPrevistoMin), atualizadoEm: serverTimestamp() });
+      await operarEscritorio('cadastro', funcionarioId, { ...Object.fromEntries(Object.keys(cadastroInicial()).map(k => [k, cadastro[k] ?? cadastroInicial()[k]])), salarioBase: numero(cadastro.salarioBase), intervaloPrevistoMin: numero(cadastro.intervaloPrevistoMin) });
     }, "Não foi possível salvar o cadastro.");
   }
   function novoFuncionario() {
     if (alterada && !window.confirm("Há alterações não salvas. Deseja continuar sem salvar?")) return;
     executar(async () => {
-      const novo = await addDoc(collection(db, "funcionarios"), { ...cadastroInicial(), ativo: true, criadoEm: serverTimestamp(), criadoPor: user.uid });
+      novoFuncionarioId.current ||= crypto.randomUUID();
+      const novo = await cadastrarFuncionario('criar', novoFuncionarioId.current);
+      novoFuncionarioId.current = null;
       setFuncionarioId(novo.id); setCadastro(cadastroInicial()); setAba("cadastro");
     }, "Não foi possível cadastrar o funcionário.");
   }
   function salvarFilial(event) {
     event.preventDefault();
     executar(async () => {
-      await addDoc(collection(db, "filiais"), { ...filial, criadoEm: serverTimestamp(), criadoPor: user.uid });
+      await criarRegistroEscritorio('filial', filial);
       setFilial(filialInicial());
     }, "Não foi possível cadastrar a filial.");
   }
@@ -190,7 +203,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
     executar(async () => {
       const url = urlComprovante(documento.url);
       if (!url || !funcionarioId || !documento.titulo.trim() || !/^\d{4}-(0[1-9]|1[0-2])$/.test(documento.mesReferencia)) throw new Error("dados");
-      await addDoc(collection(db, "documentosTrabalhistas"), { ...documento, titulo: documento.titulo.trim(), url, funcionarioId, funcionarioNome: funcionario?.nome || "", criadoEm: serverTimestamp(), criadoPor: user.uid });
+      await criarRegistroEscritorio('documento', { ...documento, titulo: documento.titulo.trim(), url, funcionarioId });
       setDocumento({ titulo: "", tipo: "contrato", url: "", mesReferencia: mesAtual() });
     }, "Informe o funcionário, o mês, um título e um link válido.");
   }
@@ -228,7 +241,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
 
   function apagarComprovante(item, categoria) {
     if (!window.confirm(categoria === "recibo" ? "Apagar este recibo? O lançamento financeiro também será removido." : "Apagar este comprovante?")) return;
-    executar(() => categoria === "recibo" ? excluirLancamentoFinanceiro(item.id) : deleteDoc(doc(db, "documentosTrabalhistas", item.id)), "Não foi possível apagar o comprovante.");
+    executar(() => categoria === "recibo" ? excluirLancamentoFinanceiro(item.id) : operarEscritorio('excluirDocumento', item.id), "Não foi possível apagar o comprovante.");
   }
 
     function campoFolha(campo, label) { return <label className="field" key={campo}><span>{label}</span><input type="number" inputMode="decimal" step="0.01" min="0" value={folha[campo]} onChange={e => editarFolha({ [campo]: e.target.value })} /></label>; }
@@ -249,7 +262,7 @@ export default function Financeiro({ user, onNavigate, rotaAtual }) {
       {avisoFolha && <p className="mensagem" role="status">{avisoFolha}</p>}
       {folha.pontoRevisaoPendente && <label className="folha-checkbox"><input type="checkbox" checked={folha.confirmarRevisaoPonto===true} onChange={e=>editarFolha({confirmarRevisaoPonto:e.target.checked})} /><span>O ponto foi revisado. Conferi a jornada e atualizei as horas e descontos desta folha.</span></label>}
       <ParcelasNaFolha totais={totais}/><button type="button" className="btn btn-secondary" disabled={ocupado} onClick={()=>{setAba('pagamentos');setPagamento({...pagamentoInicial(),tipo:'adiantamento',valor:'',competenciaMes:competenciaFolha,primeiraCompetencia:folhaBloqueada?somarMeses(competenciaFolha,1):competenciaFolha});}}>Registrar vale ou adiantamento</button>
-      <article className="card"><div className="section-header"><h2>Vale-transporte antecipado</h2><Badge>{totais.valeTransportePago > 0 ? "PAGO" : "Sem antecipações"}</Badge></div><strong>{moeda(totais.valeTransportePago)}</strong><p className="text-muted">{folhaBloqueada ? 'Valor preservado no fechamento.' : 'Atualizado pelos pagamentos desta competência.'} Não será pago novamente com o salário.</p>{!financeiroCarregado && !folhaBloqueada && <p role="status">Carregando pagamentos…</p>}</article>
+      <article className="card folha-transporte"><div className="section-header"><h2>Vale-transporte antecipado</h2><Badge>{totais.valeTransportePago > 0 ? "PAGO" : "Sem antecipações"}</Badge></div><strong>{moeda(totais.valeTransportePago)}</strong><p className="text-muted">{folhaBloqueada ? 'Valor preservado no fechamento.' : 'Atualizado pelos pagamentos desta competência.'} Não será pago novamente com o salário.</p>{!financeiroCarregado && !folhaBloqueada && <p role="status">Carregando pagamentos…</p>}</article>
       {etapaFolha === 0 && <article className="card"><div className="section-header"><h2>Folha {dataBr(competenciaFolha)}</h2><Badge tone={estadoFolha.status === 'em_andamento' || estadoFolha.status === 'nova' ? 'warning' : 'success'}>{statusFolhaLabel}</Badge></div><FinancialSummary totais={totais} moeda={moeda} /><button className="btn btn-primary" disabled={carregandoFolha || !funcionarioId || estadoFolha.status === 'erro'} onClick={() => setEtapaFolha(folhaBloqueada ? 3 : 1)}>{folhaBloqueada ? 'Ver folha fechada' : estadoFolha.status === 'em_andamento' ? 'Continuar preparação' : 'Preparar folha'}</button></article>}
       {etapaFolha > 0 && <form className="folha-form" onSubmit={e => { e.preventDefault(); if (etapaFolha === 1) setEtapaFolha(2); else if (etapaFolha === 2) guardarFolha(true); }}>
         <div className="section-header"><h2>{etapaFolha === 1 ? 'Preparar folha' : etapaFolha === 2 ? 'Revisar folha' : 'Folha fechada'}</h2><button className="btn btn-secondary" type="button" onClick={() => setEtapaFolha(0)}>Voltar ao resumo</button></div>

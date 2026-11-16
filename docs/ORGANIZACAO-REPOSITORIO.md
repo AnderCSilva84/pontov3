@@ -1,4 +1,14 @@
-# Organização do repositório — 14/11/2026
+# Organização do repositório
+
+## Retomada atual — 15/11/2026
+
+Ponto de entrada: [CONTINUAR-NO-VSCODE.md](CONTINUAR-NO-VSCODE.md); abrir `ta-no-ponto.code-workspace`. README atualizado com estado real, rotas de documentação e tarefas locais. Gerados continuam locais/ignorados; o workspace oculta logs/dependências/builds e os exclui de buscas para reduzir ruído, sem excluir arquivos.
+
+Branch atual `feat/rebrand-ta-no-ponto`, HEAD `abfcd40`. Implementações posteriores de assinaturas, ponto Free, permissões, refino, Android e respectivos testes/documentos seguem sem commit/push. Essa rodada organiza a continuidade, não cria commits em lote nem altera a branch. Novos arquivos não rastreados devem ser revisados junto dos diffs existentes antes de versionar.
+
+Código7/1.0.0 disponível na faixa interna; titular ainda não recebeu a opção Atualizar. Onze Functions novas e RTDN implantados; não confundir com cobertura comercial/produção completa. Gates desligados e grupos em transição. Os números de testes e commits a seguir pertencem à organização de 14/11, não à entrega atual. Últimos resultados e pendências constam no guia de retomada e nos roteiros mobile/19–21.
+
+## Registro de 14/11/2026
 
 Repositório público: `AnderCSilva84/pontov3`. Branch padrão confirmada no GitHub: `master`. A referência local `origin/HEAD` antes apontava para `main`, de forma desatualizada.
 

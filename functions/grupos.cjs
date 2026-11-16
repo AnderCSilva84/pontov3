@@ -2,6 +2,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 const { createHash } = require('node:crypto');
 const { bancoDoGrupo, bancoDoUsuario } = require('./grupos-contexto.cjs');
+const { validarNovoMembro } = require('./assinaturas-acesso.cjs');
 const falha = (codigo, mensagem) => { throw new HttpsError(codigo, mensagem); };
 function texto(v, max) { if (typeof v !== 'string' || !v.trim() || v.trim().length > max) falha('invalid-argument', 'Confira o nome e os dados da conta.'); return v.trim(); }
 const permissoes = role => ({ accessPonto: role !== 'consulta', accessAdmin: role === 'admin', manageUsers: role === 'admin', createTasks: role === 'admin', realizarCompras: role === 'admin' });
@@ -55,9 +56,11 @@ async function criarMembro(raiz, auth, request) {
   }
   try {
     await raiz.runTransaction(async tx => {
-      const [atual, grupo, ocupado, exclusao] = await tx.getAll(banco.doc(`users/${ator}`), raiz.doc(`grupos/${banco.grupoId}`), vinculo,raiz.doc('contaSolicitacoes/'+uid));
-      if(exclusao.data()?.etapa)falha('permission-denied','Conta em exclusão ou excluída.');
+      const [atual, grupo, ocupado, exclusao, vinculoAtor, exclusaoAtor] = await tx.getAll(banco.doc(`users/${ator}`), raiz.doc(`grupos/${banco.grupoId}`), vinculo,raiz.doc('contaSolicitacoes/'+uid), raiz.doc(`vinculosUsuarios/${ator}`), raiz.doc(`contaSolicitacoes/${ator}`));
+      if(exclusao.data()?.etapa || exclusaoAtor.data()?.etapa)falha('permission-denied','Conta em exclusão ou excluída.');
+      if(vinculoAtor.data()?.ativo !== true || vinculoAtor.data()?.grupoId !== banco.grupoId)falha('permission-denied','O acesso ao grupo mudou. Entre novamente.');
       if (atual.data()?.role !== 'admin' || atual.data().ativo === false || grupo.data()?.ativo !== true || ocupado.exists) falha('permission-denied', 'Cadastro não autorizado neste grupo.');
+      await validarNovoMembro(tx, raiz, banco, grupo.data(), ator, d.role);
       const agora = FieldValue.serverTimestamp(), funcionarioId = d.role === 'funcionario' ? uid : null;
       tx.create(vinculo, { grupoId: banco.grupoId, ativo: true, criadoEm: agora });
       tx.create(ref, { nome, email, role: d.role, ativo: true, funcionarioId, permissions: permissoes(d.role), criadoPor: ator, criadoEm: agora });

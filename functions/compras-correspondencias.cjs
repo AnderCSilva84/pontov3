@@ -1,3 +1,4 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
 const {HttpsError}=require('firebase-functions/v2/https');
 const {FieldValue}=require('firebase-admin/firestore');const {createHash}=require('node:crypto');
 const contexto=require('./catalogo-contexto.cjs'),{validarTipoCompra,tipoCompra}=require('./compras-tipo.cjs');
@@ -7,6 +8,7 @@ async function operarCorrespondencias(db,request){
  const uid=request.auth?.uid,d=request.data||{},tipo=validarTipoCompra(d.tipoCompra);if(!uid)falha('unauthenticated','Entre no aplicativo.');
  const lib=await import('./produtos-identidade.mjs');
  return db.runTransaction(async tx=>{
+    await exigirOperacaoCompartilhada(tx, db, uid);
   const perfil=(await tx.get(db.doc('users/'+uid))).data();if(!perfil||perfil.ativo===false||perfil.role!=='admin')falha('permission-denied','Somente administradores confirmam correspondências.');
   const catalogo=d.operacao.startsWith('catalogoMescla'),origens=catalogo?d.produtoIds:d.precoIds;
   if(!Array.isArray(origens)||origens.length!==2||origens.some(v=>!id(v))||origens[0]===origens[1])falha('invalid-argument','Escolha duas observações diferentes.');

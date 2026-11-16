@@ -1,3 +1,4 @@
+import { gerirAcesso } from '../services/gestaoAcessos';
 import { criarModeloJornada, validarModeloJornada, cargaNaData, jornadaNaData } from '../../functions/jornada.mjs';
 import CentralPrecosGestao from '../components/CentralPrecosGestao';
 import CategoriasComprasConfig from '../components/CategoriasComprasConfig';
@@ -641,45 +642,21 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     }));
   }
 
-  async function garantirRegistroFuncionario({ userId, nome, email }) {
-    const funcionarioRef = doc(db, "funcionarios", userId);
-    const funcionarioSnap = await getDoc(funcionarioRef);
-
-    if (funcionarioSnap.exists()) {
-      const atual = funcionarioSnap.data() || {};
-      await setDoc(
-        funcionarioRef,
-        {
-          nome: atual.nome || nome || email || userId,
-          email: atual.email || email || "",
-          ativo: atual.ativo !== false,
-          cargaSegSexMin: Number.isFinite(Number(atual.cargaSegSexMin))
-            ? Number(atual.cargaSegSexMin)
-            : 480,
-          cargaSabadoMin: Number.isFinite(Number(atual.cargaSabadoMin))
-            ? Number(atual.cargaSabadoMin)
-            : 0,
-          locaisPermitidos: Array.isArray(atual.locaisPermitidos) ? atual.locaisPermitidos : [],
-        },
-        { merge: true }
-      );
-      return;
-    }
-
-    await setDoc(
-      funcionarioRef,
-      {
-        nome: nome || email || userId,
-        email: email || "",
-        ativo: true,
-        cargaSegSexMin: 480,
-        cargaSabadoMin: 0,
-        locaisPermitidos: [],
-        criadoPor: user?.uid || null,
-        criadoEm: serverTimestamp(),
-      },
-      { merge: true }
-    );
+  const tentativaAcesso = useRef(null);
+  async function salvarAcesso(dados) {
+    const chave = JSON.stringify(dados);
+    if (tentativaAcesso.current?.chave !== chave) tentativaAcesso.current = { chave, operacaoId: crypto.randomUUID() };
+    await gerirAcesso({ ...dados, operacaoId: tentativaAcesso.current.operacaoId });
+    tentativaAcesso.current = null;
+  }
+  async function suspenderCompartilhamento(item) {
+    setUsuarioAtualizandoId(item.id); setErroUsuarios('');
+    try {
+      await salvarAcesso({ operacao: 'suspender', uid: item.id });
+      setUsuarioSucesso('Compartilhamento suspenso. Login e histórico próprio preservados.');
+      await carregarUsuarios(paginaUsuarios);
+    } catch (e) { setErroUsuarios(e.message || 'Não foi possível suspender o compartilhamento.'); }
+    finally { setUsuarioAtualizandoId(''); }
   }
 
   async function handleSalvarAcessoUsuario(item) {
@@ -691,25 +668,8 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
 
     try {
       const proximoRole = normalizeRole(usuarioEdicaoRole);
-      const proximoFuncionarioId =
-        proximoRole === ROLE_FUNCIONARIO ? item.funcionarioId || item.id : item.funcionarioId || null;
-
-      if (proximoRole === ROLE_FUNCIONARIO) {
-        await garantirRegistroFuncionario({
-          userId: proximoFuncionarioId,
-          nome: item.nome,
-          email: item.email,
-        });
-      }
-
-      await updateDoc(doc(db, "users", item.id), {
-        role: proximoRole,
-        permissions: usuarioEdicaoPermissoes,
-        ...(cuidadosDisponiveis ? {babaCuidadora: proximoRole === ROLE_FUNCIONARIO && usuarioEdicaoCuidadora, lembretesHabilitados: proximoRole === ROLE_ADMIN && usuarioEdicaoCuidadora} : {}),
-        funcionarioId: proximoFuncionarioId,
-        atualizadoEm: serverTimestamp(),
-        atualizadoPor: user?.uid || null,
-      });
+      await salvarAcesso({ operacao: 'alterar', uid: item.id, role: proximoRole, permissions: usuarioEdicaoPermissoes,
+        ...(cuidadosDisponiveis ? { babaCuidadora: proximoRole === ROLE_FUNCIONARIO && usuarioEdicaoCuidadora, lembretesHabilitados: proximoRole === ROLE_ADMIN && usuarioEdicaoCuidadora } : {}) });
 
       setUsuarioSucesso("Acesso do usuario atualizado com sucesso.");
       cancelarEdicaoUsuario();
@@ -718,7 +678,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
       setFuncionarios(lista);
     } catch (error) {
       console.error("[ADMIN][ERRO] Falha ao atualizar acesso do usuario:", error);
-      setErroUsuarios("Nao foi possivel atualizar o acesso do usuario.");
+      setErroUsuarios(error.message || "Não foi possível atualizar o acesso do usuário.");
     } finally {
       setUsuarioAtualizandoId("");
     }
@@ -1188,11 +1148,11 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
     if (modeloJornada) {
       for (const dia of DIAS_ESCALA) if (!escala[dia]) escala[dia] = { inicio: '', fim: '', cargaMin: 0 };
       const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Fortaleza' });
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(vigenciaJornada) || vigenciaJornada < hoje || new Date(vigenciaJornada + 'T12:00Z').toISOString().slice(0, 10) !== vigenciaJornada) {
-        setJornadaErro('Informe uma vigência válida a partir de hoje.'); return;
-      }
       const erro = validarModeloJornada(Number(modeloJornada), vigenciaJornada, escala);
       if (erro) { setJornadaErro(erro); return; }
+      if (vigenciaJornada < hoje) {
+        setJornadaErro('Informe uma vigência válida a partir de hoje.'); return;
+      }
       dadosJornada = { jornadas: [...(funcionarioAtual.jornadas || []).filter(j => j.vigencia !== vigenciaJornada),
         { ...dadosJornada, horasSemanais: Number(modeloJornada), vigencia: vigenciaJornada }] };
     } else if (funcionarioAtual.jornadas?.length) {
@@ -1468,6 +1428,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
         {normalizeRole(user.role) === ROLE_ADMIN && (
           <div className="admin-atalhos">
             <button type="button" className="btn btn-secondary admin-financeiro-link" onClick={() => onNavigate && onNavigate("/admin/financeiro")}><Icon name="file"/><span>Escritório contábil</span></button>
+            <button type="button" className="btn btn-secondary" onClick={() => onNavigate?.('/historico-contabil')}>Histórico contábil</button>
             <button type="button" className={`btn admin-ponto-link ${mostrarAdmPonto ? "btn-primary" : "btn-secondary"}`} onClick={() => setMostrarAdmPonto((atual) => !atual)} aria-expanded={mostrarAdmPonto}><Icon name="clock"/><span>{mostrarAdmPonto ? "Fechar ponto e configurações" : "Ponto, ajustes e locais"}</span></button>
           </div>
         )}
@@ -1646,7 +1607,7 @@ export default function Admin({ user, onNavigate, rotaAtual }) {
                             onClick={() => iniciarEdicaoUsuario(item)}
                           >
                             Editar acesso
-                          </button>{(item.funcionarioId || normalizeRole(item.role) === ROLE_FUNCIONARIO) && <button type="button" className="btn btn-primary" onClick={() => abrirCadastroFuncionario(item)}>Abrir cadastro</button>}{item.id !== user?.uid && <button type="button" className="btn btn-danger" onClick={() => handleExcluirUsuario(item)} disabled={usuarioAtualizandoId === item.id}>{usuarioAtualizandoId === item.id ? "Excluindo..." : "Excluir usuário"}</button>}</>
+                          </button>{(item.funcionarioId || normalizeRole(item.role) === ROLE_FUNCIONARIO) && <button type="button" className="btn btn-primary" onClick={() => abrirCadastroFuncionario(item)}>Abrir cadastro</button>}{item.acessoCompartilhado === false && <span>Compartilhamento suspenso</span>}{item.id !== user?.uid && item.acessoCompartilhado !== false && <button type="button" className="btn btn-secondary" disabled={usuarioAtualizandoId === item.id} onClick={() => suspenderCompartilhamento(item)}>Suspender compartilhamento</button>}{item.id !== user?.uid && <button type="button" className="btn btn-danger" onClick={() => handleExcluirUsuario(item)} disabled={usuarioAtualizandoId === item.id}>{usuarioAtualizandoId === item.id ? "Excluindo..." : "Excluir usuário"}</button>}</>
                         )}
                       </div></details>
                     </div>

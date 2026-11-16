@@ -1,3 +1,5 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
+const { prepararCota } = require('./assinaturas-cotas.cjs');
 const {HttpsError}=require('firebase-functions/v2/https');
 const {Timestamp,FieldValue}=require('firebase-admin/firestore');
 const {createHash}=require('node:crypto');
@@ -43,6 +45,7 @@ const podeVer=(p,uid,perfil)=>perfil.role==='admin'||p.destinatarios==='todos'||
 async function operarAlimentacao(db,request,agora=Date.now()){
  const uid=request.auth?.uid,d=request.data||{};if(!uid)falha('unauthenticated','Entre no aplicativo.');
  return db.runTransaction(async tx=>{
+    await exigirOperacaoCompartilhada(tx, db, uid);
   const perfil=(await tx.get(db.doc('users/'+uid))).data();if(!ativo(perfil))falha('permission-denied','Conta sem acesso.');
   if(d.operacao==='alimentacaoListar'){
    if(d.visao!==undefined&&!['minhas','criadas'].includes(d.visao))falha('invalid-argument','Escolha suas refeições ou as programações que criou.');
@@ -80,6 +83,9 @@ async function operarAlimentacao(db,request,agora=Date.now()){
   }
   if(!anterior){const planos=await tx.get(db.collection('planosAlimentares').where('ativo','==',true).limit(21));if(planos.size>=20)falha('resource-exhausted','Arquive uma programação antes de criar outra (limite de 20).');}
   if(campos&&!campos.refeicoes.some(r=>proximaRefeicao(campos,r,agora)))falha('invalid-argument','Escolha pelo menos uma refeição com horário futuro dentro do período.');
+  const delta = lembretes.reduce((total, s) => total + (campos?.refeicoes.some(r => s.id === `alimentacao_${d.id}_${r.id}`) ? 1 : 0) - (s.data()?.ativo === true ? 1 : 0), 0);
+  const confirmarCota = await prepararCota(tx, db, uid, 'lembretes', Math.max(0, delta));
+  confirmarCota();
   const versao=(anterior?.versao||0)+1;
   // Todas as leituras precedem as escritas: plano e avisos mudam atomicamente.
   for(const s of lembretes){

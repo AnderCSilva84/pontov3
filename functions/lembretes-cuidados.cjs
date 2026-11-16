@@ -1,3 +1,4 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { cuidadoraAtiva, destinatarioAtivo, dentroExpediente, proximoDisparo, dataLocal } = require('./lembretes-dominio.cjs');
@@ -12,6 +13,7 @@ async function operarCuidados(db, request) {
   if (!request.auth?.uid) erro('unauthenticated', 'Entre no app.');
   const uid = request.auth.uid, d = request.data || {};
   return db.runTransaction(async tx => {
+    await exigirOperacaoCompartilhada(tx, db, uid);
     const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
     if (!perfil || perfil.ativo === false) erro('permission-denied', 'Acesso não autorizado.');
     if (d.operacao === 'listarCuidados') {

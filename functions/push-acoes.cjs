@@ -1,3 +1,4 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
 ﻿const {HttpsError}=require('firebase-functions/v2/https');
 const {FieldValue}=require('firebase-admin/firestore');
 const {bancoDoUsuario}=require('./grupos-contexto.cjs');
@@ -10,6 +11,7 @@ async function acaoTarefa(raiz,request,agora=Date.now()) {
  if((d.grupoId||'')!==(db.grupoId||''))throw new HttpsError('permission-denied','O grupo mudou.');
  const hoje=new Date(agora-3*3600000).toISOString().slice(0,10);
  return db.runTransaction(async tx=>{
+    await exigirOperacaoCompartilhada(tx, db, uid);
   const perfil=(await tx.get(db.doc('users/'+uid))).data();
   if(!perfil||perfil.ativo===false||!['admin','funcionario'].includes(perfil.role))throw new HttpsError('permission-denied','Acesso não autorizado.');
   if(perfil.role!=='admin') {const funcionario=id(perfil.funcionarioId)?(await tx.get(db.doc('funcionarios/'+perfil.funcionarioId))).data():null;if(!funcionario||funcionario.ativo===false)throw new HttpsError('permission-denied','Funcionária sem acesso.');}

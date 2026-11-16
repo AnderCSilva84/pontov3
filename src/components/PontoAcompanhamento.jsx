@@ -1,3 +1,4 @@
+import PontoTitular from './PontoTitular';
 import {useState} from 'react';
 import EscalaAcompanhamento from './EscalaAcompanhamento';
 import {PageHeader} from './ui';
@@ -16,6 +17,7 @@ function InteracoesPonto({hoje,dia,diasSemana,pronto}){
 export default function PontoAcompanhamento({user,onNavigate,funcionarios,funcionarioId,selecionar,nome,hoje,dia,diasSemana,bancoHoras,horasHoje,horasSemana,horasMes,carregando,erro,escala}){
  const pronto=funcionarioId&&!carregando&&!erro;
  return <div className="page-bg"><main className="page-shell ponto-acompanhamento"><PageHeader title="Acompanhamento de ponto" subtitle="Registros de horário, banco de horas e horas trabalhadas da equipe."/>
+  <PontoTitular user={user}/>
   <section className="card"><label className="field"><span>Pessoa da equipe</span><select value={funcionarioId} onChange={e=>selecionar(e.target.value)}><option value="">Escolha quem deseja acompanhar</option>{funcionarios.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}</select></label></section>
   {!funcionarioId?<section className="card"><h2>Selecione uma pessoa da equipe</h2><p>Os registros de ponto aparecerão aqui após a seleção.</p></section>:<>
    <section className="card"><h2>Ponto de {nome}</h2><p className="text-muted">{dataExibicao(hoje)} · Acompanhamento da jornada</p>{carregando&&<p role="status">Consultando registros e totais…</p>}{erro&&<p role="alert">{erro}</p>}</section>

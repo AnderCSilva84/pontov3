@@ -1,3 +1,4 @@
+import AcessoRecurso from './components/AcessoRecurso';
 import AvisosNovosProvider from './components/AvisosNovosProvider';
 import {SessaoContext} from './components/ui/SessaoContext';
 import NotificacoesAndroid from './components/NotificacoesAndroid';
@@ -22,6 +23,7 @@ const androidPush = () => !ambiente.emuladores && androidPushDisponivel();
 const NoBolsoConnection=lazy(()=>import('./pages/NoBolsoConnection'));
 const CadastroGrupo=lazy(()=>import('./pages/CadastroGrupo'));
 const Conta=lazy(()=>import('./pages/Conta'));
+const Planos=lazy(()=>import('./pages/Planos'));
 const Demonstracao=lazy(()=>import('./pages/Demonstracao'));
 const RecuperarSenha=lazy(()=>import('./pages/RecuperarSenha'));
 const MeusComprovantes=lazy(()=>import('./pages/MeusComprovantes'));
@@ -30,6 +32,7 @@ const Tarefas=lazy(()=>import('./pages/Tarefas'));
 const Avisos=lazy(()=>import('./pages/Avisos'));
 const Lembretes=lazy(()=>import('./pages/Lembretes'));
 const Admin=lazy(()=>import('./pages/Admin'));
+const HistoricoContabil=lazy(()=>import('./pages/HistoricoContabil'));
 const Financeiro=lazy(()=>import('./pages/Financeiro'));
 const Alimentacao=lazy(()=>import('./pages/Alimentacao'));
 
@@ -78,10 +81,12 @@ function AppConteudo({ user }) {
 
   if (rotaAtual === '/cadastro') return <CadastroGrupo user={user} onNavigate={navegarPara} />;
   if (rotaAtual === '/conta') return <Conta onNavigate={navegarPara} />;
+  if (rotaAtual === '/planos') return user === undefined ? <CarregandoGatinho /> : <Planos key={`${user?.uid}:${user?.grupoId}`} user={user} onNavigate={navegarPara} />;
   if (rotaAtual === '/recuperar-senha') return <RecuperarSenha onNavigate={navegarPara} />;
   if (rotaAtual === '/demonstracao' && user?.grupoId === 'demo_play_ap1303_v1') return <Demonstracao key={user.uid} user={user} onNavigate={navegarPara}/>;
   if (user === undefined) return <CarregandoGatinho />;
-  if (rotaAtual === '/meus-comprovantes' && user?.grupoId && role === 'funcionario') return <MeusComprovantes user={user} onNavigate={navegarPara} />;
+  if (rotaAtual === '/historico-contabil') return user === undefined ? <CarregandoGatinho /> : user && role === ROLE_ADMIN ? <HistoricoContabil key={`${user.uid}:${user.grupoId}`} user={user} onNavigate={navegarPara} /> : <PaginaNaoEncontrada onNavigate={navegarPara} />;
+  if (rotaAtual === '/meus-comprovantes' && user?.grupoId && (role === 'funcionario' || user.funcionarioId)) return <MeusComprovantes user={user} onNavigate={navegarPara} />;
   if (rotaAtual === "/integracoes/no-bolso") return <NoBolsoConnection user={user} onNavigate={navegarPara} />;
 
   if (user && role !== ROLE_ADMIN && rotaEfetiva === "/admin/financeiro") {
@@ -111,23 +116,23 @@ function AppConteudo({ user }) {
     return <Ponto user={null} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
   }
 
-  if (rotaEfetiva === '/avisos') return <Avisos key={user.uid+':'+user.grupoId} user={user} onNavigate={navegarPara} />;
-  if (rotaEfetiva === '/alimentacao') return <Alimentacao user={user} onNavigate={navegarPara}/>;
-  if (rotaEfetiva === '/lembretes') return <Lembretes key={user.uid} user={user} onNavigate={navegarPara} />;
+  if (rotaEfetiva === '/avisos') return <AcessoRecurso user={user} recurso="compartilhamento" onNavigate={navegarPara}><Avisos key={user.uid+':'+user.grupoId} user={user} onNavigate={navegarPara} /></AcessoRecurso>;
+  if (rotaEfetiva === '/alimentacao') return <AcessoRecurso user={user} recurso="compartilhamento" onNavigate={navegarPara}><Alimentacao user={user} onNavigate={navegarPara}/></AcessoRecurso>;
+  if (rotaEfetiva === '/lembretes') return <AcessoRecurso user={user} recurso="compartilhamento" onNavigate={navegarPara}><Lembretes key={user.uid} user={user} onNavigate={navegarPara} /></AcessoRecurso>;
   if (ehRotaCompras(rotaEfetiva)) {
-    return <ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
+    return <AcessoRecurso user={user} recurso="compartilhamento" onNavigate={navegarPara}><ListaCompras user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} /></AcessoRecurso>;
   }
 
   if (rotaEfetiva === "/tarefas") {
-    return <Tarefas user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
+    return <AcessoRecurso user={user} recurso="compartilhamento" onNavigate={navegarPara}><Tarefas user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} /></AcessoRecurso>;
   }
 
   if (rotaEfetiva === "/admin") {
-    return <Admin user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
+    return <AcessoRecurso user={user} recurso="compartilhamento" onNavigate={navegarPara}><Admin user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} /></AcessoRecurso>;
   }
 
   if (rotaEfetiva === "/admin/financeiro") {
-    return <Financeiro user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;
+    return <AcessoRecurso user={user} recurso="escritorioContabil" onNavigate={navegarPara}><Financeiro user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} /></AcessoRecurso>;
   }
 
   return <Ponto user={user} onNavigate={navegarPara} rotaAtual={rotaEfetiva} />;

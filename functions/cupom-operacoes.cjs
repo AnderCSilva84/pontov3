@@ -18,6 +18,7 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
     // conferidas antes da rede e novamente antes de criar o rascunho.
     const perfil = (await db.doc(`users/${uid}`).get()).data();
     if (perfil?.ativo === false || perfil?.role !== 'admin') erro('permission-denied', 'Somente o administrador pode importar uma compra.');
+    await db.runTransaction(tx => require('./assinaturas-recursos.cjs').exigirRecurso(tx, db, uid, 'importacaoQr'));
     try { notaConsultada = await consultar(dados.link); }
     catch { erro('unavailable', 'A consulta automática da SEFA não retornou uma nota completa. Tente novamente ou use o texto da nota. Nenhuma compra foi criada.'); }
   }
@@ -26,6 +27,7 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
     const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
     if (perfil?.ativo === false || perfil?.role !== 'admin') erro('permission-denied', 'Somente o administrador pode importar uma compra.');
     if (dados.operacao === 'cupomPreparar') {
+      await require('./assinaturas-recursos.cjs').exigirRecurso(tx, db, uid, 'importacaoQr');
       let destino = null, planejados = [],tipo=validarTipoCompra(dados.tipoCompra);
       if (dados.listaDestinoId !== undefined) {
         if (!idValido(dados.listaDestinoId)) erro('invalid-argument', 'Lista de destino inválida.');
@@ -70,6 +72,7 @@ async function operarCupom(db, request, { consultar = require('./cupom-consulta.
     const ref = db.doc(`comprasCuponsRascunhos/${dados.rascunhoId}`), rascunho = (await tx.get(ref)).data();
     if (!rascunho || rascunho.uid !== uid) erro('not-found', 'Importação não encontrada.');
     if (rascunho.listaId) return { listaId: rascunho.listaId, jaImportada: true };
+    await require('./assinaturas-recursos.cjs').exigirRecurso(tx, db, uid, 'importacaoQr');
     if (rascunho.expiraEm.toMillis() < Date.now()) erro('failed-precondition', 'A revisão expirou. Prepare a nota novamente.');
     const { nota } = rascunho;
     if (!Array.isArray(dados.itens) || dados.itens.length !== nota.itens.length || dados.itens.some((i, n) => !i || i.linha !== n + 1 || typeof i.descartar !== 'boolean')) erro('invalid-argument', 'Revise todas as linhas da nota.');

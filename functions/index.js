@@ -12,6 +12,12 @@ const { FieldValue } = require("firebase-admin/firestore");
 
 
 admin.initializeApp();
+exports.consultarAssinatura = onCall({region:'us-central1',timeoutSeconds:30,minInstances:0,maxInstances:2},request=>require('./assinaturas.cjs').consultarAssinatura(admin.firestore(),request));
+exports.verificarCompraPlayTeste = onCall({region:'us-central1',timeoutSeconds:30,minInstances:0,maxInstances:2,serviceAccount:'assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com'},request=>require('./assinaturas-play-verificacao.cjs').verificarCompraPlayTeste(admin.firestore(),request));
+exports.processarCompraPlayTeste = onCall({region:'us-central1',timeoutSeconds:60,minInstances:0,maxInstances:2,serviceAccount:'assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com'},request=>require('./assinaturas-play-entrega.cjs').processarCompraPlayTeste(admin.firestore(),request));
+exports.receberRtdnPlay = require('firebase-functions/v2/pubsub').onMessagePublished({region:'us-central1',topic:'assinaturas-play-rtdn',timeoutSeconds:120,maxInstances:2,retry:true,serviceAccount:'assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com'},evento=>require('./assinaturas-play-reconciliacao.cjs').receberRtdnPlay(admin.firestore(),evento));
+exports.retomarRtdnPlay = require('firebase-functions/v2/scheduler').onSchedule({region:'us-central1',schedule:'every 15 minutes',timeoutSeconds:540,maxInstances:1,serviceAccount:'assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com'},()=>require('./assinaturas-play-reconciliacao.cjs').retomarRtdnPlay(admin.firestore()));
+exports.reconhecerEntregaPlay = require('firebase-functions/v2/firestore').onDocumentCreated({region:'southamerica-east1',document:'assinaturasEntregas/{compraId}',timeoutSeconds:120,maxInstances:2,retry:true,serviceAccount:'assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com'},evento=>require('./assinaturas-play-reconciliacao.cjs').enfileirarEntregaPlay(admin.firestore(),evento.params.compraId));
 exports.demonstracaoOperacao=onCall({timeoutSeconds:30,minInstances:0,maxInstances:2},request=>require('./demonstracao.cjs').operarDemonstracao(admin.firestore(),request));
 exports.contaOperacao = onCall({timeoutSeconds:120,minInstances:0,maxInstances:2},request=>require('./conta.cjs').operarConta(admin.firestore(),admin.auth(),request));
 exports.processarExclusaoConta = require('firebase-functions/v2/firestore').onDocumentCreated({document:'contaExecucoes/{execucao}',timeoutSeconds:120,maxInstances:2,retry:false},async evento=>{
@@ -85,6 +91,7 @@ exports.registrarPonto = onCall(async (request) => {
     }
     if (!localAutorizado) throw new HttpsError("permission-denied", "Você está fora do local autorizado.");
     const dia = (await transaction.get(diaRef)).data();
+    await require('./compartilhamento.cjs').exigirOperacaoCompartilhada(transaction, db, request.auth.uid, { continuidade: tipo !== 'ENTRADA' && Boolean(dia?.entrada && !dia?.saida) });
     let alteracoes;
     try { alteracoes = aplicarAcao(dia, tipo, hora, funcionario, diaSemana, dataKey); }
     catch (error) { throw new HttpsError("failed-precondition", error.message); }
@@ -170,7 +177,13 @@ exports.criarLancamentoFinanceiro = onCall(async (request) => {
     criadoPor: request.auth.uid,
     criadoEm: FieldValue.serverTimestamp(),
   };
-  const ref = await db.collection("financeiro").add(permitido);
+  const ref = db.collection('financeiro').doc();
+  await db.runTransaction(async tx => {
+    await require('./assinaturas-recursos.cjs').exigirRecurso(tx, db, request.auth.uid, 'escritorioContabil');
+    const perfilAtual = (await tx.get(db.doc('users/' + request.auth.uid))).data();
+    if (perfilAtual?.role !== 'admin' || perfilAtual.ativo === false) throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
+    tx.create(ref, permitido);
+  });
   return { id: ref.id };
 });
 
@@ -180,6 +193,9 @@ exports.excluirLancamentoFinanceiro = onCall(async (request) => {
   if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) throw new HttpsError("invalid-argument", "Lançamento inválido.");
   const ref = db.collection("financeiro").doc(id);
   await db.runTransaction(async (transaction) => {
+    await require('./assinaturas-recursos.cjs').exigirRecurso(transaction, db, request.auth.uid, 'escritorioContabil');
+    const perfilAtual = (await transaction.get(db.doc('users/' + request.auth.uid))).data();
+    if (perfilAtual?.role !== 'admin' || perfilAtual.ativo === false) throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
     const snap = await transaction.get(ref);
     if (!snap.exists) throw new HttpsError("not-found", "Lançamento não encontrado.");
     const concluirParcelamento=snap.data().parcelamento?.versao===1?await require('./adiantamentos.cjs').protegerExclusao(transaction,db,snap.data(),id):null;
@@ -215,6 +231,7 @@ exports.excluirUsuario = onCall(async (request) => {
   const userSnap = await db.runTransaction(async tx=>{
     const [alvo,ator]=await tx.getAll(userRef,db.collection('users').doc(request.auth.uid));
     const grupo=db.grupoId?await tx.get(admin.firestore().doc('grupos/'+db.grupoId)):null;
+    if (grupo?.data()?.assinaturasAtivas === true) throw new HttpsError('failed-precondition', 'Use Suspender compartilhamento para preservar o login e o histórico próprio.');
     if(ator.data()?.role!=='admin'||ator.data()?.ativo===false||grupo&&grupo.data()?.ativo!==true)throw new HttpsError('permission-denied','Administração indisponível.');
     if(!alvo.exists)throw new HttpsError('not-found','Usuário não encontrado.');
     if(grupo?.data()?.titularUid===uid)throw new HttpsError('permission-denied','O acesso do titular não pode ser excluído por um administrador.');
@@ -262,6 +279,11 @@ Object.assign(exports, require('./compras-estimativa.cjs').criarEstimativaCompra
 exports.criarGrupo = onCall(request => require('./grupos.cjs').criarGrupo(admin.firestore(), request));
 exports.noBolsoConsulta = onCall({timeoutSeconds:60,maxInstances:2}, request => require('./no-bolso-consulta.cjs').consultarNoBolso(admin.firestore(), request));
 exports.criarMembroGrupo = onCall(request => require('./grupos.cjs').criarMembro(admin.firestore(), admin.auth(), request));
+exports.cadastrarFuncionario = onCall({region:'us-central1',timeoutSeconds:60,minInstances:0,maxInstances:2},request => require('./funcionarios-cadastro.cjs').cadastrarFuncionario(admin.firestore(), request));
+exports.pontoTitular = onCall({region:'us-central1',timeoutSeconds:60,minInstances:0,maxInstances:2}, request => require('./ponto-titular.cjs').operarPontoTitular(admin.firestore(), request));
+exports.gerirAcesso = onCall({region:'us-central1',timeoutSeconds:60,minInstances:0,maxInstances:2},request => require('./gestao-acessos.cjs').gerirAcesso(admin.firestore(), request));
+exports.escritorioOperacao = onCall({region:'us-central1',timeoutSeconds:60,minInstances:0,maxInstances:2},request => require('./escritorio-operacoes.cjs').operarEscritorio(admin.firestore(), request));
+exports.cadastrarTarefa = onCall({region:'us-central1',timeoutSeconds:60,minInstances:0,maxInstances:2},request => require('./tarefas-cadastro.cjs').cadastrarTarefa(admin.firestore(), request));
 
 exports.acaoNotificacaoTarefa = onCall(request => require('./push-acoes.cjs').acaoTarefa(admin.firestore(), request));
 

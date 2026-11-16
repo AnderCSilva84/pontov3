@@ -1,3 +1,4 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
 const contextoCatalogo=require('./catalogo-contexto.cjs');
 const {tipoCompra,validarTipoCompra}=require('./compras-tipo.cjs');
 const {HttpsError}=require('firebase-functions/v2/https');
@@ -16,6 +17,7 @@ async function operarAssociacoes(db,request){
  const lib=await import('./produtos-identidade.mjs'),{politicaMesclaManual}=await import('./mescla-politica.mjs');
  const assinaturaMescla=produtos=>createHash('sha256').update(JSON.stringify({contexto,produtos:[...produtos].sort((a,b)=>a.id.localeCompare(b.id))},(_chave,valor)=>valor&&typeof valor==='object'&&!Array.isArray(valor)?Object.fromEntries(Object.keys(valor).sort().map(k=>[k,valor[k]])):valor)).digest('hex');
  return db.runTransaction(async tx=>{
+    await exigirOperacaoCompartilhada(tx, db, uid);
   const perfil=(await tx.get(db.doc('users/'+uid))).data();if(perfil?.ativo===false||perfil?.role!=='admin')falha('permission-denied','Somente administradores podem revisar associações.');
   const mr=refMapa(db),m=(await tx.get(mr)).data()||vazio();m.itens||={};m.nomes||={};m.vinculos||={};
   if(d.operacao==='catalogoParecidosPagina'){

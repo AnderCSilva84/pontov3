@@ -1,0 +1,11 @@
+{
+  "versao": 1,
+  "moeda": "BRL",
+  "periodicidade": "mensal",
+  "planos": {
+    "free": { "nome": "Free", "precoCentavos": 0, "funcionarios": 2, "listas": 3, "tarefas": 20, "lembretes": 10, "compartilhamento": false, "escritorioContabil": false, "importacaoQr": false },
+    "prata": { "nome": "Prata", "precoCentavos": 1490, "funcionarios": 5, "listas": 10, "tarefas": 100, "lembretes": 30, "compartilhamento": true, "escritorioContabil": true, "importacaoQr": false },
+    "ouro": { "nome": "Ouro", "precoCentavos": 2990, "funcionarios": 15, "listas": 30, "tarefas": 200, "lembretes": 100, "compartilhamento": true, "escritorioContabil": true, "importacaoQr": true },
+    "diamante": { "nome": "Diamante", "precoCentavos": 4990, "funcionarios": 50, "listas": 60, "tarefas": 500, "lembretes": 200, "compartilhamento": true, "escritorioContabil": true, "importacaoQr": true }
+  }
+}

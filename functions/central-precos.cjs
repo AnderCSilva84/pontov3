@@ -1,6 +1,7 @@
 const {FieldValue}=require('firebase-admin/firestore');
 const {bancoDoUsuario,bancoDoGrupo}=require('./grupos-contexto.cjs');
 const D=require('./central-precos-dominio.cjs');
+const {exigirConsultaCompartilhada,exigirOperacaoCompartilhada}=require('./compartilhamento.cjs');
 const config=db=>db.doc('centralConfiguracao/consentimento');
 const grupo=db=>db.grupoId||'legado';
 const raiz=db=>db.raiz||db;
@@ -54,9 +55,10 @@ async function avaliar(tx,db,precoId,M){
 
 // Releitura transacional da origem atual: eventos repetidos/fora de ordem não
 // reaplicam payload antigo. Todos os reads precedem as escritas.
-async function processarFonte(db,precoId,{retirar=false,versaoConsentimento,metricas}={}){
+async function processarFonte(db,precoId,{retirar=false,versaoConsentimento,metricas,uidAutorizado}={}){
  if(!D.id(precoId))D.erro('Referência inválida.');const root=raiz(db),M=metrica(metricas);
  return root.runTransaction(async tx=>{
+  if(uidAutorizado)await exigirOperacaoCompartilhada(tx,db,uidAutorizado);
   const consent=(await M.get(tx,config(db))).data();
   if(!consent)return {status:'desligado'};
   if(versaoConsentimento!==undefined&&((retirar?consent.ativo:!consent.ativo)||consent.versao!==versaoConsentimento))D.erro('A contribuição mudou. Prepare um novo lote para este aceite.','failed-precondition');
@@ -112,25 +114,25 @@ async function processarFonte(db,precoId,{retirar=false,versaoConsentimento,metr
  });
 }
 
-async function criarLote(db,d,uid,metricas){
+async function criarLote(db,d,uid,metricas,uidAutorizado){
  const ref=db.collection('centralLotes').doc(d.id||D.hash([d.tipo,d.alvo||'',d.evento||'']));
  const M=metrica(metricas),pedido={tipo:d.tipo,alvo:d.alvo||null,inicio:d.inicio||null,fim:d.fim||null,categorias:d.categorias||D.TIPOS,versaoConsentimento:d.versaoConsentimento??null},assinatura=D.hash(pedido);
- await db.runTransaction(async tx=>{const anterior=(await M.get(tx,ref)).data();if(anterior){if(anterior.assinatura!==assinatura)D.erro('Este lote já foi criado com outro período ou aceite.','already-exists');return;}M.set(tx,ref,{...pedido,assinatura,cursor:null,processados:0,status:'pendente',criadoPor:uid||'evento',criadoEm:FieldValue.serverTimestamp()});});return ref.id;
+ await db.runTransaction(async tx=>{if(uidAutorizado)await exigirOperacaoCompartilhada(tx,db,uidAutorizado);const anterior=(await M.get(tx,ref)).data();if(anterior){if(anterior.assinatura!==assinatura)D.erro('Este lote já foi criado com outro período ou aceite.','already-exists');return;}M.set(tx,ref,{...pedido,assinatura,cursor:null,processados:0,status:'pendente',criadoPor:uid||'evento',criadoEm:FieldValue.serverTimestamp()});});return ref.id;
 }
-async function executarLote(db,loteId,metricas){
+async function executarLote(db,loteId,metricas,uidAutorizado){
  const ref=db.doc('centralLotes/'+loteId),token=D.hash([Date.now(),Math.random()]),M=metrica(metricas);
- let job=await db.runTransaction(async tx=>{const s=(await M.get(tx,ref)).data();if(!s)D.erro('Lote não encontrado.','not-found');if(s.status==='concluido')return null;if(s.travaAte>Date.now())D.erro('Lote já em processamento.','aborted');M.set(tx,ref,{...s,status:'processando',trava:token,travaAte:Date.now()+120000});return s;});
+ let job=await db.runTransaction(async tx=>{if(uidAutorizado)await exigirOperacaoCompartilhada(tx,db,uidAutorizado);const s=(await M.get(tx,ref)).data();if(!s)D.erro('Lote não encontrado.','not-found');if(s.status==='concluido')return null;if(s.travaAte>Date.now())D.erro('Lote já em processamento.','aborted');M.set(tx,ref,{...s,status:'processando',trava:token,travaAte:Date.now()+120000});return s;});
  if(!job)return {status:'concluido'};
  try{
   if(job.tipo==='fonte'){
-   await processarFonte(db,job.alvo.id,{metricas});await ref.set({status:'concluido',processados:1,trava:null,travaAte:0},{merge:true});if(metricas)metricas.escritas++;return {id:loteId,status:'concluido',processados:1};
+   await processarFonte(db,job.alvo.id,{metricas,uidAutorizado});await ref.set({status:'concluido',processados:1,trava:null,travaAte:0},{merge:true});if(metricas)metricas.escritas++;return {id:loteId,status:'concluido',processados:1};
   }
   let q=job.tipo==='historico'?db.collection('comprasPrecos').where('compradoEm','>=',new Date(job.inicio)).where('compradoEm','<=',new Date(job.fim)).orderBy('compradoEm').orderBy('__name__'):job.alvo?db.collection('centralContribuicoes').where(job.alvo.campo,'==',job.alvo.id).orderBy('__name__'):db.collection('centralContribuicoes').where('ativa','==',true).orderBy('__name__');
   if(job.cursor)q=job.tipo==='historico'?q.startAfter(new Date(job.cursor.dataMs),job.cursor.id):q.startAfter(job.cursor.id);
   const pagina=await q.limit(10).get();if(metricas)metricas.leituras+=Math.max(1,pagina.size);
   for(const item of pagina.docs){
    const p=item.data();if((job.tipo==='historico'&&job.categorias.includes(p.tipoCompra||'supermercado'))||(job.tipo!=='historico'&&(p.ativa||(job.alvo&&p.motivo!=='Contribuição desativada')))){
-    if(!job.alvo||p[job.alvo.campo]===job.alvo.id)await processarFonte(db,item.id,{retirar:job.tipo==='retirada',versaoConsentimento:['historico','retirada'].includes(job.tipo)?job.versaoConsentimento:undefined,metricas});
+    if(!job.alvo||p[job.alvo.campo]===job.alvo.id)await processarFonte(db,item.id,{retirar:job.tipo==='retirada',versaoConsentimento:['historico','retirada'].includes(job.tipo)?job.versaoConsentimento:undefined,metricas,uidAutorizado});
    }
    job={...job,cursor:{id:item.id,...(job.tipo==='historico'?{dataMs:D.instante(p.compradoEm)}:{})},processados:job.processados+1};
    await db.runTransaction(async tx=>{const atual=(await M.get(tx,ref)).data();if(atual.trava!==token)D.erro('Lote retomado em outra sessão.','aborted');M.set(tx,ref,{...job,status:'processando',trava:token,travaAte:Date.now()+120000});});
@@ -148,9 +150,13 @@ async function operarCentral(root,request,metricas){
  const perfil=await db.doc('users/'+uid).get();if(metricas)metricas.leituras++;
  if(!perfil.exists||perfil.data().ativo===false||!['admin','funcionario','consulta'].includes(perfil.data().role))D.erro('Acesso não autorizado.','permission-denied');
  const exigirAdmin=()=>{if(perfil.data().role!=='admin')D.erro('Somente administradores podem alterar contribuições.','permission-denied');};
+ // Consulta agregada não ganha exclusividade comercial; a gestão privada exige acesso ao grupo.
+ const privada=!['produtos','consultar','historico'].includes(d.acao);
+ if(privada)await exigirConsultaCompartilhada(db,uid);
+ const resultado=await (async()=>{
  if(d.acao==='configurar'){
   exigirAdmin();if(typeof d.ativo!=='boolean'||(d.ativo&&d.aviso!==D.AVISO))D.erro('Confira o aviso da contribuição.');
-  return db.runTransaction(async tx=>{const ref=config(db),a=(await M.get(tx,ref)).data()||{ativo:false,versao:0};if(d.versao!==a.versao)D.erro('A configuração mudou. Atualize.','aborted');if(a.ativo===d.ativo)return {ativo:a.ativo,versao:a.versao};const n={ativo:d.ativo,versao:a.versao+1,aviso:d.ativo?D.AVISO:a.aviso||null,por:uid,em:FieldValue.serverTimestamp()};M.set(tx,ref,n);M.set(tx,db.collection('centralConsentimentos').doc(),n);return {ativo:n.ativo,versao:n.versao};});
+  return db.runTransaction(async tx=>{await exigirOperacaoCompartilhada(tx,db,uid);const ref=config(db),a=(await M.get(tx,ref)).data()||{ativo:false,versao:0};if(d.versao!==a.versao)D.erro('A configuração mudou. Atualize.','aborted');if(a.ativo===d.ativo)return {ativo:a.ativo,versao:a.versao};const n={ativo:d.ativo,versao:a.versao+1,aviso:d.ativo?D.AVISO:a.aviso||null,por:uid,em:FieldValue.serverTimestamp()};M.set(tx,ref,n);M.set(tx,db.collection('centralConsentimentos').doc(),n);return {ativo:n.ativo,versao:n.versao};});
  }
  if(d.acao==='configuracao'){exigirAdmin();const s=await config(db).get();if(metricas)metricas.leituras++;const c=s.data()||{ativo:false,versao:0};return {ativo:c.ativo,versao:c.versao,aviso:D.AVISO};}
  if(d.acao==='revisarLocais'){
@@ -158,11 +164,11 @@ async function operarCentral(root,request,metricas){
  }
  if(d.acao==='revisarItem'){
   exigirAdmin();if(!D.id(d.id)||d.confirmado!==true)D.erro('Confirme o item corrigido.');
-  return db.runTransaction(async tx=>{const p=(await M.get(tx,db.doc('comprasPrecos/'+d.id))).data(),mapa=(await M.get(tx,db.doc('comprasAssociacoes/estado'))).data(),correcao=mapa?.itens?.[d.id];if(!p||!correcao)D.erro('Este item não tem associação corrigida para revisar.');const v=(await M.get(tx,db.doc('centralVinculos/'+correcao.produtoId))).data();if(!v||v.retirado)D.erro('Revise primeiro a especificação compartilhada do produto de destino.');M.set(tx,db.doc('centralItens/'+d.id),{assinatura:D.hash(correcao),por:uid,em:FieldValue.serverTimestamp()});return {ok:true};});
+  return db.runTransaction(async tx=>{await exigirOperacaoCompartilhada(tx,db,uid);const p=(await M.get(tx,db.doc('comprasPrecos/'+d.id))).data(),mapa=(await M.get(tx,db.doc('comprasAssociacoes/estado'))).data(),correcao=mapa?.itens?.[d.id];if(!p||!correcao)D.erro('Este item não tem associação corrigida para revisar.');const v=(await M.get(tx,db.doc('centralVinculos/'+correcao.produtoId))).data();if(!v||v.retirado)D.erro('Revise primeiro a especificação compartilhada do produto de destino.');M.set(tx,db.doc('centralItens/'+d.id),{assinatura:D.hash(correcao),por:uid,em:FieldValue.serverTimestamp()});return {ok:true};});
  }
  if(['vincularProduto','confirmarLocal'].includes(d.acao)){
   exigirAdmin();if(d.confirmado!==true||!D.id(d.id))D.erro('Confirme a revisão.');
-  return db.runTransaction(async tx=>{
+  return db.runTransaction(async tx=>{await exigirOperacaoCompartilhada(tx,db,uid);
    if(d.acao==='vincularProduto'){
     const p=(await M.get(tx,db.doc('catalogoCompras/'+d.id))).data();if(!p||p.ativo===false)D.erro('Produto não encontrado.','not-found');
     const ref=db.doc('centralVinculos/'+d.id);
@@ -189,9 +195,9 @@ async function operarCentral(root,request,metricas){
   const c=(await config(db).get()).data();if(metricas)metricas.leituras++;
   if(d.tipo==='historico'&&(!c?.ativo||!Number.isFinite(d.inicio)||!Number.isFinite(d.fim)||d.fim<d.inicio||d.fim-d.inicio>366*86400000||d.inicio<Date.UTC(2000,0,1)||d.fim>Date.now()+60000||!Array.isArray(d.categorias)||!d.categorias.length||d.categorias.some(x=>!D.TIPOS.includes(x))))D.erro('Ative a contribuição e confira período/categorias.');
   if(d.tipo==='retirada'&&c?.ativo)D.erro('Desative antes de retirar contribuições.');
-  return {id:await criarLote(db,{id:d.id,tipo:d.tipo,inicio:d.inicio,fim:d.fim,categorias:d.categorias,versaoConsentimento:c?.versao},uid,metricas)};
+  return {id:await criarLote(db,{id:d.id,tipo:d.tipo,inicio:d.inicio,fim:d.fim,categorias:d.categorias,versaoConsentimento:c?.versao},uid,metricas,uid)};
  }
- if(d.acao==='executarLote'){exigirAdmin();if(!D.id(d.id))D.erro('Lote inválido.');return executarLote(db,d.id,metricas);}
+ if(d.acao==='executarLote'){exigirAdmin();if(!D.id(d.id))D.erro('Lote inválido.');return executarLote(db,d.id,metricas,uid);}
  if(d.acao==='lotes'){exigirAdmin();if(d.cursor&&!D.id(d.cursor))D.erro('Cursor inválido.');let q=db.collection('centralLotes').orderBy('__name__');if(d.cursor)q=q.startAfter(d.cursor);const s=await q.limit(21).get();if(metricas)metricas.leituras+=Math.max(1,s.size);return {itens:s.docs.slice(0,20).map(x=>({id:x.id,tipo:x.data().tipo,status:x.data().status,processados:x.data().processados})),cursor:s.size>20?s.docs[19].id:null};}
  if(!['produtos','consultar','historico'].includes(d.acao))D.erro('Ação inválida.');
  const c=D.cidade(d.codigo,d.uf);if(!D.TIPOS.includes(d.tipo))D.erro('Categoria não elegível.');
@@ -230,6 +236,9 @@ async function operarCentral(root,request,metricas){
  const s=await q.limit(n+1).get();if(metricas)metricas.leituras+=Math.max(1,s.size);
  const itens=s.docs.slice(0,n).map(x=>D.publicacao(x.data().dados));
  return {itens,cursor:await proxima(s),atualizadoMs:Date.now(),inicioMs:periodo.inicio,fimMs:periodo.fim,ordenacao:d.ordem==='menor'?'Menor preço encontrado no período selecionado':'Observações recentes',recentesDias};
+ })();
+ if(privada)await exigirConsultaCompartilhada(db,uid);
+ return resultado;
 }
 
 async function eventoOrigem(root,grupoId,colecao,id,antes,depois,eventoId){

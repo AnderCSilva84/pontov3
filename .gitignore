@@ -67,3 +67,8 @@ firebase.review-emulator.local.json
 
 # Novas capturas de homologação ficam locais; imagens já rastreadas são preservadas.
 docs/mobile/capturas/
+
+# Ferramentas locais de geração de documentação Python
+__pycache__/
+*.pyc
+.venv/

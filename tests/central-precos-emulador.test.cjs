@@ -102,5 +102,40 @@ test('central: contribuição privada opcional, publicação mínima, deduplica�
   try{for(const path of ['centralObservacoes/x','centralResumos/x/estabelecimentos/x','centralProdutos/x','centralLimites/x','centralCursores/x/paginas/0','centralConfiguracao/consentimento','centralLotes/x','grupos/a/centralContribuicoes/x','grupos/a/centralLocais/x']){await assert.rejects(setDoc(doc(f,path),{ativo:true}),/permission/i);await assert.rejects(getDoc(doc(f,path)),/permission/i);}}
   finally{await signOut(a);await terminate(f);await deleteApp(c);await appRegras.delete();}
  });
+ await t.test('gestão privada exige compartilhamento; catálogo agregado continua disponível',async()=>{
+  const db=bancoDoGrupo(root,'comercial'),titular='central_titular',membro='central_admin_antigo';
+  await root.doc('grupos/comercial').set({ativo:true,assinaturasAtivas:true,titularUid:titular});
+  for(const uid of [titular,membro]){
+   await root.doc('vinculosUsuarios/'+uid).set({ativo:true,grupoId:'comercial'});
+   await db.doc('users/'+uid).set({ativo:true,role:'admin'});
+  }
+  const chamar=(acao,uid=membro,d={})=>C.operarCentral(root,{auth:{uid},data:{acao,...d}});
+  for(const acao of ['configuracao','revisarLocais','lotes'])await assert.rejects(chamar(acao),{code:'failed-precondition'});
+  await assert.rejects(chamar('configurar',membro,{ativo:true,versao:0,aviso:D.AVISO}),{code:'failed-precondition'});
+  assert.equal((await db.doc('centralConfiguracao/consentimento').get()).exists,false);
+  assert.equal((await chamar('configuracao',titular)).ativo,false);
+  assert.ok(Array.isArray((await chamar('produtos',membro,consulta)).itens));
+  const assinatura=root.doc('assinaturasGrupos/comercial');
+  await assinatura.set({versao:1,verificado:true,provedor:'google_play',plano:'prata',estado:'ativo',inicioEm:Date.now()-1000,validoAte:Date.now()+600000});
+  assert.equal((await chamar('configuracao')).ativo,false);
+  await db.doc('users/'+membro).update({acessoCompartilhado:false});
+  await assert.rejects(chamar('configuracao'),{code:'failed-precondition'});
+  // A autorização precisa ser relida dentro da escrita, não só na entrada callable.
+  await db.doc('users/'+membro).update({acessoCompartilhado:true});
+  let transacoes=0;
+  const concorrente=new Proxy(root,{get(base,k){
+   if(k==='runTransaction')return async(fn,...args)=>{
+    if(++transacoes===2)await db.doc('users/'+membro).update({acessoCompartilhado:false});
+    return base.runTransaction(fn,...args);
+   };
+   const v=base[k];return typeof v==='function'?v.bind(base):v;
+  }});
+  await assert.rejects(C.operarCentral(concorrente,{auth:{uid:membro},data:{acao:'configurar',ativo:true,versao:0,aviso:D.AVISO}}),{code:'failed-precondition'});
+  assert.equal((await db.doc('centralConfiguracao/consentimento').get()).exists,false);
+  await db.doc('users/'+membro).update({acessoCompartilhado:true});await assinatura.update({validoAte:Date.now()-1});
+  await assert.rejects(chamar('configuracao'),{code:'failed-precondition'});
+  await root.doc('grupos/comercial').update({assinaturasAtivas:false});
+  assert.equal((await chamar('configuracao')).ativo,false);
+ });
  console.log('Métricas de código (não faturamento): '+JSON.stringify({desligado,publicacao,replay,consulta:medidas}));
 });

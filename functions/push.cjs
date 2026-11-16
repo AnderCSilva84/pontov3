@@ -55,7 +55,16 @@ function criarPush({ admin, somenteEnvio = false, db = admin.firestore(), soment
       apenasUid ? db.collection('users').doc(apenasUid).get().then(doc=>({docs:doc.exists?[doc]:[]})) : db.collection('users').limit(1001).get(),
     ]);
     if(devices.docs.length>5000||users.docs.length>1000||apenasUid&&devices.docs.length>100)throw new Error('Destinatários acima do limite permitido.');
-    const ativos = new Set(users.docs.filter((doc) => doc.data().ativo !== false && (!apenasAdmins || doc.data().role === 'admin')).map((doc) => doc.id));
+    let permitidos = () => true;
+    if (db.grupoId) {
+      const raiz = db.raiz || admin.firestore();
+      const grupo = (await raiz.doc('grupos/' + db.grupoId).get()).data();
+      if (grupo?.assinaturasAtivas === true) {
+        const assinatura = (await raiz.doc('assinaturasGrupos/' + db.grupoId).get()).data();
+        permitidos = pessoa => require('./compartilhamento.cjs').permiteCompartilhamento(grupo, pessoa.data(), assinatura, pessoa.id);
+      }
+    }
+    const ativos = new Set(users.docs.filter(doc => doc.data().ativo !== false && (!apenasAdmins || doc.data().role === 'admin') && permitidos(doc)).map(doc => doc.id));
     const elegiveis = devices.docs.filter((doc) => ativos.has(doc.data().uid) && permiteEnvio(doc.data(),url,opcoes.acao));
     if(opcoes.diagnostico)opcoes.diagnostico.dispositivos=elegiveis.length;
     let enviados = 0;

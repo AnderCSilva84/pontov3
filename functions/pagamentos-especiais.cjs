@@ -1,3 +1,4 @@
+const { exigirRecurso } = require('./assinaturas-recursos.cjs');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 const { isDeepStrictEqual } = require('node:util');
@@ -15,7 +16,8 @@ async function pagarEspecial(db, dados, uid) {
   try { calculo = (await import('./folha-calculos.mjs')).calcularEspecial(dados.tipo,entrada); }
   catch(e) { throw new HttpsError('invalid-argument',e.message); }
   if (calculo.proventos <= 0) throw new HttpsError('invalid-argument','Não há valor para registrar.');
-  return db.runTransaction(async tx=>{
+  return db.runTransaction(async tx => {
+    await exigirRecurso(tx, db, uid, 'escritorioContabil');
     const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
     if(perfil?.role!=='admin' || perfil.ativo===false) throw new HttpsError('permission-denied','Acesso restrito ao administrador.');
     const f = (await tx.get(db.doc(`funcionarios/${dados.funcionarioId}`))).data();

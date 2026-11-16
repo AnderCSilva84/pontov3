@@ -1,0 +1,9 @@
+{
+  "pacote": "br.dev.acstech.ap1303",
+  "planoBase": "mensal",
+  "produtos": {
+    "ta_no_ponto_prata": "prata",
+    "ta_no_ponto_ouro": "ouro",
+    "ta_no_ponto_diamante": "diamante"
+  }
+}

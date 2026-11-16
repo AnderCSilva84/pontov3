@@ -20,6 +20,7 @@ async function contexto(raiz,tx,uid,esperado){
   if(gid?g.data()?.ativo!==true:g.data()?.bloqueada)falhar('permission-denied','Contexto indisponível.');
   const p=(await tx.get(db.doc('users/'+uid))).data();
   if(!p||p.ativo===false||!['admin','funcionario'].includes(p.role))falhar('permission-denied','Acesso não autorizado.');
+  if (p.role === 'admin') await require('./compartilhamento.cjs').exigirOperacaoCompartilhada(tx, db, uid);
   return {db,p,gid};
 }
 function conferir(p,c,uid){
@@ -73,6 +74,7 @@ async function operarRevisao(raiz,request){
     const folhaRef=db.doc(`folhasPagamento/${fid}_${data.slice(0,7)}`),folha=(await tx.get(folhaRef)).data();
     const funcionario=(await tx.get(db.doc('funcionarios/'+fid))).data();
     let alerta=bloqueio(pendencia,dia,funcionario,folha);
+    if (!alerta && original.tipo === 'ENTRADA' && pendencia.autorizacaoCompartilhamento?.regimeComercial === true && pendencia.autorizacaoCompartilhamento.autorizada !== true) alerta = 'Captura preservada sem autorização comercial verificada; não é possível criar entrada por esta revisão.';
     if(d.acao==='detalhe')return serializar({id:s.id,...pendencia,funcionarioNome:funcionario?.nome||fid,dia,revisaoDia:revisaoDia(diaSnap),alerta});
     if(pendencia.status!=='aguardando_analise')falhar('failed-precondition','Estado da pendência incompatível.');
     const reciboRef=db.doc(`pontoOperacoes/${pendencia.uid}_${original.operacaoId}`),recibo=(await tx.get(reciboRef)).data();
@@ -84,6 +86,10 @@ async function operarRevisao(raiz,request){
       const perfilOriginal=(await tx.get(db.doc('users/'+pendencia.uid))).data();
       const vinculoOriginal=(await tx.get(raiz.doc('vinculosUsuarios/'+pendencia.uid))).data();
       if(!perfilOriginal||perfilOriginal.ativo===false||perfilOriginal.role!=='funcionario'||perfilOriginal.funcionarioId!==fid||(c.gid?(vinculoOriginal?.ativo!==true||vinculoOriginal.grupoId!==c.gid):Boolean(vinculoOriginal)))alerta='Conta original sem acesso ativo. Não recrie a identidade. É possível rejeitar com justificativa.';
+      const autorizacao = pendencia.autorizacaoCompartilhamento;
+      if (original.tipo === 'ENTRADA' && autorizacao?.regimeComercial === true && autorizacao.autorizada !== true) falhar('failed-precondition', 'Captura preservada, mas sem autorização comercial verificada. Não foi criada uma nova entrada.');
+      const preAutorizada = autorizacao?.autorizada === true && autorizacao.uid === pendencia.uid && autorizacao.funcionarioId === fid && autorizacao.grupoId === c.gid;
+      if (!preAutorizada) await require('./compartilhamento.cjs').exigirOperacaoCompartilhada(tx, db, pendencia.uid, { continuidade: original.tipo !== 'ENTRADA' && Boolean(dia?.entrada && !dia?.saida) });
       if(alerta)falhar('failed-precondition',alerta);
       if(d.revisaoDia!==revisaoDia(diaSnap))falhar('aborted','A jornada mudou após abrir o detalhe. Atualize e examine novamente.');
       if(Object.values({entrada:dia?.entrada,saidaIntervalo:dia?.saidaIntervalo,entradaIntervalo:dia?.entradaIntervalo}).some(h=>h&&h>=d.horaRevisada))falhar('failed-precondition','Horário sobreposto ou anterior à última marcação.');

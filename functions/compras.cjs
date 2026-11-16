@@ -1,5 +1,7 @@
+const { exigirOperacaoCompartilhada, exigirConsultaCompartilhada } = require('./compartilhamento.cjs');
 const contextoCatalogo=require('./catalogo-contexto.cjs');
 const { bancoDoUsuario } = require('./grupos-contexto.cjs');
+const { prepararCota } = require('./assinaturas-cotas.cjs');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -24,6 +26,7 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
   const identidade=await import('./produtos-identidade.mjs');
   try {
     return await db.runTransaction(async tx => {
+    await exigirOperacaoCompartilhada(tx, db, uid);
       const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
       if (!perfil || perfil.ativo === false) falha('permission-denied', 'Acesso não autorizado.');
       if(['consultarCategoriasCompras','salvarCategoriasCompras'].includes(dados.operacao))return configurarTipos(tx,db,perfil,uid,dados);
@@ -68,6 +71,8 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
         const usuarios = await tx.get(db.collection('users'));
         const semCatalogo = pendentes.filter(d => !catalogo.docs.some(p => p.id === d.id));
         if (catalogo.size + pendentes.length + semCatalogo.length + CATEGORIAS.length + 1 > 450) falha('failed-precondition', 'Migração precisa ser feita em lotes pelo administrador.');
+        const confirmarCota = await prepararCota(tx, db, uid, 'listas');
+        confirmarCota();
         prepararCategorias();
         for (const p of catalogo.docs) tx.set(p.ref, { nome: p.data().nome || p.id, categoriaId: categoriaLegada(p.data().categoria), unidadeCompra: p.data().unidadeCompra || 'un', apresentacao: p.data().apresentacao || '', ativo: p.data().ativo !== false }, { merge: true });
         tx.create(ref, { titulo: 'Lista anterior', status: 'rascunho', criadaPor: uid, criadaPorNome: nomeCriador(perfil), criadaEm: timestamp(), atualizadaEm: timestamp(), versao: 1, quantidadeItens: pendentes.length, origem: 'listaCompras', schemaVersion: 1 });
@@ -120,6 +125,8 @@ exports.comprasOperacao = onCall({ timeoutSeconds: 60 }, async request => {
           return { listaId: ref.id };
         }
         await exigirTipoHabilitado(tx,db,validarTipoCompra(dados.tipoCompra));
+        const confirmarCota = await prepararCota(tx, db, uid, 'listas');
+        confirmarCota();
         tx.create(ref, { titulo: texto(dados.titulo), tipoCompra:validarTipoCompra(dados.tipoCompra), status: 'rascunho', criadaPor: uid, criadaPorNome: nomeCriador(perfil), criadaEm: timestamp(), atualizadaEm: timestamp(), versao: 1, quantidadeItens: 0, schemaVersion: 1 });
         return { listaId: ref.id };
       }
@@ -255,6 +262,8 @@ exports.comprasRelatorio = onCall({ timeoutSeconds: 60 }, async request => {
   if (!request.auth) falha('unauthenticated', 'Entre no app para consultar.');
   const db = await bancoDoUsuario(admin.firestore(), request.auth.uid), perfil = (await db.doc(`users/${request.auth.uid}`).get()).data();
   if (!perfil || perfil.ativo === false) falha('permission-denied', 'Acesso não autorizado.');
+  await exigirConsultaCompartilhada(db, request.auth.uid);
   const resultado=await require('./compras-relatorio.cjs').lerRelatorioCompras(db,request.data);
+  await exigirConsultaCompartilhada(db, request.auth.uid);
   return {...resultado,rankings:calcularRelatorios(resultado.registros.map(r=>({...r,nomeSnapshot:r.nomeCanonico})))};
 });

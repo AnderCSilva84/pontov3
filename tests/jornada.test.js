@@ -10,6 +10,15 @@ for (const horas of [44,42,40]) test('Modalidade '+horas,()=>{
  if(horas===42) assert.equal(Object.values(modelo.escala).filter(d=>d.cargaMin===0).length,2);
 });
 const f={...criarModeloJornada(44),jornadas:[{...criarModeloJornada(42),vigencia:'2026-12-01'}]};
+test('Datas e modalidades inválidas retornam erro sem interromper o formulário',()=>{
+ const escala=criarModeloJornada(42).escala;
+ for(const data of ['',undefined,'2026-13-01','2026-12-32','2027-02-29','2026-12-01T00:00:00Z']) {
+  assert.ok(validarModeloJornada(42,data,escala));
+ }
+ assert.ok(validarModeloJornada(41,'2026-12-01',escala));
+ assert.ok(validarModeloJornada(42,'2026-12-01',null));
+ assert.equal(validarModeloJornada('42','2026-12-01',escala),'');
+});
 test('Vigência preserva novembro, aplica dezembro e folgas',()=>{
  assert.equal(cargaNaData(f,'2026-11-30'),480);
  assert.equal(cargaNaData(f,'2026-12-01'),504);

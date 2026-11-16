@@ -1,8 +1,9 @@
+const { exigirRecurso } = require('./assinaturas-recursos.cjs');
 const {HttpsError}=require('firebase-functions/v2/https'),{FieldValue}=require('firebase-admin/firestore'),{createHash}=require('node:crypto');
 const falha=(c,m)=>{throw new HttpsError(c,m);};
 const id=v=>typeof v==='string'&&/^[\w-]{1,128}$/.test(v);
 const controle=(db,fid)=>db.doc('adiantamentosControle/'+fid);
-async function conferirAdmin(tx,db,uid){if(!uid)falha('unauthenticated','Entre no app.');const p=(await tx.get(db.doc('users/'+uid))).data();if(p?.role!=='admin'||p.ativo===false)falha('permission-denied','Somente administradores registram vales e parcelas.');}
+async function conferirAdmin(tx,db,uid){await exigirRecurso(tx,db,uid,'escritorioContabil');if(!uid)falha('unauthenticated','Entre no app.');const p=(await tx.get(db.doc('users/'+uid))).data();if(p?.role!=='admin'||p.ativo===false)falha('permission-denied','Somente administradores registram vales e parcelas.');}
 async function conferirFolhas(tx,db,fid,parcelas){
  const s=await tx.getAll(...parcelas.map(p=>db.doc(`folhasPagamento/${fid}_${p.competencia}`)));
  const fechada=s.find(x=>x.exists&&x.data().status!=='em_andamento');

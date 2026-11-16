@@ -133,7 +133,7 @@ test('lembretes gerais: qualquer perfil ativo, autoria, isolamento, envio e conc
   const d={...base,id:'silenciar-inicial'};await op('geralSalvar',d);await op('geralOrganizar',{id:d.id,pasta:'excluido'},'aline');
   await require('../functions/lembretes-gerais.cjs').processarEnviosGerais(db,async(...a)=>{assert.notEqual(a[3],'aviso-evento:novo_'+d.id);return 1;},vencimento);
   assert.equal((await db.doc('avisosEnvios/novo_'+d.id).get()).data().silenciado,true);
-  const pag=bancoDoGrupo(root,'pagina'),batch=root.batch();batch.set(pag.doc('users/aline'),{role:'admin',ativo:true});
+  const pag=bancoDoGrupo(root,'pagina'),batch=root.batch();batch.set(root.doc('grupos/pagina'),{ativo:true});batch.set(pag.doc('users/aline'),{role:'admin',ativo:true});
   for(let n=0;n<31;n++)batch.set(pag.doc('lembretes/'+String(n).padStart(3,'0')),{dominio:'geral',titulo:'Fictício',usuarioId:'aline',criadaPor:'autor',ativo:true,versao:1,organizacao:{aline:n<30?'excluido':'entrada'}});
   await batch.commit();const pedir=cursor=>operarLembretes(pag,{auth:{uid:'aline'},data:{operacao:'geralListar',visao:'recebidos',cursor}});
   const primeira=await pedir();assert.equal(primeira.lembretes.length,0);assert.equal(primeira.cursor,'029');const segunda=await pedir(primeira.cursor);assert.equal(segunda.lembretes[0].id,'030');assert.equal(segunda.cursor,null);

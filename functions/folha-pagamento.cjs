@@ -1,3 +1,4 @@
+const { exigirRecurso } = require('./assinaturas-recursos.cjs');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 
@@ -13,6 +14,7 @@ async function salvarFolha(db, dados, uid) {
   for (const c of numericos) if (!Number.isFinite(Number(f[c] || 0)) || Number(f[c] || 0) < 0 || Number(f[c] || 0) > 1e8) throw new HttpsError('invalid-argument', 'Revise os valores da folha.');
   if (!(Number(f.divisorHoras) > 0) || Number(f.proporcaoVt ?? 100) > 100 || typeof f.observacao !== 'string' || f.observacao.length > 300) throw new HttpsError('invalid-argument', 'Revise divisor, proporção do VT e observação.');
   return db.runTransaction(async tx => {
+    await exigirRecurso(tx, db, uid, 'escritorioContabil');
     const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
     if (perfil?.role !== 'admin' || perfil.ativo === false) throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
     const ref = db.doc(`folhasPagamento/${fid}_${f.competencia}`), anterior = (await tx.get(ref)).data();
@@ -45,7 +47,10 @@ async function pagarFolhaFechada(db, dados, uid) {
   if (dados.tipo !== 'salario' || typeof dados.folhaId !== 'string' || !/^[\w-]{1,150}$/.test(dados.folhaId)) throw new HttpsError('invalid-argument', 'Folha inválida.');
   if (typeof dados.dataPagamento !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dados.dataPagamento) || (!Number.isFinite(Date.parse(dados.dataPagamento + 'T12:00:00Z')) || new Date(dados.dataPagamento + 'T12:00:00Z').toISOString().slice(0, 10) !== dados.dataPagamento)) throw new HttpsError('invalid-argument', 'Data de pagamento inválida.');
   return db.runTransaction(async tx => {
+    await exigirRecurso(tx, db, uid, 'escritorioContabil');
     const ref = db.doc(`folhasPagamento/${dados.folhaId}`), snap = await tx.get(ref), folha = snap.data();
+    const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
+    if (perfil?.role !== 'admin' || perfil.ativo === false) throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
     if (!folha) throw new HttpsError('not-found', 'Folha não encontrada.');
     if (folha.status === 'paga') {
       if (folha.pagamentoId) return { id: folha.pagamentoId };

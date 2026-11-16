@@ -1,3 +1,6 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
+const { encerramentoAposConclusao } = require('./lembretes-conclusao.cjs');
+const { prepararCota } = require('./assinaturas-cotas.cjs');
 const {HttpsError}=require('firebase-functions/v2/https');
 const {Timestamp,FieldValue}=require('firebase-admin/firestore');
 const {proximoDisparo,dataValida,dataLocal}=require('./lembretes-dominio.cjs');
@@ -21,6 +24,7 @@ const resumo=(doc,uid)=>{const l=doc.data();return {id:doc.id,titulo:l.titulo,ob
 async function operarGerais(db,request,agora=Date.now()){
  const uid=request.auth?.uid,d=request.data||{};if(!uid)fail('unauthenticated','Entre no aplicativo.');
  return db.runTransaction(async tx=>{
+    await exigirOperacaoCompartilhada(tx, db, uid);
   const perfil=(await tx.get(db.doc('users/'+uid))).data();if(!ativo(perfil))fail('permission-denied','Conta sem acesso.');
   if(d.operacao==='geralLidos'){
    if(!Number.isSafeInteger(d.marcador)||d.marcador<0)fail('invalid-argument','Marcador inválido.');
@@ -53,6 +57,8 @@ async function operarGerais(db,request,agora=Date.now()){
    const limite=await tx.get(db.collection('lembretes').where('dominio','==','geral').where('criadaPor','==',uid).where('ativo','==',true).limit(101));
    if(limite.size>=100)fail('resource-exhausted','Limite de 100 lembretes ativos criados. Pause os que não serão mais utilizados.');
    const estadoRef=db.doc('lembretesEstado/'+d.usuarioId),estado=(await tx.get(estadoRef)).data()||{};
+   const confirmarCota = await prepararCota(tx, db, uid, 'lembretes');
+   confirmarCota();
    tx.set(estadoRef,{recebidos:(estado.recebidos||0)+1},{merge:true});
    tx.create(db.doc('avisosEnvios/novo_'+d.id),{uid:d.usuarioId,lembreteId:d.id,titulo:campos.titulo,tipo:'novo',pendente:true,criadaEm:FieldValue.serverTimestamp()});
    tx.create(ref,{...campos,dominio:'geral',assinatura:assinatura(d),tipo:'outro',usuarioId:d.usuarioId,usuarioNome:alvo.nome||'Usuário do grupo',criadaPor:uid,criadaPorNome:perfil.nome||'Usuário do grupo',criadaEm:FieldValue.serverTimestamp(),ativo:true,versao:1,ultimaOcorrencia:null});return {id:ref.id};
@@ -88,11 +94,12 @@ async function operarGerais(db,request,agora=Date.now()){
    const feedback=d.feedback===undefined?'':d.feedback;
    if(typeof feedback!=='string'||feedback.length>500||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(feedback))fail('invalid-argument','O feedback deve ser um texto de até 500 caracteres.');
    const autorEstadoRef=db.doc('lembretesEstado/'+l.criadaPor),autorEstado=(await tx.get(autorEstadoRef)).data()||{};
+   const encerramento = await encerramentoAposConclusao(tx, ref, l, d.ocorrenciaId, previsto ? retomarEmMs : ms);
    tx.set(autorEstadoRef,{conclusoes:(autorEstado.conclusoes||0)+1},{merge:true});
    tx.create(db.doc('avisosEnvios/concluido_'+d.id+'_'+d.ocorrenciaId),{uid:l.criadaPor,lembreteId:d.id,titulo:l.titulo,tipo:'concluido',concluidaPorNome:perfil.nome||'Destinatário',pendente:true,criadaEm:FieldValue.serverTimestamp()});
    const registro={id:d.ocorrenciaId,horarioMs,status:'concluido',concluidaPor:uid,concluidaPorNome:perfil.nome||'Destinatário',concluidaEmMs:agora,feedback:feedback.replace(/\r\n?/g,'\n').trim()};
    tx.set(r,{...registro,leaseAteMs:0},{merge:true});
-   tx.update(ref,{ultimaConclusao:registro});
+   tx.update(ref,{...encerramento,ultimaConclusao:registro});
    if(previsto){const proximo=retomarEmMs;tx.update(ref,{adiamento:null,ultimaOcorrencia:registro,proximoDisparoEm:proximo?Timestamp.fromMillis(proximo):null});}
    else if(l.ultimaOcorrencia?.id===d.ocorrenciaId)tx.update(ref,{ultimaOcorrencia:registro});
    return {ok:true};
@@ -100,6 +107,8 @@ async function operarGerais(db,request,agora=Date.now()){
   if(d.operacao!=='geralPausar'||l.criadaPor!==uid)fail('permission-denied','Somente o autor gerencia este lembrete.');
   if(l.versao!==d.versao||typeof d.ativo!=='boolean')fail('aborted','Atualize a tela antes de alterar.');
   const proximo=d.ativo?proximoDisparo(l,agora):null;if(d.ativo&&!proximo)fail('failed-precondition','Crie outro lembrete com data futura.');
+  const confirmarCota = await prepararCota(tx, db, uid, 'lembretes', d.ativo && l.ativo !== true ? 1 : 0);
+  confirmarCota();
   tx.update(ref,{ativo:d.ativo,versao:l.versao+1,proximoDisparoEm:proximo?Timestamp.fromMillis(proximo):null,ultimaOcorrencia:null,adiamento:null});return {ok:true};
  });
 }

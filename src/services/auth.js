@@ -1,3 +1,4 @@
+import { listarTentativasTitular } from './pontoTitular';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -33,7 +34,8 @@ export async function logout() {
     try {
       const fila=await filaPonto.listar(escopoPonto(auth.currentUser.uid,grupo?{tipo:'grupo',id:grupo}:{tipo:'legado'}));
       if(auth.currentUser?.uid!==dono)return;
-      if(fila.some(o=>EM_ABERTO.includes(o.status))&&!window.confirm(textoPendencias(resumirPendencias(fila))+'\nSair preservando essas operações neste aparelho? Só a mesma conta e grupo poderão retomá-las. Cancelar mantém você conectado.'))return;
+      const resumoTerminal=resumirPendencias(fila); resumoTerminal.onlineIncerto += listarTentativasTitular(dono).length;
+      if((fila.some(o=>EM_ABERTO.includes(o.status)) || resumoTerminal.onlineIncerto)&&!window.confirm(textoPendencias(resumoTerminal)+'\nSair preservando essas operações neste aparelho? Só a mesma conta e grupo poderão retomá-las. Cancelar mantém você conectado.'))return;
     } catch { if(!window.confirm('Não foi possível conferir a fila de ponto. Sair sem apagar as tentativas locais?'))return; }
   }
   if(auth.currentUser?.uid!==dono)return;

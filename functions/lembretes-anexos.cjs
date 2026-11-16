@@ -1,3 +1,4 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
 const {HttpsError}=require('firebase-functions/v2/https');
 const {FieldValue}=require('firebase-admin/firestore');
 const {createHash,randomUUID}=require('node:crypto');
@@ -29,6 +30,7 @@ function validarArquivo(base64,nome){
 }
 const publico=(doc,uid)=>{const a=doc.data();return {id:doc.id,tipo:a.tipo,nome:a.nome,mime:a.mime||'',tamanhoBytes:a.tamanhoBytes||0,sha256:a.sha256||'',url:a.tipo==='link'?a.url:undefined,status:a.status,aguardarAteMs:a.criadaPor===uid?a.leaseAteMs||0:0,criadaPor:a.criadaPor,criadaPorNome:a.criadaPorNome,criadaEmMs:a.criadaEm?.toMillis?.()||null,respostaDe:a.respostaDe||'',respostaNome:a.respostaNome||'',podeRemover:a.criadaPor===uid};};
 async function acesso(tx,db,uid,lembreteId,escrita=false){
+ await exigirOperacaoCompartilhada(tx,db,uid);
  const perfil=(await tx.get(db.doc('users/'+uid))).data(),ref=db.doc('lembretes/'+lembreteId),snap=await tx.get(ref),l=snap.data();
  if(!perfil||perfil.ativo===false||!['admin','funcionario','consulta'].includes(perfil.role)||!l||l.dominio!=='geral'||![l.criadaPor,l.usuarioId].includes(uid)||pasta(l,uid)==='excluido')falha('permission-denied','Anexos indisponíveis para esta conta.');
  if(escrita&&pasta(l,uid)!=='entrada')falha('failed-precondition','Restaure o lembrete para adicionar ou remover anexos.');

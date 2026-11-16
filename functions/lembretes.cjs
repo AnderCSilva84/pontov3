@@ -1,3 +1,6 @@
+const { exigirOperacaoCompartilhada } = require('./compartilhamento.cjs');
+const { encerramentoAposConclusao } = require('./lembretes-conclusao.cjs');
+const { prepararCota } = require('./assinaturas-cotas.cjs');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
@@ -17,6 +20,7 @@ async function operarLembretes(db, request, agora = Date.now()) {
   if(['listarPratos','salvarPrato','arquivarPrato','obterPrato'].includes(d.operacao))return require('./pratos-dia.cjs').operarPratos(db,request);
   if (['listarCuidados', 'salvarCuidado'].includes(d.operacao)) return operarCuidados(db, request);
   return db.runTransaction(async tx => {
+    await exigirOperacaoCompartilhada(tx, db, uid);
     const perfil = (await tx.get(db.doc(`users/${uid}`))).data();
     if (!perfil || perfil.ativo === false) falha('permission-denied', 'Acesso não autorizado.');
     const admin = perfil.role === 'admin';
@@ -62,6 +66,8 @@ async function operarLembretes(db, request, agora = Date.now()) {
       if (d.id && !anterior) falha('not-found', 'Lembrete não encontrado para esta pessoa.');
       if (anterior && d.versao !== anterior.versao) falha('aborted', 'O lembrete mudou. Reabra a edição.');
       if (!anterior && (await tx.get(db.collection('lembretes').where(cuidado ? 'cuidadoId' : 'usuarioId', '==', cuidado ? d.cuidadoId : d.usuarioId).limit(101))).size >= 100) falha('failed-precondition', 'Limite de 100 lembretes por pessoa.');
+      const confirmarCota = await prepararCota(tx, db, uid, 'lembretes', anterior?.ativo === true ? 0 : 1);
+      confirmarCota();
       const { proximoMs, ...dados } = campos;
       tx.set(ref, { ...dados, ...(cuidado ? { cuidadoId: d.cuidadoId } : {}), usuarioId: d.usuarioId, ...(d.destinatarios ? { destinatarios: d.destinatarios } : {}), ativo: true, versao: (anterior?.versao || 0) + 1, proximoDisparoEm: Timestamp.fromMillis(proximoMs), criadaPor: anterior?.criadaPor || uid, criadaPorNome: anterior ? anterior.criadaPorNome || (anterior.criadaPor === uid ? perfil.nome || perfil.email || '' : '') : perfil.nome || perfil.email || '', criadaEm: anterior?.criadaEm || FieldValue.serverTimestamp(), atualizadaEm: FieldValue.serverTimestamp(), ultimaOcorrencia: null });
       return { id: ref.id };
@@ -85,8 +91,9 @@ async function operarLembretes(db, request, agora = Date.now()) {
       if (lembrete.ativo && Number.isFinite(devidoMs) && devidoMs <= agora && dataLocal(devidoMs) === dataLocal(agora) && d.ocorrenciaId === `${lembrete.versao}_${devidoMs}`) {
         const registro = { id: d.ocorrenciaId, horarioMs: devidoMs, status: 'concluido', concluidaPor: uid, concluidaPorNome:perfil.nome||'Usuário do grupo', concluidaEmMs: agora, ...auditoriaAcao };
         const proximoMs = proximoDisparo(lembrete, devidoMs);
+        const encerramento = await encerramentoAposConclusao(tx, ref, lembrete, d.ocorrenciaId, proximoMs);
         tx.set(db.doc(`lembretes/${d.id}/ocorrencias/${d.ocorrenciaId}`), { ...registro, usuarioId: lembrete.usuarioId, titulo: lembrete.titulo, tipo: lembrete.tipo, destinatarioCuidado: lembrete.destinatarioCuidado || '', nomeCuidado: lembrete.nomeCuidado || '', medicamento: lembrete.medicamento || '', posologia: lembrete.posologia || '' }, { merge: true });
-        tx.update(ref, { ultimaConclusao:registro, ultimaOcorrencia: registro, proximoDisparoEm: proximoMs ? Timestamp.fromMillis(proximoMs) : null });
+        tx.update(ref, { ...encerramento, ultimaConclusao:registro, ultimaOcorrencia: registro, proximoDisparoEm: proximoMs ? Timestamp.fromMillis(proximoMs) : null });
         return { ok: true };
       }
       if (!idValido(d.ocorrenciaId) || !d.ocorrenciaId.startsWith(`${lembrete.versao}_`)) falha('failed-precondition', 'Atualize a tela antes de registrar a realização.');
@@ -94,7 +101,8 @@ async function operarLembretes(db, request, agora = Date.now()) {
       const registro = (await tx.get(registroRef)).data();
       if (!registro || registro.horarioMs > agora || ['cancelado', 'sem_acesso'].includes(registro.status)) falha('failed-precondition', 'Atualize a tela antes de registrar a realização.');
       if (registro.status === 'concluido') return { ok: true };
-      tx.update(ref,{ultimaConclusao:{id:d.ocorrenciaId,horarioMs:registro.horarioMs,status:'concluido',concluidaPor:uid,concluidaPorNome:perfil.nome||'Usuário do grupo',concluidaEmMs:agora}});
+      const encerramento = await encerramentoAposConclusao(tx, ref, lembrete, d.ocorrenciaId, devidoMs);
+      tx.update(ref,{...encerramento,ultimaConclusao:{id:d.ocorrenciaId,horarioMs:registro.horarioMs,status:'concluido',concluidaPor:uid,concluidaPorNome:perfil.nome||'Usuário do grupo',concluidaEmMs:agora}});
       if (ultima?.id === d.ocorrenciaId) tx.update(ref, { ultimaOcorrencia: { ...ultima, status: 'concluido', concluidaPor: uid, concluidaEmMs: agora } });
       tx.set(registroRef, { status: 'concluido', concluidaPor: uid, concluidaEmMs: agora, ...auditoriaAcao }, { merge: true });
       return { ok: true };
@@ -110,6 +118,8 @@ async function operarLembretes(db, request, agora = Date.now()) {
     if (d.ativo && (lembrete.cuidadoId && !cuidado || destino?.destinatarios !== 'todos' && !destinatarioAtivo(alvo))) falha('failed-precondition', 'Esta pessoa não está habilitada para receber lembretes.');
     const proximoMs = d.ativo ? proximoDisparo(lembrete, agora) : null;
     if (d.ativo && !proximoMs) falha('failed-precondition', 'Edite o lembrete e escolha um horário futuro.');
+    const confirmarCota = await prepararCota(tx, db, uid, 'lembretes', d.ativo && lembrete.ativo !== true ? 1 : 0);
+    confirmarCota();
     tx.update(ref, { ativo: d.ativo, versao: lembrete.versao + 1, proximoDisparoEm: proximoMs ? Timestamp.fromMillis(proximoMs) : null, atualizadaEm: FieldValue.serverTimestamp() });
     return { ok: true };
   });

@@ -72,18 +72,19 @@ test('lembretes: permissões, dose, agendamento e envio por destinatária', { sk
     await db.doc('pushDispositivos/lem-dispositivo').set({ uid, token: 'token-ficticio-cuidadora' });
     await db.doc('pushDispositivos/lem-outro-dispositivo').set({ uid: 'lem-outra', token: 'token-ficticio-outro' });
     const mensagens = [];
-    const falsoAdmin = { firestore: () => db, messaging: () => ({ sendEach: async lote => { mensagens.push(...lote); return { responses: lote.map(() => ({ success: true })) }; } }) };
-    const enviar = (...args) => enviarPush(falsoAdmin, ...args);
+    // Simula somente a saída: o transporte real bloqueia push nos emuladores.
+    const enviar = async (...args) => { mensagens.push(args); return 1; };
     await Promise.all([processarLembretes(db, enviar, horario), processarLembretes(db, enviar, horario)]);
     await processarLembretes(db, enviar, horario + 60000);
     assert.equal(mensagens.length, 1);
-    assert.equal(mensagens[0].data.uid, uid);
-    const destino=new URL(mensagens[0].data.url,'https://example.test');
+    assert.equal(mensagens[0][4], uid);
+    const destino=new URL(mensagens[0][2],'https://example.test');
     assert.equal(destino.pathname,'/lembretes');assert.equal(destino.searchParams.get('lembreteId'),id);assert.equal(destino.searchParams.get('destinatario'),uid);
-    assert.equal(mensagens[0].webpush.headers.TTL, '300');
-    assert.equal(mensagens[0].webpush.headers.Urgency, 'high');
+    assert.equal(mensagens[0][6].ttl, 300);
+    assert.equal(mensagens[0][6].urgency, 'high');
     const l = (await db.doc(`lembretes/${id}`).get()).data();
-    assert.equal(await enviar('Lembrete de cuidado', 'Repetição de teste', '/lembretes', `lembrete:${id}:${l.ultimaOcorrencia.id}`, uid, false, { contarConfirmados: true }), 1);
+    // A guarda do transporte continua ativa mesmo com SDK de envio simulado.
+    assert.equal(await enviarPush({ firestore: () => db, messaging: () => { throw Error('Não acessar transporte'); } }, 'Teste', 'Teste', '/lembretes', 'evento', uid), 0);
     assert.equal(mensagens.length, 1);
     assert.equal(l.ultimaOcorrencia.status, 'enviado');
     assert.equal(l.proximoDisparoEm, null);
@@ -158,10 +159,16 @@ test('lembretes: permissões, dose, agendamento e envio por destinatária', { sk
     await db.doc('pushDispositivos/lem-admin-inativo').set({ uid: 'lem-admin-inativo', token: 'token-ficticio-inativo' });
     const novo = (await op('salvar', { ...base, horario: '12:45' })).id;
     const aceitos = []; let falhou = false;
-    const falsoAdmin = { firestore: () => db, messaging: () => ({ sendEach: async lote => ({ responses: lote.map(m => { if (m.data.uid === uid && !falhou) { falhou = true; return { success: false, error: { code: 'messaging/internal-error' } }; } aceitos.push(m.data.uid); return { success: true }; }) }) }) };
-    await processarLembretes(db, (...args) => enviarPush(falsoAdmin, ...args), horario + 45 * 60000);
+    const confirmados = new Set();
+    const enviar = async (_titulo, _mensagem, _url, evento, destinatario) => {
+      if (destinatario === uid && !falhou) { falhou = true; throw Error('Falha simulada no aparelho'); }
+      const chave = evento + ':' + destinatario;
+      if (!confirmados.has(chave)) { confirmados.add(chave); aceitos.push(destinatario); }
+      return 1;
+    };
+    await processarLembretes(db, enviar, horario + 45 * 60000);
     assert.deepEqual(aceitos, ['lem-admin']);
-    await processarLembretes(db, (...args) => enviarPush(falsoAdmin, ...args), horario + 46 * 60000);
+    await processarLembretes(db, enviar, horario + 46 * 60000);
     assert.deepEqual(aceitos, ['lem-admin', uid]);
     assert.equal((await db.doc(`lembretes/${novo}`).get()).data().ultimaOcorrencia.avisosAdministradores, true);
   });

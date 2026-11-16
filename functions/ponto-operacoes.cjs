@@ -45,8 +45,10 @@ async function registrarOperacao(raiz,request,agoraMs=Date.now()) {
     const grupo=vinculo?.grupoId||null,db=grupo?bancoDoGrupo(raiz,grupo):raiz;
     if ((grupo && (p.contexto.tipo!=='grupo'||p.contexto.id!==grupo)) || (!grupo && p.contexto.tipo!=='legado')) falha('permission-denied','O vínculo de grupo mudou. A operação foi preservada para orientação administrativa.');
     const reciboRef=db.collection('pontoOperacoes').doc(chave),registroRef=db.collection('registros').doc(chave);
+    let grupoVerificado;
     if (grupo) {
-      const g=(await tx.get(raiz.doc('grupos/'+grupo))).data();
+      grupoVerificado = await tx.get(raiz.doc('grupos/' + grupo));
+      const g=grupoVerificado.data();
       if(vinculo?.grupoId!==grupo||vinculo.ativo!==true||g?.ativo!==true) falha('permission-denied','O contexto de acesso mudou. Entre novamente.');
     } else if (vinculo || (await tx.get(raiz.doc('migracoesGrupos/legado'))).data()?.bloqueada) falha('permission-denied','O contexto legado mudou. Entre novamente.');
     const perfil=(await tx.get(db.collection('users').doc(uid))).data();
@@ -73,8 +75,13 @@ async function registrarOperacao(raiz,request,agoraMs=Date.now()) {
     const tempo=partesOperacionais(agoraMs);
     let resultado;
     if(p.modalidade==='offline_pendente') {
+      let autorizada = true;
+      try { await require('./compartilhamento.cjs').exigirOperacaoCompartilhada(tx, db, uid, { agora: agoraMs, grupoVerificado }); }
+      catch (e) { if (e.code !== 'failed-precondition') throw e; autorizada = false; }
+      const regimeComercial = grupoVerificado?.data()?.assinaturasAtivas === true;
+      const autorizacaoCompartilhamento = { autorizada: Boolean(autorizada && regimeComercial), regimeComercial: Boolean(regimeComercial), uid, funcionarioId: p.funcionarioId, grupoId: grupo, recebidaEmMs: agoraMs };
       resultado={operacaoId:p.operacaoId,status:'recebida',jornadaData:p.jornadaData,recebidoEmMs:agoraMs};
-      tx.create(pendenciaRef,{uid,funcionarioId:p.funcionarioId,contexto:p.contexto,payload:p,status:'aguardando_analise',recebidoEm:timestamp,localizacaoValidada:false});
+      tx.create(pendenciaRef,{uid,funcionarioId:p.funcionarioId,contexto:p.contexto,payload:p,autorizacaoCompartilhamento,status:'aguardando_analise',recebidoEm:timestamp,localizacaoValidada:false});
       if(diaria)tx.update(diariaRef,{pendenciaAtivaId:pendenciaRef.id});
     } else {
       if(p.jornadaData!==tempo.dataKey||partesOperacionais(p.capturadoEmMs).dataKey!==p.jornadaData)return recusar('A data da tentativa não corresponde ao dia atual. Turnos atravessando meia-noite não são suportados. Solicite orientação administrativa.');
@@ -88,6 +95,7 @@ async function registrarOperacao(raiz,request,agoraMs=Date.now()) {
       }
       if(!localId)return recusar('Você está fora do local autorizado.');
       const diaRef=db.collection('dias').doc(`${p.funcionarioId}_${tempo.dataKey}`),dia=(await tx.get(diaRef)).data();
+      await require('./compartilhamento.cjs').exigirOperacaoCompartilhada(tx, db, uid, { agora: agoraMs, grupoVerificado, continuidade: p.tipo !== 'ENTRADA' && Boolean(dia?.entrada && !dia?.saida) });
       let alteracoes;try{alteracoes=aplicarAcao(dia,p.tipo,tempo.hora,funcionario,new Date(tempo.dataKey+'T12:00Z').getUTCDay(),tempo.dataKey);}
       catch(e){return recusar(e.message);}
       resultado={operacaoId:p.operacaoId,status:'confirmado',dataKey:tempo.dataKey,hora:tempo.hora,recebidoEmMs:agoraMs};

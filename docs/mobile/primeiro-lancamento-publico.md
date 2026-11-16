@@ -1,10 +1,14 @@
 # Primeiro lançamento público — issue #7
 
+Atualização em 15/11/2026: código **7/1.0.0 disponível para testadores internos**; última resposta do titular informa que a opção Atualizar ainda não apareceu. Onze Functions novas e RTDN implantados, sem ativar cobrança/regime comercial. Homologação física e critérios do lançamento público continuam pendentes. [Estado de retomada](../CONTINUAR-NO-VSCODE.md) e [roteiro atual do código7](21-teste-interno-codigo7.md). Os registros anteriores abaixo são históricos.
+
 Preparação iniciada em 13/11/2026. Issue: https://github.com/AnderCSilva84/pontov3/issues/7.
 
 ## Resultado esperado
 
 Disponibilizar o Tá no Ponto ao público com a versão aprovada identificada, acesso pela loja verificado e atendimento preparado. Aprovação para produção e disponibilidade pública são marcos distintos.
+
+Em 14/11/2026, o titular solicitou incluir assinaturas na mesma versão completa de produção. A [issue #9](https://github.com/AnderCSilva84/pontov3/issues/9) acompanha a implementação conforme a definição da #8. A candidata deve reunir frontend, Functions/regras e Android, após integração real de cobrança e homologação; a tela informativa local não conclui esse requisito. Ver [estado e configuração de assinaturas](../ASSINATURAS-IMPLEMENTACAO.md).
 
 ## Estado e evidências
 

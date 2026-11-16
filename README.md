@@ -2,6 +2,12 @@
 
 Aplicativo para organização de ponto, compras, tarefas, lembretes e rotina em grupo. Interface React/Vite, backend Firebase e empacotamento mobile com Capacitor. PWA e Android têm recursos distintos; a edição da loja não inclui cuidados de pessoas e pets.
 
+## Retomar no VS Code
+
+Abra [ta-no-ponto.code-workspace](ta-no-ponto.code-workspace) e comece pelo [guia de retomada](docs/CONTINUAR-NO-VSCODE.md). O workspace inclui tarefas locais de desenvolvimento com emuladores, testes, lint e build; não executa publicação automaticamente.
+
+Estado em **15/11/2026**: código **7/1.0.0 disponível no teste interno**, aguardando atualização e homologação no aparelho do titular. Onze Functions novas e conexão RTDN implantadas/verificadas; compras/gates desabilitados e grupos em transição. PWA recente, regras/Functions antigas modificadas e código acumulado ainda têm revisão/rollout pendentes. A branch contém alterações ainda sem commit; não equivale à versão completa publicada. [Roteiro físico](docs/mobile/21-teste-interno-codigo7.md) e [fluxograma](docs/arquitetura/README.md).
+
 ## Estrutura
 
 | Pasta | Responsabilidade |
@@ -14,6 +20,7 @@ Aplicativo para organização de ponto, compras, tarefas, lembretes e rotina em 
 | scripts/ | Build, validações e ferramentas de publicação |
 | docs/ | Documentação técnica, homologação e acompanhamento ágil |
 | output/ | Evidências e artefatos locais, ignorados no Git |
+| ta-no-ponto.code-workspace | Configuração compartilhável do VS Code e tarefas locais |
 
 ## Desenvolvimento e verificação
 
@@ -40,9 +47,14 @@ Builds, AABs/APKs, instalações, deploys Firebase/Netlify e lançamentos na Pla
 ## Acompanhamento
 
 - [Quadro ágil e critérios de aceite](docs/ACOMPANHAMENTO-AGIL.md)
+- [Retomada atual no VS Code](docs/CONTINUAR-NO-VSCODE.md)
+- [Revisão de prontidão e rollout de assinaturas](docs/mobile/22-prontidao-rollout-assinaturas.md)
+- [GitHub Projects](https://github.com/users/AnderCSilva84/projects/3/views/1)
+- [Arquitetura e fluxograma completo](docs/arquitetura/README.md)
+- [Planos e regras de assinaturas — definição comercial](docs/PLANOS-E-ASSINATURAS.md)
 - [Preparação do primeiro lançamento público](docs/mobile/primeiro-lancamento-publico.md)
 - [Homologação mobile](docs/mobile/homologacao-codigo-3.md)
 - [Notificações push](NOTIFICACOES_PUSH.md)
 - [Organização do repositório](docs/ORGANIZACAO-REPOSITORIO.md)
 
-O checkout contém melhorias em homologação e ensaios locais de QR; não representa automaticamente uma versão publicada ou inteiramente homologada.
+Os documentos datados preservam a evolução das etapas. Para a situação mais recente, consultar primeiro o guia de retomada; os registros anteriores de versões locais ou sem deploy não substituem o estado atual.

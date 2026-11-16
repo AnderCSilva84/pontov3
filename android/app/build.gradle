@@ -11,6 +11,8 @@ android {
     namespace = "br.dev.acstech.ap1303.dev"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
+        // Compras só serão habilitadas após verificação no backend e homologação (#9/#12).
+        buildConfigField 'boolean', 'BILLING_COMPRAS_HABILITADAS', 'false'
         applicationId "br.dev.acstech.ap1303.dev"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
@@ -93,6 +95,7 @@ repositories {
 }
 
 dependencies {
+    implementation "com.android.billingclient:billing:9.1.0"
     implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
     implementation "com.google.firebase:firebase-messaging:25.0.1"
     implementation fileTree(include: ['*.jar'], dir: 'libs')

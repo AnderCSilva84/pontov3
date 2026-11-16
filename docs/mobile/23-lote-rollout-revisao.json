@@ -1,0 +1,902 @@
+{
+  "projeto": "ponto-app-1c55a",
+  "inspecionadoEm": "2026-11-16T01:17:26.181Z",
+  "finalidade": "Candidato de revisão; não é aprovação ou comando de deploy",
+  "entradasLocais": 62,
+  "entradasCandidatas": [
+    {
+      "nome": "criarGrupo",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.748683615Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "criarMembroGrupo",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.300166283Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "contaOperacao",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.414731428Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "excluirUsuario",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.483020255Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "registrarPonto",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.771298656Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "registrarOperacaoPonto",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.716597843Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "revisarPendenciaPonto",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.421750592Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "ajustarJornadaPonto",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.346032929Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "comprasOperacao",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.576321030Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "comprasRelatorio",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:17.017888100Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "comprasEstimativa",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.219549851Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "noBolsoConsulta",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.372931813Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "salvarFolhaPagamento",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:17.161868315Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "criarLancamentoFinanceiro",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:17.166758434Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "excluirLancamentoFinanceiro",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:18.059083940Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "cancelarParcelasAdiantamento",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.528888188Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "lembretesOperacao",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:17.699830461Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "dispararLembretes",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.067448337Z",
+      "tipo": "agendado",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "lembretesAnexos",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:06.930342187Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "acaoNotificacaoTarefa",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.998129147Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "acaoNotificacaoLembrete",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.778036039Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaListaCompras",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:15.886742843Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.written",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaListaComprasGrupo",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.268402167Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.written",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaComprasItem",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.423525364Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaComprasItemGrupo",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.327995863Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaNotificacoes",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.766505249Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaNotificacoesGrupo",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.314853184Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaRegistroPonto",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.832240209Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "alertaRegistroPontoGrupo",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:26.884951102Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "testarNotificacaoPush",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.522081458Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com"
+    },
+    {
+      "nome": "centralPrecos",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-11T16:23:16.096916691Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Guarda nova da gestão privada"
+    },
+    {
+      "nome": "consultarAssinatura",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T20:46:35.264342494Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "verificarCompraPlayTeste",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T20:46:37.886671592Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "processarCompraPlayTeste",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T20:46:38.279422438Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "receberRtdnPlay",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T20:46:45.383710455Z",
+      "tipo": "evento",
+      "regiaoEvento": "us-central1",
+      "evento": "google.cloud.pubsub.topic.v1.messagePublished",
+      "identidade": "assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "retomarRtdnPlay",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T20:46:38.388822237Z",
+      "tipo": "agendado",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "reconhecerEntregaPlay",
+      "regiao": "southamerica-east1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T20:53:31.988332454Z",
+      "tipo": "evento",
+      "regiaoEvento": "southamerica-east1",
+      "evento": "google.cloud.firestore.document.v1.created",
+      "identidade": "assinaturas-play@ponto-app-1c55a.iam.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "cadastrarFuncionario",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T21:02:02.224022500Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "pontoTitular",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T21:02:05.671819933Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "gerirAcesso",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T21:02:04.909230521Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "escritorioOperacao",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T21:02:05.259758740Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    },
+    {
+      "nome": "cadastrarTarefa",
+      "regiao": "us-central1",
+      "estado": "ACTIVE",
+      "atualizadoEm": "2026-11-15T21:02:04.626535531Z",
+      "tipo": "callable",
+      "regiaoEvento": null,
+      "evento": null,
+      "identidade": "809643426461-compute@developer.gserviceaccount.com",
+      "motivo": "Atualização coerente do snapshot e dependências comerciais; já existe remotamente"
+    }
+  ],
+  "securityRules": {
+    "arquivo": "firestore.rules",
+    "sha256": "e04668110bd44ee9afbf2b2f4329a8dd2601035be293145d904ed4fc280d69c2",
+    "sha256Normalizado": "e04668110bd44ee9afbf2b2f4329a8dd2601035be293145d904ed4fc280d69c2"
+  },
+  "fontesLocais": [
+    {
+      "arquivo": "functions/.eslintrc.js",
+      "sha256": "fa0851e75bc367594aaebd09d7e10c64b90cc822425c7b4cca99e433e4256937",
+      "sha256Normalizado": "fa0851e75bc367594aaebd09d7e10c64b90cc822425c7b4cca99e433e4256937"
+    },
+    {
+      "arquivo": "functions/adiantamentos-calculos.mjs",
+      "sha256": "384867cef4fd15e9f70ddd68cb8ff78af892add91c60893e1f897a9f5a53aa7d",
+      "sha256Normalizado": "384867cef4fd15e9f70ddd68cb8ff78af892add91c60893e1f897a9f5a53aa7d"
+    },
+    {
+      "arquivo": "functions/adiantamentos.cjs",
+      "sha256": "7e55c4b0fdadb95f28a54574a5533c9c068ef929b0e45f33c73c9b8ee97104a7",
+      "sha256Normalizado": "7e55c4b0fdadb95f28a54574a5533c9c068ef929b0e45f33c73c9b8ee97104a7"
+    },
+    {
+      "arquivo": "functions/alimentacao-opcoes.cjs",
+      "sha256": "57fe312bb108387fa1f3e07230da840dd89c5b156d95bbaae38e244a550687c2",
+      "sha256Normalizado": "57fe312bb108387fa1f3e07230da840dd89c5b156d95bbaae38e244a550687c2"
+    },
+    {
+      "arquivo": "functions/alimentacao.cjs",
+      "sha256": "1067e0272931e6ececdbff0a1aae57bbea5af1e6f22ac53dfb6c06a4271740e9",
+      "sha256Normalizado": "1067e0272931e6ececdbff0a1aae57bbea5af1e6f22ac53dfb6c06a4271740e9"
+    },
+    {
+      "arquivo": "functions/assinaturas-acesso.cjs",
+      "sha256": "5d4f82ffce4de27462f217e67c973266d2312854c52d9d7c7ff1cc88f1f920aa",
+      "sha256Normalizado": "5d4f82ffce4de27462f217e67c973266d2312854c52d9d7c7ff1cc88f1f920aa"
+    },
+    {
+      "arquivo": "functions/assinaturas-cotas.cjs",
+      "sha256": "b9f89262692b3ac7ffed8ede5fbc9ea9eaea8023f153b72d4b57274bbe9c2f01",
+      "sha256Normalizado": "b9f89262692b3ac7ffed8ede5fbc9ea9eaea8023f153b72d4b57274bbe9c2f01"
+    },
+    {
+      "arquivo": "functions/assinaturas-dominio.cjs",
+      "sha256": "4345b264326468571d04b0812abcd02472b3e9e0032a3ea57b0d11adb00df2a7",
+      "sha256Normalizado": "4345b264326468571d04b0812abcd02472b3e9e0032a3ea57b0d11adb00df2a7"
+    },
+    {
+      "arquivo": "functions/assinaturas-migracao.cjs",
+      "sha256": "3ba44af312b01b4a4b7ca05e3fb46bc67da626615073203e3213fc8e871cd39e",
+      "sha256Normalizado": "3ba44af312b01b4a4b7ca05e3fb46bc67da626615073203e3213fc8e871cd39e"
+    },
+    {
+      "arquivo": "functions/assinaturas-planos.json",
+      "sha256": "c42a9f461c116c225170cf638aaaa35fa618bccbb1f79e89c66d9f3a190e1f40",
+      "sha256Normalizado": "c42a9f461c116c225170cf638aaaa35fa618bccbb1f79e89c66d9f3a190e1f40"
+    },
+    {
+      "arquivo": "functions/assinaturas-play-config.json",
+      "sha256": "c320b53e28bbb044678b0c22284db3f3e398ba53c9f840f4a98ee892ed55b797",
+      "sha256Normalizado": "c320b53e28bbb044678b0c22284db3f3e398ba53c9f840f4a98ee892ed55b797"
+    },
+    {
+      "arquivo": "functions/assinaturas-play-entrega.cjs",
+      "sha256": "de010285f3a43499f0b49d9e06ae92cc448c8aa038f4e4d4dbb5acb6e03d7baf",
+      "sha256Normalizado": "de010285f3a43499f0b49d9e06ae92cc448c8aa038f4e4d4dbb5acb6e03d7baf"
+    },
+    {
+      "arquivo": "functions/assinaturas-play-reconciliacao.cjs",
+      "sha256": "877a644c2f7bf07acb9917791eebf97b58a29b2d1b773acb756101c5b73a69dd",
+      "sha256Normalizado": "877a644c2f7bf07acb9917791eebf97b58a29b2d1b773acb756101c5b73a69dd"
+    },
+    {
+      "arquivo": "functions/assinaturas-play-verificacao.cjs",
+      "sha256": "963638b658e8128ed5f1784e4089e810fe9fa0eb3960ceaa3b75cea2812a0d85",
+      "sha256Normalizado": "963638b658e8128ed5f1784e4089e810fe9fa0eb3960ceaa3b75cea2812a0d85"
+    },
+    {
+      "arquivo": "functions/assinaturas-play.cjs",
+      "sha256": "eb87097617aadbdd6b1433f29ace4422396876fb8982d7f2afec719a5cb239dd",
+      "sha256Normalizado": "eb87097617aadbdd6b1433f29ace4422396876fb8982d7f2afec719a5cb239dd"
+    },
+    {
+      "arquivo": "functions/assinaturas-recursos.cjs",
+      "sha256": "3cc9f76bbda3c3367a722bd5c56b8b49eae4a5f29adf4eec17c2ba4828127a01",
+      "sha256Normalizado": "3cc9f76bbda3c3367a722bd5c56b8b49eae4a5f29adf4eec17c2ba4828127a01"
+    },
+    {
+      "arquivo": "functions/assinaturas.cjs",
+      "sha256": "41ed03f01ab47a5ef41910ce0d6fe9c9ef185964e311256219931a8560b94746",
+      "sha256Normalizado": "41ed03f01ab47a5ef41910ce0d6fe9c9ef185964e311256219931a8560b94746"
+    },
+    {
+      "arquivo": "functions/catalogo-contexto.cjs",
+      "sha256": "6a5c035d43f96e4c42279b7940d0cd79159328d3108d0eea8c6c154fbc660b40",
+      "sha256Normalizado": "318a78bbc5677059d13d2e0d64ceb8d33dcc78828db4f6ab25907535877d9e7b"
+    },
+    {
+      "arquivo": "functions/central-precos-dominio.cjs",
+      "sha256": "2ba7afdf7203ede19c945c8ff1279495829d2e4d45a23882d3feeb015048dd04",
+      "sha256Normalizado": "3ad44a3d7ed69ea60f5566386ae2bddd7587689adb6f70cd3cc371fa8a057f58"
+    },
+    {
+      "arquivo": "functions/central-precos.cjs",
+      "sha256": "f14a9342f367b180123f83a4a86bb592416f2df080c1001a10f234364af68864",
+      "sha256Normalizado": "169ef3d52d4215089923272a304e7fecc3b776786a5441fb92e58d6d0bce2a14"
+    },
+    {
+      "arquivo": "functions/compartilhamento.cjs",
+      "sha256": "08ffc2bfe3ccab13081a53abb20150f93c7f2c193f36cf031a315cefb1e5434b",
+      "sha256Normalizado": "08ffc2bfe3ccab13081a53abb20150f93c7f2c193f36cf031a315cefb1e5434b"
+    },
+    {
+      "arquivo": "functions/compras-api-dominio.cjs",
+      "sha256": "a777e7ce58b112426ee5304e94889d5ef8619336eabc5c9278913cf6015ee667",
+      "sha256Normalizado": "a777e7ce58b112426ee5304e94889d5ef8619336eabc5c9278913cf6015ee667"
+    },
+    {
+      "arquivo": "functions/compras-api.cjs",
+      "sha256": "f16ffddc5ba90879122b7501395e83a29b1ee550d4ba0a75e47551c3a7e8ad8d",
+      "sha256Normalizado": "f16ffddc5ba90879122b7501395e83a29b1ee550d4ba0a75e47551c3a7e8ad8d"
+    },
+    {
+      "arquivo": "functions/compras-associacoes.cjs",
+      "sha256": "1cfd22e9821d90a7190944ac6355aa0c59c0819b8bb5d3aa2bd0251daa563bde",
+      "sha256Normalizado": "1cfd22e9821d90a7190944ac6355aa0c59c0819b8bb5d3aa2bd0251daa563bde"
+    },
+    {
+      "arquivo": "functions/compras-correspondencias.cjs",
+      "sha256": "5f7292ec4554288f41c38feae1c5d8487f37464a1b37c7516dd674c8e40c70f4",
+      "sha256Normalizado": "5f7292ec4554288f41c38feae1c5d8487f37464a1b37c7516dd674c8e40c70f4"
+    },
+    {
+      "arquivo": "functions/compras-dominio.cjs",
+      "sha256": "1c122b2b1507934494c5fdab47b3d829845a7d65770325b2a4a364c280384a59",
+      "sha256Normalizado": "1c122b2b1507934494c5fdab47b3d829845a7d65770325b2a4a364c280384a59"
+    },
+    {
+      "arquivo": "functions/compras-estimativa-dominio.cjs",
+      "sha256": "d414c77ef9323f6e307e20b1207a9ad885866f26f7767531f7b05367cbf2c90f",
+      "sha256Normalizado": "d414c77ef9323f6e307e20b1207a9ad885866f26f7767531f7b05367cbf2c90f"
+    },
+    {
+      "arquivo": "functions/compras-estimativa.cjs",
+      "sha256": "d80382b4f89d26ac6ddc7ac26f81ecaf7cba9febd1fa80a3fe3a24df5538a34d",
+      "sha256Normalizado": "d80382b4f89d26ac6ddc7ac26f81ecaf7cba9febd1fa80a3fe3a24df5538a34d"
+    },
+    {
+      "arquivo": "functions/compras-icone-validacao.cjs",
+      "sha256": "5944dc811686f52bec8cbda9d1c15367be468415be625dd348c5faa87d9a6f8d",
+      "sha256Normalizado": "5944dc811686f52bec8cbda9d1c15367be468415be625dd348c5faa87d9a6f8d"
+    },
+    {
+      "arquivo": "functions/compras-icones.json",
+      "sha256": "91979fe20997cb33114a28217e59590d7842b60719b7a2e6e500adcbeb4f681f",
+      "sha256Normalizado": "91979fe20997cb33114a28217e59590d7842b60719b7a2e6e500adcbeb4f681f"
+    },
+    {
+      "arquivo": "functions/compras-produto.cjs",
+      "sha256": "17f0603758af54f39e6abd8b71c4554d73dc7500017d96df3ce75680a5531eb5",
+      "sha256Normalizado": "17f0603758af54f39e6abd8b71c4554d73dc7500017d96df3ce75680a5531eb5"
+    },
+    {
+      "arquivo": "functions/compras-relatorio.cjs",
+      "sha256": "ed61814a54d63e10cfc12f600dea00682f3a38b61fb5b72f3da9a7fbbf97336f",
+      "sha256Normalizado": "ed61814a54d63e10cfc12f600dea00682f3a38b61fb5b72f3da9a7fbbf97336f"
+    },
+    {
+      "arquivo": "functions/compras-tipo.cjs",
+      "sha256": "8511158539df1a6063384e32ed9d8db14a1e728792d9d81d28366c48fa46c405",
+      "sha256Normalizado": "8511158539df1a6063384e32ed9d8db14a1e728792d9d81d28366c48fa46c405"
+    },
+    {
+      "arquivo": "functions/compras.cjs",
+      "sha256": "51a844b43dd67949f444b4938aaf5a8be1ba14575d149420e782874b513aac8d",
+      "sha256Normalizado": "51a844b43dd67949f444b4938aaf5a8be1ba14575d149420e782874b513aac8d"
+    },
+    {
+      "arquivo": "functions/conta-exclusao.cjs",
+      "sha256": "46459f8d778758648308a06f31eec2376e9e1ddaaed4dc7bc38b12b08f96dbed",
+      "sha256Normalizado": "46459f8d778758648308a06f31eec2376e9e1ddaaed4dc7bc38b12b08f96dbed"
+    },
+    {
+      "arquivo": "functions/conta.cjs",
+      "sha256": "b5216e13b3a08f3f379a2c5b98a6ae9cd9023b31e08af660821dcf1cfa9b18de",
+      "sha256Normalizado": "b5216e13b3a08f3f379a2c5b98a6ae9cd9023b31e08af660821dcf1cfa9b18de"
+    },
+    {
+      "arquivo": "functions/cupom-consulta.cjs",
+      "sha256": "23f8e4ff4a8d140ed01fd0c6d22bc366eb7b1cf997845e3843359ef5bf177be8",
+      "sha256Normalizado": "23f8e4ff4a8d140ed01fd0c6d22bc366eb7b1cf997845e3843359ef5bf177be8"
+    },
+    {
+      "arquivo": "functions/cupom-dominio.cjs",
+      "sha256": "0b5cee0313a871e5be937015631387ce3da474e4ea1c0b97538708b8112b8112",
+      "sha256Normalizado": "0b5cee0313a871e5be937015631387ce3da474e4ea1c0b97538708b8112b8112"
+    },
+    {
+      "arquivo": "functions/cupom-operacoes.cjs",
+      "sha256": "44ec93f310134ded909206cf2fb5f00d626fbaee31fce5bf84e5f4513b3b88d8",
+      "sha256Normalizado": "44ec93f310134ded909206cf2fb5f00d626fbaee31fce5bf84e5f4513b3b88d8"
+    },
+    {
+      "arquivo": "functions/demonstracao.cjs",
+      "sha256": "7805ab4372dd243c05c647131c6ee610511f837896a25fb8247a18d51f53e711",
+      "sha256Normalizado": "7805ab4372dd243c05c647131c6ee610511f837896a25fb8247a18d51f53e711"
+    },
+    {
+      "arquivo": "functions/escritorio-operacoes.cjs",
+      "sha256": "b9d8820f23039a4424959dc2dca6036e083ed31d525ac918e0ed21ae375ca13e",
+      "sha256Normalizado": "b9d8820f23039a4424959dc2dca6036e083ed31d525ac918e0ed21ae375ca13e"
+    },
+    {
+      "arquivo": "functions/folha-calculos.mjs",
+      "sha256": "561ca3d09db6fbe530cb2506e3fb3874049a60ecea88cfefc75cc05a252b7d45",
+      "sha256Normalizado": "561ca3d09db6fbe530cb2506e3fb3874049a60ecea88cfefc75cc05a252b7d45"
+    },
+    {
+      "arquivo": "functions/folha-pagamento.cjs",
+      "sha256": "858ec649f035c0e5f730ed088ddd722567c35b943919e6894aa056c3b9d36c37",
+      "sha256Normalizado": "858ec649f035c0e5f730ed088ddd722567c35b943919e6894aa056c3b9d36c37"
+    },
+    {
+      "arquivo": "functions/foto-perfil.cjs",
+      "sha256": "b6ae7be4336f749b85434c7b6de779e981f441fab8ba12677c9518a26efbdb3e",
+      "sha256Normalizado": "b6ae7be4336f749b85434c7b6de779e981f441fab8ba12677c9518a26efbdb3e"
+    },
+    {
+      "arquivo": "functions/fotos-interacoes.cjs",
+      "sha256": "ec259e6cc934c9372c50c3af89dbdc0b6a3406c59ba812e8b2cbad51d9e78f93",
+      "sha256Normalizado": "ec259e6cc934c9372c50c3af89dbdc0b6a3406c59ba812e8b2cbad51d9e78f93"
+    },
+    {
+      "arquivo": "functions/funcionarios-cadastro.cjs",
+      "sha256": "fff0376c4acf4c9cd07060e6ae3444ba174cf323e5b2e2aae0e436bb84d9a9db",
+      "sha256Normalizado": "fff0376c4acf4c9cd07060e6ae3444ba174cf323e5b2e2aae0e436bb84d9a9db"
+    },
+    {
+      "arquivo": "functions/gestao-acessos.cjs",
+      "sha256": "1f2eec5e45ea3fbd43a654c7bc32d4c36a7c5a06a2baefeed6a489ffa775fd6c",
+      "sha256Normalizado": "1f2eec5e45ea3fbd43a654c7bc32d4c36a7c5a06a2baefeed6a489ffa775fd6c"
+    },
+    {
+      "arquivo": "functions/grupos-contexto.cjs",
+      "sha256": "40e7f79c5031fd565a75e5372fd833c597216cc99d7b1fe3cb14b676fe7d16ca",
+      "sha256Normalizado": "40e7f79c5031fd565a75e5372fd833c597216cc99d7b1fe3cb14b676fe7d16ca"
+    },
+    {
+      "arquivo": "functions/grupos-migracao.cjs",
+      "sha256": "835ea97a708de2c9516c7232d81ab9ed74b46a5e1b3fbf8b0337d664a087a628",
+      "sha256Normalizado": "835ea97a708de2c9516c7232d81ab9ed74b46a5e1b3fbf8b0337d664a087a628"
+    },
+    {
+      "arquivo": "functions/grupos.cjs",
+      "sha256": "d5d3592bcd98849e8f4493b8804b3a84050b6e54564cd8f4c71be9ad4b519e7b",
+      "sha256Normalizado": "d5d3592bcd98849e8f4493b8804b3a84050b6e54564cd8f4c71be9ad4b519e7b"
+    },
+    {
+      "arquivo": "functions/index.js",
+      "sha256": "e88664457553aa2ca7d862ca731d0a3a2260e0b86bdc28f4bb0571c4f73e2233",
+      "sha256Normalizado": "421a7396f0817bcb3f3878f1bc7685f32ab27e7ccee2746ce7f8b5e9cb0a1555"
+    },
+    {
+      "arquivo": "functions/jornada.mjs",
+      "sha256": "ec06c2eddb7ed1c24424884ab3164f57cf6ed2838e4e26603e41c6627de332ba",
+      "sha256Normalizado": "ec06c2eddb7ed1c24424884ab3164f57cf6ed2838e4e26603e41c6627de332ba"
+    },
+    {
+      "arquivo": "functions/lembretes-anexos.cjs",
+      "sha256": "ea713f831f5f512baedb013c6eeb9a5ec0659ee12997862c173ac8653d78e23b",
+      "sha256Normalizado": "a7f5f39a41baefe1fec90c37a65aac502d7b12f95c9dba40656242a29a27080b"
+    },
+    {
+      "arquivo": "functions/lembretes-conclusao.cjs",
+      "sha256": "6e8be70dc7ae993dde38c8eaa86105085275610f73233fdbc2c993042522e82e",
+      "sha256Normalizado": "6e8be70dc7ae993dde38c8eaa86105085275610f73233fdbc2c993042522e82e"
+    },
+    {
+      "arquivo": "functions/lembretes-cuidados.cjs",
+      "sha256": "cddfa641db706094bd52271c0d65d3ec54800c64ccac1c07311c4844a82d487d",
+      "sha256Normalizado": "cddfa641db706094bd52271c0d65d3ec54800c64ccac1c07311c4844a82d487d"
+    },
+    {
+      "arquivo": "functions/lembretes-dominio.cjs",
+      "sha256": "b914a61999afcce1bf69d1d54f5342c80e86beb66e2a411e4235ad85077af778",
+      "sha256Normalizado": "b914a61999afcce1bf69d1d54f5342c80e86beb66e2a411e4235ad85077af778"
+    },
+    {
+      "arquivo": "functions/lembretes-gerais.cjs",
+      "sha256": "a5888663256608931c4abc726ded0a30b75963509130f6c088900da9c15e79de",
+      "sha256Normalizado": "a895e1f5e922020e62aaa141604e91b5b02ae879443d9dc0a2e252be6d1180b7"
+    },
+    {
+      "arquivo": "functions/lembretes-link.cjs",
+      "sha256": "9841b181ed849ff5bf4b05c8ea4796a3d51ee59f716712264acf5763233ef9c0",
+      "sha256Normalizado": "9841b181ed849ff5bf4b05c8ea4796a3d51ee59f716712264acf5763233ef9c0"
+    },
+    {
+      "arquivo": "functions/lembretes.cjs",
+      "sha256": "6ad0d4068b09b571cb01635524708c7c568107e9aa8f3b37fbfdeef01ffb10a7",
+      "sha256Normalizado": "fa4ebc5bee9c3c1d96fd3338d3633533aef66a81e03ec197d126e96502f2f704"
+    },
+    {
+      "arquivo": "functions/mescla-politica.mjs",
+      "sha256": "18dc3be14d8328c9f30fb0f361674ffaad172914fa29e55a61562171e5692e9b",
+      "sha256Normalizado": "18dc3be14d8328c9f30fb0f361674ffaad172914fa29e55a61562171e5692e9b"
+    },
+    {
+      "arquivo": "functions/no-bolso-bridge.cjs",
+      "sha256": "955a64ab6647d36559c5c56cbd241aba1ba448155c131a04e0f6bc076ca5201d",
+      "sha256Normalizado": "955a64ab6647d36559c5c56cbd241aba1ba448155c131a04e0f6bc076ca5201d"
+    },
+    {
+      "arquivo": "functions/no-bolso-consulta.cjs",
+      "sha256": "dfb0995fe20c7f7035f11b8067e53c406db6016594208f282ce3f13f11d3a287",
+      "sha256Normalizado": "dfb0995fe20c7f7035f11b8067e53c406db6016594208f282ce3f13f11d3a287"
+    },
+    {
+      "arquivo": "functions/no-bolso-functions.cjs",
+      "sha256": "4d936ea21608a37d99e3c461d761a6cc26588cbec6989f3187d7583232b7fca9",
+      "sha256Normalizado": "4d936ea21608a37d99e3c461d761a6cc26588cbec6989f3187d7583232b7fca9"
+    },
+    {
+      "arquivo": "functions/no-bolso-product-catalog.cjs",
+      "sha256": "7d63e71a04e8148289db6ff32227635494509c72f3e727eda6f8b49c241bc256",
+      "sha256Normalizado": "7d63e71a04e8148289db6ff32227635494509c72f3e727eda6f8b49c241bc256"
+    },
+    {
+      "arquivo": "functions/package-lock.json",
+      "sha256": "161216e03fc055e10b36719a745a63bf8e3d70393feaab6571b58bf491e240be",
+      "sha256Normalizado": "161216e03fc055e10b36719a745a63bf8e3d70393feaab6571b58bf491e240be"
+    },
+    {
+      "arquivo": "functions/package.json",
+      "sha256": "750b3ecc91fdb281461e85b9e2919b2e8a5085e84fe9f2a46998df4a92597eb0",
+      "sha256Normalizado": "750b3ecc91fdb281461e85b9e2919b2e8a5085e84fe9f2a46998df4a92597eb0"
+    },
+    {
+      "arquivo": "functions/pagamentos-especiais.cjs",
+      "sha256": "fd046f36e2f1968f0bd41b7eba67409948674d6f54756096065be64e58d8fbbc",
+      "sha256Normalizado": "fd046f36e2f1968f0bd41b7eba67409948674d6f54756096065be64e58d8fbbc"
+    },
+    {
+      "arquivo": "functions/ponto-ajuste.cjs",
+      "sha256": "f13582e6514d49cb67905c5499438e663524a9bbd8fce5751a92a9524a79fb94",
+      "sha256Normalizado": "f13582e6514d49cb67905c5499438e663524a9bbd8fce5751a92a9524a79fb94"
+    },
+    {
+      "arquivo": "functions/ponto-operacoes.cjs",
+      "sha256": "ebf4f68a0c676cbcd9149a24c9a53597e042b9d5a70e131b21774307dbdc186c",
+      "sha256Normalizado": "ebf4f68a0c676cbcd9149a24c9a53597e042b9d5a70e131b21774307dbdc186c"
+    },
+    {
+      "arquivo": "functions/ponto-revisao.cjs",
+      "sha256": "0ada05b356c0f6cba08f586bc85562353dac112f4e27a1121aefdc0237ff0d81",
+      "sha256Normalizado": "0ada05b356c0f6cba08f586bc85562353dac112f4e27a1121aefdc0237ff0d81"
+    },
+    {
+      "arquivo": "functions/ponto-titular.cjs",
+      "sha256": "204a31b084e6f6e2bd105ac68fdcba70b144e93fc5dae638067b173e6c2688be",
+      "sha256Normalizado": "204a31b084e6f6e2bd105ac68fdcba70b144e93fc5dae638067b173e6c2688be"
+    },
+    {
+      "arquivo": "functions/ponto-validacao.cjs",
+      "sha256": "bcbe18bc9c8ccd9a8789f7903ef840199aa02122b63097aa7ed65b1a4464a295",
+      "sha256Normalizado": "bcbe18bc9c8ccd9a8789f7903ef840199aa02122b63097aa7ed65b1a4464a295"
+    },
+    {
+      "arquivo": "functions/pratos-calendario.mjs",
+      "sha256": "abd4cb4d34182b4c5ed93f40dfc2ece0b50d04a7ab1dfc3c79d400de03bab8b0",
+      "sha256Normalizado": "0d394009ff049d013f9d138c4050321bf0285ec7bd66bba0facc3f108ee8086f"
+    },
+    {
+      "arquivo": "functions/pratos-dia.cjs",
+      "sha256": "2a8a17232157cb3a4263697cd1184944823601164c61e7b514bccdf206d9d8af",
+      "sha256Normalizado": "54bc568b186bb9b41f25e0b2530d7072b360bb442874c4fb4a69d707be2e4d69"
+    },
+    {
+      "arquivo": "functions/privacidade-administrativa.cjs",
+      "sha256": "a3434b03cf81a269389b1ade32bfc1c40d659d9e3c62bdc15b942e44783576a9",
+      "sha256Normalizado": "a3434b03cf81a269389b1ade32bfc1c40d659d9e3c62bdc15b942e44783576a9"
+    },
+    {
+      "arquivo": "functions/produtos-identidade.mjs",
+      "sha256": "039021399c73ad41468ea4b686d77bdb1b94b2010c84637f71f674c9578b29f3",
+      "sha256Normalizado": "039021399c73ad41468ea4b686d77bdb1b94b2010c84637f71f674c9578b29f3"
+    },
+    {
+      "arquivo": "functions/push-acoes.cjs",
+      "sha256": "0abf8445f76551bcf1383ee5ed644264f765525f18d8fa2c3b6963db4c2d3376",
+      "sha256Normalizado": "d1da7c58a971065c7f62c54d26cdb45592dbe29ccf2a671209b25a646855c734"
+    },
+    {
+      "arquivo": "functions/push-contrato.cjs",
+      "sha256": "ab0272d4e0394d2f576dc37f99dfb2d52f1bf28be76f4d024f131f800726dbaa",
+      "sha256Normalizado": "ab0272d4e0394d2f576dc37f99dfb2d52f1bf28be76f4d024f131f800726dbaa"
+    },
+    {
+      "arquivo": "functions/push-dispositivos.cjs",
+      "sha256": "a94808a94823265bd9b6d32df3ba7da95f2c335dfd95603a313c4d32864b8d46",
+      "sha256Normalizado": "e4c4184725fe64ce39b9f0e70bd9690c2370fb861b2f896ac978486d1fdf2e0b"
+    },
+    {
+      "arquivo": "functions/push.cjs",
+      "sha256": "50cb93c7a833dc6a88eac006768eea638757376fbebff01ae39f5566c6dcfd76",
+      "sha256Normalizado": "50cb93c7a833dc6a88eac006768eea638757376fbebff01ae39f5566c6dcfd76"
+    },
+    {
+      "arquivo": "functions/qr-local.cjs",
+      "sha256": "109521c43f61793cd58358b4b212c529da1f4e1af25fc962a52931222c9bfca8",
+      "sha256Normalizado": "109521c43f61793cd58358b4b212c529da1f4e1af25fc962a52931222c9bfca8"
+    },
+    {
+      "arquivo": "functions/receita-imagem.cjs",
+      "sha256": "8ac0dc9bd71a337da3a52f20ce31277adc6a9196b671d18fcd1dceb51dd07f93",
+      "sha256Normalizado": "8ac0dc9bd71a337da3a52f20ce31277adc6a9196b671d18fcd1dceb51dd07f93"
+    },
+    {
+      "arquivo": "functions/retencao-coordenadas.cjs",
+      "sha256": "77cf36a02de948159b250aa4242cf1b8bf560412276d3e4dc6884473443bcf72",
+      "sha256Normalizado": "77cf36a02de948159b250aa4242cf1b8bf560412276d3e4dc6884473443bcf72"
+    },
+    {
+      "arquivo": "functions/tarefas-cadastro.cjs",
+      "sha256": "052cab169b94c31d1edb4b2b4bb251ae783838dee6e9bd5964a223b82ec4dfba",
+      "sha256Normalizado": "052cab169b94c31d1edb4b2b4bb251ae783838dee6e9bd5964a223b82ec4dfba"
+    },
+    {
+      "arquivo": "functions/teste-local.cjs",
+      "sha256": "5f686613b6022ba6f4bf78ae2c54dd8bdb123bf775ea733d55601d2f5a210bfc",
+      "sha256Normalizado": "5f686613b6022ba6f4bf78ae2c54dd8bdb123bf775ea733d55601d2f5a210bfc"
+    },
+    {
+      "arquivo": "functions/titularidade.cjs",
+      "sha256": "41f106c7ae9f0feebb492e3fb3e35a9b03bd0f2aa84c3ff4f3bf3eb919cc0fbf",
+      "sha256Normalizado": "41f106c7ae9f0feebb492e3fb3e35a9b03bd0f2aa84c3ff4f3bf3eb919cc0fbf"
+    }
+  ],
+  "pendencias": [
+    "Versionar e revalidar snapshot antes de executar; nenhuma publicação feita por este manifesto",
+    "Revalidar metadados e gates imediatamente antes da publicação; preservar regiões, identidades e retries",
+    "Publicar Functions antes de regras, com grupos em transição; homologar grupo dedicado antes de qualquer ativação",
+    "Homologação externa real e compras Android/PWA continuam separadas e pendentes"
+  ],
+  "regrasPublicadas": {
+    "projeto": "ponto-app-1c55a",
+    "consultadoEm": "2026-11-16T01:22:28.676Z",
+    "release": "projects/ponto-app-1c55a/releases/cloud.firestore",
+    "ruleset": "projects/ponto-app-1c55a/rulesets/d9e1d2e3-ac07-41f7-be20-086978eb1bfe",
+    "atualizadoEm": "2026-11-03T14:01:18.453884Z",
+    "sha256Remoto": "de4ae8eb4e763b702480672de471595f61d6e697e32573b25402903ec8045cfd",
+    "sha256Local": "e04668110bd44ee9afbf2b2f4329a8dd2601035be293145d904ed4fc280d69c2",
+    "iguaisNormalizandoQuebras": false
+  },
+  "revisadoEm": "2026-11-16T01:27:00.152Z",
+  "integracoesRevisadas": {
+    "comprasApi": "Sem alteração: servidor permitido + audience fixa, destino legado derivado da migração; não aceita grupo/uid arbitrário",
+    "noBolso": "Consentimento e finalizadaPor=uid; sem cota/benefício exclusivo novo",
+    "central": "Catálogo agregado preservado; gestão privada protegida; eventos de consentimento/retirada continuam com fluxo próprio",
+    "push": "Emissores diretos encontrados em index.js, lembretes.cjs e push.cjs já cobertos pelo lote",
+    "eventosCentral": "14 gatilhos de origem + centralExecutarLote sem mudança funcional: uidAutorizado é fornecido apenas pela gestão callable"
+  },
+  "normalizacao": "sha256Normalizado usa LF para sobreviver a checkout Windows; sha256 preserva fotografia dos bytes da revisão"
+}

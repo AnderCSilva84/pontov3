@@ -1,3 +1,4 @@
+import { cadastrarTarefa } from '../services/tarefasCadastro';
 import { dataExibicao } from '../utils/datasExibicao.js';
 import PratosDia from '../components/PratosDia';
 import { collection, doc } from '../services/dadosGrupo';
@@ -35,6 +36,7 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [edicao, setEdicao] = useState(null);
+  const tentativaFixa = useRef(null), tentativaAvulsa = useRef(null);
   const dialogRef = useRef(null);
   const fecharDialog = useCallback(() => setEdicao(null), []);
   useDialogFocus(dialogRef, Boolean(edicao), fecharDialog);
@@ -57,47 +59,30 @@ export default function Tarefas({ user, onNavigate, rotaAtual }) {
     event.preventDefault(); if (!titulo.trim() || !podeCriar) return;
     setSalvando(true); setErro("");
     try {
-      const batch = writeBatch(db);
-      const tarefaRef = doc(collection(db, "tarefasSemanais"));
-      const notificacaoRef = doc(collection(db, "notificacoes"));
-      const diaLabel = DIAS_FORM.find((dia) => dia.value === Number(diaSemana))?.label || "dia definido";
-      batch.set(tarefaRef, { titulo: titulo.trim(), diaSemana: Number(diaSemana), turno, horario: horario || "", ativa: true, criadoEm: serverTimestamp(), criadoPor: user.uid });
-      batch.set(notificacaoRef, {
-        titulo: "Nova tarefa fixa",
-        mensagem: `${titulo.trim()} · ${diaLabel} · ${turno === "tarde" ? "Tarde" : "Manhã"}${horario ? ` · ${horario}` : ""}`,
-        tipo: "tarefa_fixa_criada", tarefaId: tarefaRef.id,
-        criadoEm: serverTimestamp(),
-        criadoPor: user.uid,
-      });
-      await batch.commit();
+      const dados = { titulo: titulo.trim(), diaSemana: Number(diaSemana), turno, horario: horario || '' };
+      const chave = JSON.stringify(dados);
+      if (tentativaFixa.current?.chave !== chave) tentativaFixa.current = { chave, id: crypto.randomUUID() };
+      await cadastrarTarefa('fixa', tentativaFixa.current.id, dados);
+      tentativaFixa.current = null;
       setTitulo("");
       setHorario("");
-    } catch { setErro("Não foi possível cadastrar a tarefa."); }
+    } catch (e) { setErro(e.code?.startsWith("functions/") && e.code !== "functions/internal" ? e.message : "Não foi possível cadastrar a tarefa."); }
     finally { setSalvando(false); }
   }
 
   async function adicionarAvulsa(event) {
     event.preventDefault();
     if (!tituloAvulsa.trim() || !dataAvulsa || !podeCriar) return;
-    const [ano, numeroMes, dia] = dataAvulsa.split("-").map(Number);
-    const data = new Date(ano, numeroMes - 1, dia);
     setSalvando(true); setErro("");
     try {
-      const batch = writeBatch(db);
-      const tarefaRef = doc(collection(db, "tarefas"));
-      const notificacaoRef = doc(collection(db, "notificacoes"));
-      batch.set(tarefaRef, { titulo: tituloAvulsa.trim(), dataAgendada: dataAvulsa, diaSemana: ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"][data.getDay()], turno: turnoAvulsa, horario: horarioAvulsa || "", concluida: false, criadoEm: serverTimestamp(), solicitadoPor: user.uid, solicitadoPorNome: user.nome || "Admin" });
-      batch.set(notificacaoRef, {
-        titulo: "Nova tarefa no calendário",
-        mensagem: `${tituloAvulsa.trim()} · ${dataExibicao(dataAvulsa)} · ${turnoAvulsa === "tarde" ? "Tarde" : "Manhã"}${horarioAvulsa ? ` · ${horarioAvulsa}` : ""}`,
-        tipo: "tarefa_avulsa_criada", tarefaId: tarefaRef.id,
-        criadoEm: serverTimestamp(),
-        criadoPor: user.uid,
-      });
-      await batch.commit();
+      const dados = { titulo: tituloAvulsa.trim(), dataAgendada: dataAvulsa, turno: turnoAvulsa, horario: horarioAvulsa || '' };
+      const chave = JSON.stringify(dados);
+      if (tentativaAvulsa.current?.chave !== chave) tentativaAvulsa.current = { chave, id: crypto.randomUUID() };
+      await cadastrarTarefa('avulsa', tentativaAvulsa.current.id, dados);
+      tentativaAvulsa.current = null;
       setTituloAvulsa("");
       setHorarioAvulsa("");
-    } catch { setErro("Não foi possível cadastrar a tarefa avulsa."); }
+    } catch (e) { setErro(e.code?.startsWith("functions/") && e.code !== "functions/internal" ? e.message : "Não foi possível cadastrar a tarefa avulsa."); }
     finally { setSalvando(false); }
   }
 

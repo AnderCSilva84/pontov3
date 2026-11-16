@@ -1,3 +1,4 @@
+import { listarTentativasTitular, reconciliarTerminaisConta } from './pontoTitular';
 import {EmailAuthProvider,reauthenticateWithCredential,sendPasswordResetEmail,signOut} from 'firebase/auth';
 import {httpsCallable} from 'firebase/functions';
 import {auth,functions,firebaseConfig} from './firebase';
@@ -10,6 +11,7 @@ export async function resumoLocalConta() {
   const uid=auth.currentUser?.uid;if(!uid)throw Error('Entre na sua conta.');
   const grupo=obterGrupoAtual();
   const resumo=resumirPendencias(await filaPonto.listarConta(uid));
+  resumo.onlineIncerto += listarTentativasTitular(uid).length;
   if(auth.currentUser?.uid!==uid||obterGrupoAtual()!==grupo)throw Error('A sessão mudou. Abra a tela novamente.');
   return resumo;
 }
@@ -32,12 +34,14 @@ export async function solicitarExclusao(senha,confirmacao) {
 export async function transferirAdministracao(senha,destinatario) {
   const uid=await confirmarIdentidade(senha);
   if(auth.currentUser?.uid!==uid)throw Error('A sessão mudou. Nenhuma transferência foi enviada.');
+  if ((await resumoLocalConta()).onlineIncerto) throw Error('Reconcilie os envios de ponto sem resultado conhecido antes de transferir a titularidade.');
   return operarConta({acao:'transferir',confirmacao:true,destinatario});
 }
 
 export async function reconciliarConta() {
   const uid=auth.currentUser?.uid,grupo=obterGrupoAtual();if(!uid)throw Error('Entre na própria conta.');
   window.dispatchEvent(new Event('ap1303-ponto-sair'));
+  await reconciliarTerminaisConta(uid,grupo);
   const ops=await filaPonto.listarConta(uid);
   for(const o of ops){
     if(auth.currentUser?.uid!==uid||obterGrupoAtual()!==grupo)throw Error('A sessão mudou.');

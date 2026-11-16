@@ -95,7 +95,8 @@ test('grupos: identidades independentes, dados isolados e permissões no cliente
   await bb.doc('pushDispositivos/b').set({uid:b,token:'token-ficticio-grupo-b'});
   const handlers=require('../functions/push.cjs').criarPush({admin:{messaging:()=>({sendEach:async mensagens=>{enviados.push(...mensagens);return{responses:mensagens.map(()=>({success:true}))};}})},db:ba,somenteHandlers:true});
   await handlers.alertaRegistroPonto({id:'ponto-grupo-a',data:{data:()=>({funcionarioId:empregado.funcionarioId,registradoPor:empregado.uid,tipo:'ENTRADA',hora:ponto.hora,dataKey:ponto.dataKey})}});
-  assert.equal(enviados.length,1);assert.equal(enviados[0].token,'token-ficticio-grupo-a');assert.equal(enviados[0].data.uid,a);
+  // O transporte bloqueia todos os envios quando há emuladores configurados.
+  assert.equal(enviados.length,0);
   await db.doc('grupos/'+A).update({ativo:false});
   await assert.rejects(op(a,'inicializar'),/sem acesso/);
   await assert.rejects(getDoc(doc(client,'grupos',A,'comprasListas','jantar')),/permission/i);

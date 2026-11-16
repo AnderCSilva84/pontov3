@@ -1,0 +1,16 @@
+.planos-shell{display:grid;gap:24px;padding-bottom:32px}
+.planos-introducao{display:grid;gap:12px}.planos-introducao p{margin:0;max-width:76ch;line-height:1.65}
+.planos-eyebrow{font-size:.75rem;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+.planos-aviso{border-left:3px solid var(--accent);padding:10px 14px;background:var(--accent-soft);border-radius:0 8px 8px 0;font-size:.9rem}
+.planos-grade{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:stretch}
+.page-shell .planos-cartao{display:flex;flex-direction:column;border-top:4px solid var(--plano-cor)!important;padding:22px 20px;gap:16px}
+.planos-free{--plano-cor:#64748b}.planos-prata{--plano-cor:#657d93}.planos-ouro{--plano-cor:#9a6a0a}.planos-diamante{--plano-cor:#082783}
+.planos-cartao-topo{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.planos-cartao h2{margin:0;font-size:1.2rem!important}
+.planos-selo{color:var(--accent-strong);background:var(--accent-soft);border-radius:30px;padding:4px 9px;font-size:.75rem;font-weight:700}.page-shell .planos-atual{box-shadow:0 0 0 1px var(--accent)!important}
+.planos-descricao{margin:0;color:var(--text-muted);font-size:.875rem;min-height:2.8em;line-height:1.4}
+.planos-preco{margin:0;font-size:1.85rem;letter-spacing:-.04em;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}.planos-preco span{display:block;margin-top:6px;font-size:.8rem;letter-spacing:0;font-weight:400;color:var(--text-muted)}.planos-preco-indisponivel{font-size:1.05rem;letter-spacing:0;min-height:3.5rem}
+.planos-capacidade{display:flex;align-items:center;gap:9px;margin:0;padding:12px 0;border-block:1px solid var(--border);font-size:.9rem}.planos-capacidade .ui-icon{width:20px;height:20px;flex:none;color:var(--plano-cor)}
+.planos-cartao .planos-recursos{list-style:none;margin:0;padding:0;display:grid;gap:12px;flex:1;align-content:start}.planos-recursos li{display:flex;gap:9px;font-size:.875rem;line-height:1.45;align-items:flex-start}.planos-marca{display:flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none;color:var(--success);font-weight:700}.planos-marca .ui-icon{width:17px;height:17px}.planos-nao-incluido,.planos-nao-incluido .planos-marca{color:var(--text-muted)}.planos-recursos small{display:block;font-size:.75rem;color:var(--text-muted)}
+.planos-cotas{border-top:1px solid var(--border);padding-top:14px;margin:0;display:grid;gap:8px;font-size:.8rem}.planos-cotas>div{display:flex;justify-content:space-between;gap:12px}.planos-cotas dt{color:var(--text-muted)}.planos-cotas dd{margin:0;font-weight:750;font-variant-numeric:tabular-nums}.planos-nota{margin:0;font-size:.75rem;line-height:1.5;color:var(--text-muted)}
+@media(max-width:1050px){.planos-grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.planos-grade{grid-template-columns:minmax(0,1fr)}.planos-descricao{min-height:0}.page-shell .planos-cartao{padding:20px;gap:14px}.planos-shell{gap:18px}.planos-preco{font-size:1.75rem}}
