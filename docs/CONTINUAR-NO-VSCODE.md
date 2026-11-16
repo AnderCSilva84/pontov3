@@ -2,11 +2,11 @@
 
 Abrir `ta-no-ponto.code-workspace` na raiz. Este arquivo é o ponto de retomada atual; os roteiros datados em `mobile/` preservam a história e podem descrever estados já superados.
 
-**Rodada mais recente:** [versionamento e preparação da publicação](mobile/25-versionamento-publicacao-coordenada.md). Snapshot integrado registrado em Git nesta rodada; consultar `git log -1` e a issue9 para o hash. Manifesto23: **42 Functions**. Novo preflight local confere hashes normalizados e versionamento. A publicação coordenada está preparada, sem deploy, push ou ativação comercial.
+**Rodada mais recente:** [publicação coordenada concluída](mobile/26-publicacao-functions-regras.md). **42 Functions e firestore.rules do commit681ac8a implantados**. 30 callables recusam sem autenticação; 20 Functions fora do lote preservadas. Regras remotas iguais ao arquivo versionado. Gates desligados e grupo dedicado em transição. Próximo passo: homologação autenticada/funcional no Android e grupo dedicado. Sem push, nova publicação PWA/Android ou cobrança.
 
-Histórico da revisão: [inspeção inicial](mobile/23-lote-rollout-revisao.md) e [integrações/regras remotas](mobile/24-integracoes-e-regras-remotas.md). Regras publicadas iguais à antiga base abfcd40, diferentes das novas regras comerciais. As guardas de consultas e central estão corrigidas/versionadas, mas ainda não publicadas.
+Histórico da revisão: [inspeção inicial](mobile/23-lote-rollout-revisao.md), [integrações/regras remotas](mobile/24-integracoes-e-regras-remotas.md) e [snapshot](mobile/25-versionamento-publicacao-coordenada.md). A antiga release de regras foi substituída na rodada26; esses roteiros descrevem o estado anterior à publicação.
 
-Revisão da #9 iniciada nesta retomada: encontrada e corrigida **localmente** a ausência da guarda de compartilhamento em noBolsoConsulta/comprasEstimativa. Bloqueia membro Free/suspenso/expirado antes e depois da consulta, preservando titular e transição. [Matriz de prontidão e rollout](mobile/22-prontidao-rollout-assinaturas.md). Essas duas correções ainda não foram implantadas; as 11 Functions citadas abaixo continuam sendo o conjunto já publicado anteriormente.
+Guardas de noBolsoConsulta/comprasEstimativa/comprasRelatorio e gestão privada da central agora publicadas. Bloqueiam operações compartilhadas indevidas, preservando titular, transição e consulta ao catálogo agregado conforme definição aprovada. [Matriz histórica](mobile/22-prontidao-rollout-assinaturas.md).
 
 ## Estado confirmado
 
@@ -16,7 +16,7 @@ Revisão da #9 iniciada nesta retomada: encontrada e corrigida **localmente** a 
 | Android | Código **7**, nome **1.0.0**, disponível para testadores internos; sem promoção a Produção |
 | Aparelho do titular | Titular confirmou atualização pela Play e sessão preservada. Demais verificações físicas/funcionais pendentes; sem leitura ADB do código |
 | PWA | Código compartilhado atualizado localmente; refino atual ainda sem nova publicação web nesta rodada |
-| Backend | **11 Functions novas implantadas** seletivamente; Functions antigas modificadas e regras comerciais novas ainda têm rollout pendente |
+| Backend | **42 Functions do lote e regras comerciais implantadas**, com verificações pós-deploy aprovadas; homologação autenticada pendente |
 | Google Play | 3 produtos/planos-base em rascunho. RTDN configurado e teste pelo Console recebido pelo backend |
 | Cobrança | Contratação nativa desabilitada; backend aceita entrega controlada de compras de TESTE, sob gates ainda desligados |
 | Grupos | Preservados em transição. Grupo dedicado `demo_play_ap1303_v1` não foi ativado comercialmente |
@@ -24,6 +24,8 @@ Revisão da #9 iniciada nesta retomada: encontrada e corrigida **localmente** a 
 | Criador | Concessão Diamante solicitada na #14, ainda não implementada |
 
 ## O que está implantado
+
+Lote completo: 42 nomes do manifesto23. Evidências, hash da release Rules e revisões estão no roteiro26. As 11 abaixo são apenas o subconjunto novo, não a lista completa publicada.
 
 Assinaturas/notificações: `consultarAssinatura`, `verificarCompraPlayTeste`, `processarCompraPlayTeste`, `receberRtdnPlay`, `retomarRtdnPlay`, `reconhecerEntregaPlay`.
 
@@ -36,13 +38,13 @@ RTDN: tópico `projects/ponto-app-1c55a/topics/assinaturas-play-rtdn`; retomada 
 ## Próximas ações, na ordem
 
 1. **#11 — retorno físico:** atualização pela Play e sessão preservada confirmadas pelo titular em 15/11. Concluir verificações funcionais essenciais (dados, vínculo, telas e fluxos). Nome 1.0.0 sozinho não prova o código instalado. [Checklist físico](mobile/21-teste-interno-codigo7.md).
-2. **#9 — revisão de prontidão do código:** revisar mudanças acumuladas, dependências e matriz de cotas/permissões. Cobrir o rollout das Functions existentes e Security Rules antes de ativar regime comercial. Revisar filas, locais do ponto e grupo dedicado. Não usar o grupo principal para ensaios de escrita.
+2. **#9 — homologação dedicada:** rollout de Functions/regras concluído. Revisar filas, locais e seleção do ponto, preparar testes autenticados no grupo dedicado antes de ativar regime comercial. Não usar o grupo principal para ensaios de escrita.
 3. **#9/#12/#15 — cobrança Android:** concluir produtos/testadores e fluxo de compra controlado; verificar acesso, ACK, renovação, cancelamento, expiração, restauração e conflitos de canal. O AAB7 não abre compras.
 4. **#9 — Mercado Pago/PWA:** implementar e homologar canal web, com segredos exclusivamente no backend. Nenhuma credencial no chat, `VITE_*` ou repositório.
 5. **#13/#14:** validar refino visual no aparelho e implementar concessão do criador protegida no servidor, separada de pagamento/recibo.
 6. **#6/#7:** fechar publicação coordenada e critérios da versão completa. Aprovação de acesso à faixa Produção não significa aplicativo publicado.
 
-A prioridade atual de lançamento é executar a publicação coordenada preparada no roteiro25, após revalidar metadados e o snapshot. As revisões de consultas e integrações estão concluídas; o lote aguarda implantação e homologação dedicada. Não gerar outro código Android apenas para tentar acelerar propagação.
+A prioridade atual de lançamento é homologar o cliente7 com o backend/regras já publicados, conforme roteiro26. Não repetir o deploy nem ativar assinaturas apenas para tentar acelerar essa validação.
 
 Registrar cada conclusão na issue do Projects, com o que mudou, evidência e pendências. Deixar a issue aberta até satisfazer seus critérios. Quadro: https://github.com/users/AnderCSilva84/projects/3/views/1.
 
