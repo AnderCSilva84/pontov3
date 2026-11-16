@@ -14,7 +14,7 @@ Guardas de noBolsoConsulta/comprasEstimativa/comprasRelatorio e gestão privada 
 | --- | --- |
 | Checkout | Branch `feat/rebrand-ta-no-ponto`; snapshot integrado da rodada25 em Git local. Consultar `git log -1`; sem push nesta rodada |
 | Android | Código **7**, nome **1.0.0**, disponível para testadores internos; sem promoção a Produção |
-| Aparelho do titular | Titular confirmou atualização pela Play e sessão preservada. Demais verificações físicas/funcionais pendentes; sem leitura ADB do código |
+| Aparelho do titular | Titular confirmou atualização pela Play, sessão preservada e abertura normal de Compras/Tarefas/Lembretes/Gestão após rollout26. Fluxos específicos pendentes; sem leitura ADB do código |
 | PWA | Código compartilhado atualizado localmente; refino atual ainda sem nova publicação web nesta rodada |
 | Backend | **42 Functions do lote e regras comerciais implantadas**, com verificações pós-deploy aprovadas; homologação autenticada pendente |
 | Google Play | 3 produtos/planos-base em rascunho. RTDN configurado e teste pelo Console recebido pelo backend |

@@ -2,6 +2,8 @@
 
 ## Situação para retomada — 15/11/2026
 
+Retorno após rollout26: titular confirmou Compras/Tarefas/Lembretes/Gestão abrindo normalmente no Android e sessão preservada. Carregamento básico confirmado por relato; fluxos específicos/autorização/cotas/ponto/cobrança ainda pendentes. Próximo foco: cenário autenticado no grupo dedicado, sem alterar o principal ou ativar cobrança a partir desse retorno.
+
 **Estado atual — rodada26:** 42 Functions e Rules do commit681ac8a publicadas com sucesso. 30 callables recusadas sem autenticação; 20 Functions fora do lote preservadas; regras remotas iguais ao arquivo versionado. Gates desligados, inventário dedicado preservado e retomada RTDN ativa. Próximo passo: homologação funcional/autenticada no Android e grupo dedicado. Sem push, PWA/Android novo ou cobrança. Roteiro26 documenta evidências e 10 avisos não bloqueantes do compilador das Rules. Os parágrafos seguintes preservam o histórico anterior ao deploy.
 
 Rodada25: snapshot integrado versionado em Git local, sem push. Verificador local do manifesto42 criado; roteiro de publicação seletiva Functions → Rules preparado, sem execução de deploy. Histórico, evidências e critérios de parada em mobile/25-versionamento-publicacao-coordenada.md. Conferir o hash em git log e na issue9. Sem ativação de grupos ou compras.

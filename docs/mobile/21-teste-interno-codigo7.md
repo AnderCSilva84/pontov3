@@ -14,9 +14,9 @@ Código 7 consumido: `android/release.local.json` deixa `versionCodeDisponivel:f
 
 ## Situação da homologação
 
-Atualização do titular em 15/11/2026: **“APP Atualizado na play. Usuário continuou logado.”** Atualização e preservação da sessão confirmadas por relato. A informação anterior de ausência de Atualizar está superada; sem confirmação técnica por ADB do código instalado. Demais testes funcionais continuam pendentes.
+Atualização do titular em 15/11/2026: **“APP Atualizado na play. Usuário continuou logado.”** Depois do rollout26, confirmou também: **“Sim! Tudo abriu normalmente e conta segue conectada”**, em resposta à abertura de Compras/Tarefas/Lembretes/Gestão. Carregamento básico das quatro telas e sessão confirmados por relato. Sem confirmação técnica por ADB do código instalado. Operações específicas, cotas, ponto e cobrança continuam pendentes.
 
-Publicação na faixa interna é comprovada; instalação e comportamento no Android físico ainda dependem do retorno do titular. Pedido enviado para atualizar pela Play sem desinstalar/limpar dados. Nenhum aparelho conectado por ADB nesta conferência. O nome 1.0.0 isoladamente não comprova o código instalado.
+Publicação na faixa interna comprovada; atualização e carregamento básico no Android físico confirmados pelo titular. Nenhum aparelho conectado por ADB nesta conferência. O nome 1.0.0 isoladamente não comprova o código instalado.
 
 | Verificação física | Estado |
 | --- | --- |
@@ -25,7 +25,7 @@ Publicação na faixa interna é comprovada; instalação e comportamento no And
 | Minha conta → Planos: comparação legível e contratação indisponível | Pendente |
 | Gestão → Escritório: cartões, competência, valores e navegação legíveis | Pendente |
 | Acompanhamento de ponto: equipe/horários/histórico sem regressão | Pendente |
-| Compras/tarefas/lembretes: abrir telas e conferir teclado/navegação | Pendente |
+| Compras/Tarefas/Lembretes/Gestão: carregamento inicial | Confirmado pelo titular após rollout26; teclado/navegação específica pendentes |
 | GPS, notificações e sincronização: usar dados/conta de teste no roteiro controlado | Pendente |
 
 Não registrar ponto, alterar folha, excluir conta ou executar compra real só para testar. Não limpar filas do aparelho. Registrar problemas com tela, passos e versão, sem credenciais ou dados pessoais. Se a Play ainda não oferecer atualização, conferir a conta inscrita e aguardar propagação; não reinstalar como tentativa de correção.

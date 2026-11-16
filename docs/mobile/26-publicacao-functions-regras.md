@@ -42,4 +42,6 @@ Evidências locais, ignoradas pelo Git: rollout26-deploy-functions.log, rollout2
 
 ## Próximo passo
 
-Validar no Android interno já instalado: sessão e dados preservados, carregamento de Compras/Tarefas/Lembretes/Gestão e comportamento com o backend publicado. Começar por consultas, sem criar/excluir dados do grupo principal. Depois preparar cenário autenticado no grupo dedicado, revisar filas/locais/seleção do ponto e só então considerar ativação comercial de homologação e compra controlada. Não marcar a #9 ou #7 concluída apenas porque este deploy passou.
+**Retorno físico recebido:** após esta publicação, o titular confirmou abertura normal de Compras/Tarefas/Lembretes/Gestão e conta ainda conectada. Evidência por relato no Android interno, sem leitura ADB ou verificação das operações específicas. Carregamento básico concluído; não equivale à homologação comercial.
+
+Preparar cenário autenticado no grupo dedicado, revisar filas/locais/seleção do ponto e só então considerar ativação comercial de homologação e compra controlada. Verificações específicas de dados e fluxos continuam pendentes; não criar/excluir dados do grupo principal para ensaiar. Não marcar a #9 ou #7 concluída apenas pelo deploy ou carregamento das telas.
